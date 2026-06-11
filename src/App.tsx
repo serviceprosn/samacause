@@ -160,6 +160,8 @@ const MainLayout: React.FC = () => {
       }
     }
 
+    setCurrentPage(page);
+    setNavParams(params || null);
   };
 
   const scrollToContact = (e: React.MouseEvent) => {
