@@ -166,7 +166,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     setLoading(true);
     setError('');
     try {
-      const mockPhone = '+221 77 ' + Math.floor(1000000 + Math.random() * 9000000);
+      const mockPhone = '';
       
       const success = await signup(
         selectedGoogleName,

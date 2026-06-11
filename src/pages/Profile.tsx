@@ -428,13 +428,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             >
               {isEditing ? '✕ Fermer' : '✏️ Compléter / Éditer le profil'}
             </button>
-            <button 
-              className="btn btn-outline" 
-              style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', color: 'var(--danger)', borderColor: 'var(--danger)', borderRadius: 'var(--radius-sm)' }}
-              onClick={logout}
-            >
-              🚪 Se déconnecter
-            </button>
           </div>
         </div>
 
@@ -464,6 +457,55 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         >
           <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>Compléter mon profil Sama Cause</h3>
           
+          {/* Aperçu de la photo de profil & Sélection d'avatars par défaut */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>
+            <div 
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                border: '3px solid var(--primary)',
+                boxShadow: 'var(--shadow-sm)'
+              }}
+            />
+            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>
+              Photo de profil sélectionnée
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>Choisir un avatar par défaut :</span>
+              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
+                {[
+                  { name: 'Fatou', url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&fit=crop&q=80' },
+                  { name: 'Amady', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&fit=crop&q=80' },
+                  { name: 'Mouhameth', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80' },
+                  { name: 'Awa', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&fit=crop&q=80' }
+                ].map((av, idx) => (
+                  <div 
+                    key={idx}
+                    onClick={() => setEditAvatar(av.url)}
+                    style={{
+                      width: '55px',
+                      height: '55px',
+                      borderRadius: '50%',
+                      backgroundImage: `url(${av.url})`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      cursor: 'pointer',
+                      border: editAvatar === av.url ? '3px solid var(--primary)' : '1px solid var(--border-light)',
+                      transform: editAvatar === av.url ? 'scale(1.1)' : 'none',
+                      transition: 'var(--transition-fast)'
+                    }}
+                    title={av.name}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
             <div>
               <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Prénom & Nom</label>
@@ -490,49 +532,17 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             </div>
           </div>
 
-          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Adresse Physique / Ville</label>
-              <input
-                type="text"
-                required
-                placeholder="Ex : Parcelles Assainies, Villa 123"
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-                value={editAddress}
-                onChange={(e) => setEditAddress(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Photo de profil</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                <button
-                  type="button"
-                  className="btn btn-outline"
-                  onClick={() => document.getElementById('avatar-file-upload')?.click()}
-                  style={{ padding: '0.55rem 1rem', fontSize: '0.8rem', width: '100%' }}
-                >
-                  📁 Choisir un fichier...
-                </button>
-                <input
-                  id="avatar-file-upload"
-                  type="file"
-                  accept="image/*"
-                  style={{ display: 'none' }}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        setEditAvatar(reader.result as string);
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }}
-                />
-              </div>
-            </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Adresse Physique / Ville</label>
+            <input
+              type="text"
+              required
+              placeholder="Ex : Parcelles Assainies, Villa 123"
+              className="premium-card"
+              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+              value={editAddress}
+              onChange={(e) => setEditAddress(e.target.value)}
+            />
           </div>
 
           <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
@@ -579,36 +589,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 <option value="Ziguinchor">Ziguinchor</option>
                 <option value="Diaspora">Diaspora</option>
               </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Choisir une photo de profil par défaut</label>
-            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '0.5rem' }}>
-              {[
-                { name: 'Fatou', url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&fit=crop&q=80' },
-                { name: 'Amady', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&fit=crop&q=80' },
-                { name: 'Mouhameth', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80' },
-                { name: 'Awa', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&fit=crop&q=80' }
-              ].map((av, idx) => (
-                <div 
-                  key={idx}
-                  onClick={() => setEditAvatar(av.url)}
-                  style={{
-                    width: '50px',
-                    height: '50px',
-                    borderRadius: '50%',
-                    backgroundImage: `url(${av.url})`,
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    cursor: 'pointer',
-                    border: editAvatar === av.url ? '3px solid var(--primary)' : '1px solid var(--border-light)',
-                    transform: editAvatar === av.url ? 'scale(1.1)' : 'none',
-                    transition: 'var(--transition-fast)'
-                  }}
-                  title={av.name}
-                />
-              ))}
             </div>
           </div>
 
@@ -710,17 +690,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                   <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('selfie')}>
                     📸 Prendre en direct
                   </button>
-                  <label className="btn btn-ghost" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', margin: 0, display: 'inline-block', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--border-light)' }}>
-                    📁 Importer...
-                    <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                      const file = e.target.files?.[0];
-                      if (file) {
-                        const reader = new FileReader();
-                        reader.onloadend = () => setEditSelfie(reader.result as string);
-                        reader.readAsDataURL(file);
-                      }
-                    }} />
-                  </label>
                 </div>
               </div>
             </div>
@@ -985,6 +954,33 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           )}
         </div>
       </section>
+
+      {/* Bouton de déconnexion au bas de la page */}
+      <div style={{ marginTop: '3.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'center', width: '100%' }}>
+        <button 
+          className="btn" 
+          style={{ 
+            padding: '0.75rem 2rem', 
+            fontSize: '0.95rem', 
+            color: 'white', 
+            background: 'var(--danger)', 
+            border: 'none',
+            borderRadius: 'var(--radius-sm)',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            boxShadow: '0 4px 12px rgba(217, 83, 79, 0.25)',
+            cursor: 'pointer',
+            width: '100%',
+            maxWidth: '350px',
+            justifyContent: 'center'
+          }}
+          onClick={logout}
+        >
+          🚪 Se déconnecter
+        </button>
+      </div>
 
       {/* 1. CAMERA OVERLAY MODAL */}
       {cameraTarget && (
