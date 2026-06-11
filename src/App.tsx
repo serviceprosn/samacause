@@ -42,6 +42,17 @@ const MainLayout: React.FC = () => {
       setIsChatOpen(true);
     }
   }, [activeChatUserId]);
+
+  // Check URL query parameters for direct shared links (private tontines, etc.)
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tontineId = params.get('tontine');
+    if (tontineId) {
+      setCurrentPage('tontines');
+      setNavParams({ tontineId });
+    }
+  }, []);
+
   const [navParams, setNavParams] = useState<any>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [redirectTarget, setRedirectTarget] = useState<{ page: string; params?: any } | null>(null);
@@ -176,7 +187,7 @@ const MainLayout: React.FC = () => {
       case 'create-hub':
         return <CreateHub onNavigate={handleNavigate} />;
       case 'tontines':
-        return <Tontines onNavigate={handleNavigate} />;
+        return <Tontines onNavigate={handleNavigate} initialTontineId={navParams?.tontineId || navParams?.id} />;
       case 'auth':
         return <Auth onSuccess={handleAuthSuccess} />;
       default:

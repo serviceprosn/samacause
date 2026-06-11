@@ -88,9 +88,10 @@ interface Tontine {
 
 interface TontinesProps {
   onNavigate: (page: string, params?: any) => void;
+  initialTontineId?: string;
 }
 
-export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
+export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId }) => {
   const { currentUser, addNotification, sendOtpSms, verifyOtp, isProfileComplete, setSelectedPublicUserId, usersList } = useApp();
 
   // ----------------------------------------------------
@@ -99,6 +100,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'discover' | 'my-tontines' | 'create' | 'admin'>('discover');
   const [selectedTontineId, setSelectedTontineId] = useState<string | null>(null);
   const [tontineDashboardTab, setTontineDashboardTab] = useState<'general' | 'calendar' | 'ledger' | 'contract' | 'votes' | 'chat'>('general');
+  const [createdPrivateTontineLink, setCreatedPrivateTontineLink] = useState<string | null>(null);
 
   // -------------------------
   // MOCK DE TONTINES PAR DÉFAUT
@@ -119,6 +121,17 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
   useEffect(() => {
     localStorage.setItem('sc_tontines_list', JSON.stringify(tontines));
   }, [tontines]);
+
+  // Handle shared link direct load (especially for private tontines)
+  useEffect(() => {
+    if (initialTontineId) {
+      setSelectedTontineId(initialTontineId);
+      const targetTontine = tontines.find(t => t.id === initialTontineId);
+      if (targetTontine) {
+        setActiveTab('my-tontines');
+      }
+    }
+  }, [initialTontineId, tontines]);
 
   // -------------------------
   // FORMULAIRE DE CRÉATION
@@ -480,7 +493,14 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
     };
 
     setTontines(prev => [newTontine, ...prev]);
-    addNotification(`🔄 Tontine "${name}" publiée dans la section publique !`);
+    
+    if (type === 'private') {
+      const shareLink = `${window.location.origin}${window.location.pathname}?tontine=${newTontine.id}`;
+      setCreatedPrivateTontineLink(shareLink);
+      addNotification(`🔒 Tontine privée "${name}" créée avec succès !`);
+    } else {
+      addNotification(`🔄 Tontine "${name}" publiée dans la section publique !`);
+    }
     
     // Reset form
     setName('');
@@ -868,7 +888,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
       {/* ==================================================== */}
       {activeTab === 'discover' && !selectedTontineId && (
         <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
-          {tontines.filter(t => t.type === 'public' || t.status === 'recruiting').map((t) => {
+          {tontines.filter(t => t.type !== 'private' && (t.type === 'public' || t.status === 'recruiting')).map((t) => {
             const isUserMember = t.members.some(m => m.name.toLowerCase() === (currentUser?.name || '').toLowerCase());
             return (
               <div key={t.id} className="premium-card hover-glow" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -1026,13 +1046,23 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
                       })()} | Type : <strong>{currentTontine.type === 'public' ? 'Public' : 'Privé'}</strong>
                     </span>
                   </div>
-                  <button 
-                    className="btn btn-primary animate-pulse" 
-                    onClick={() => openPaymentSimulation(currentTontine)}
-                    style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
-                  >
-                    💳 Cotiser ({currentTontine.cotisation.toLocaleString('fr-FR')} FCFA)
-                  </button>
+                  {currentTontine.members.some(m => m.name.toLowerCase() === (currentUser?.name || '').toLowerCase()) ? (
+                    <button 
+                      className="btn btn-primary animate-pulse" 
+                      onClick={() => openPaymentSimulation(currentTontine)}
+                      style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+                    >
+                      💳 Cotiser ({currentTontine.cotisation.toLocaleString('fr-FR')} FCFA)
+                    </button>
+                  ) : (
+                    <button 
+                      className="btn btn-primary" 
+                      onClick={() => startJoinFlow(currentTontine.id)}
+                      style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
+                    >
+                      🤝 Rejoindre cette tontine ➔
+                    </button>
+                  )}
                 </div>
 
                 {/* Subtabs for selected Tontine Dashboard */}
@@ -2291,6 +2321,88 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate }) => {
               </button>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* ==================================================== */}
+      {/* MODAL 5 : CONFIRMATION ET LIEN DE TONTINE PRIVÉE      */}
+      {/* ==================================================== */}
+      {createdPrivateTontineLink && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <div 
+            className="glass animate-fade-in" 
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              background: 'var(--light-card)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '1.75rem',
+              boxShadow: 'var(--shadow-lg)',
+              textAlign: 'center'
+            }}
+          >
+            <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>🔒</span>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '0.5rem', color: 'var(--primary)' }}>
+              Tontine Privée Créée !
+            </h3>
+            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem', lineHeight: 1.4 }}>
+              Cette tontine est privée. Elle n'apparaîtra pas dans la liste publique du site. Partagez ce lien d'invitation avec vos amis pour qu'ils puissent la rejoindre :
+            </p>
+
+            <div 
+              style={{
+                background: 'var(--light)',
+                border: '1px solid var(--border-light)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.75rem',
+                wordBreak: 'break-all',
+                color: 'var(--text-primary-light)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '0.5rem',
+                marginBottom: '1.5rem'
+              }}
+            >
+              <span style={{ textAlign: 'left', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {createdPrivateTontineLink}
+              </span>
+              <button
+                className="btn btn-ghost"
+                style={{ padding: '0.35rem 0.6rem', fontSize: '0.7rem', minWidth: 'auto' }}
+                onClick={() => {
+                  navigator.clipboard.writeText(createdPrivateTontineLink);
+                  addNotification("📋 Lien copié dans le presse-papier !");
+                }}
+              >
+                Copier
+              </button>
+            </div>
+
+            <button 
+              className="btn btn-primary" 
+              style={{ width: '100%', padding: '0.65rem' }} 
+              onClick={() => setCreatedPrivateTontineLink(null)}
+            >
+              Fermer & Accéder au Dashboard ➔
+            </button>
           </div>
         </div>
       )}

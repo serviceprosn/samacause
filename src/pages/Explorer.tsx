@@ -27,7 +27,7 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
   const activePetitions = petitions.filter(p => p.status === 'active');
   const activeCagnottes = cagnottes.filter(c => c.status === 'active');
   const activeMissions = volunteerMissions.filter(m => m.status === 'active');
-  const activeTontines = tontines.filter(t => t.status === 'active' || t.status === 'recruiting' || !t.status);
+  const activeTontines = tontines.filter(t => t.type !== 'private' && (t.status === 'active' || t.status === 'recruiting' || !t.status));
 
   // Combine items for unified list
   const allItems = [
