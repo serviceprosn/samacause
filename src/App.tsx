@@ -36,6 +36,35 @@ const MainLayout: React.FC = () => {
   } = useApp();
 
   const [currentPage, setCurrentPage] = useState('home');
+  const [showInstallNotification, setShowInstallNotification] = useState(false);
+  const [isIOSDevices, setIsIOSDevices] = useState(false);
+
+  React.useEffect(() => {
+    // Detect iOS devices
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isApple = /iphone|ipad|ipod/.test(userAgent);
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    
+    if (isApple && !isStandaloneMode) {
+      setIsIOSDevices(true);
+      setShowInstallNotification(true);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    if (isInstallable) {
+      setShowInstallNotification(true);
+    }
+  }, [isInstallable]);
+
+  const handleInstall = async () => {
+    await installApp();
+    setShowInstallNotification(false);
+  };
+
+  const handleIgnore = () => {
+    setShowInstallNotification(false);
+  };
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Auto-open chat drawer when a user is selected to chat
@@ -283,24 +312,6 @@ const MainLayout: React.FC = () => {
 
           {/* Action Toolbar */}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
-            {/* PWA Install Button */}
-            {isInstallable && (
-              <button 
-                className="btn btn-primary"
-                style={{ 
-                  padding: '0.5rem 0.85rem', 
-                  fontSize: '0.8rem', 
-                  borderRadius: 'var(--radius-sm)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.25rem',
-                  fontWeight: 'bold'
-                }}
-                onClick={installApp}
-              >
-                📲 Installer
-              </button>
-            )}
             
             {/* AI Assistant button */}
             <button 
@@ -472,6 +483,89 @@ const MainLayout: React.FC = () => {
 
       {/* PUBLIC PROFILE MODAL */}
       <PublicProfileModal />
+
+      {/* Floating PWA Install Notification Toast */}
+      {showInstallNotification && (
+        <div 
+          className="premium-card animate-fade-in animate-slide-up"
+          style={{
+            position: 'fixed',
+            bottom: '24px',
+            right: isMobileView ? '16px' : '24px',
+            left: isMobileView ? '16px' : 'auto',
+            maxWidth: isMobileView ? 'calc(100% - 32px)' : '380px',
+            zIndex: 9999,
+            background: 'rgba(30, 41, 59, 0.95)',
+            backdropFilter: 'blur(10px)',
+            border: '1.5px solid var(--primary)',
+            borderRadius: 'var(--radius-md)',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.3)',
+            padding: '1.25rem',
+            color: 'white',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span style={{ fontSize: '1.5rem' }}>📲</span>
+              <div>
+                <strong style={{ fontSize: '0.95rem', display: 'block', color: 'white' }}>Sama Cause App</strong>
+                <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Installer sur cet appareil</span>
+              </div>
+            </div>
+            <button 
+              onClick={handleIgnore}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '1rem', cursor: 'pointer', padding: 0 }}
+            >
+              ✕
+            </button>
+          </div>
+          
+          <p style={{ margin: 0, fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
+            {isIOSDevices 
+              ? "Appuyez sur Partager 📤 dans Safari, puis sélectionnez \"Ajouter sur l'écran d'accueil\" ➕." 
+              : "Installez l'application Sama Cause pour un chargement instantané et un accès complet hors-ligne."}
+          </p>
+    
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
+            <button 
+              onClick={handleIgnore}
+              style={{
+                background: 'rgba(255,255,255,0.1)',
+                color: 'white',
+                border: 'none',
+                padding: '0.4rem 0.85rem',
+                fontSize: '0.75rem',
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Ignorer
+            </button>
+            {!isIOSDevices && (
+              <button 
+                onClick={handleInstall}
+                style={{
+                  background: 'var(--primary)',
+                  color: 'white',
+                  border: 'none',
+                  padding: '0.4rem 1rem',
+                  fontSize: '0.75rem',
+                  borderRadius: 'var(--radius-sm)',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  boxShadow: '0 4px 10px rgba(0, 133, 63, 0.3)'
+                }}
+              >
+                Installer 💾
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 };

@@ -9,7 +9,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) => {
-  const { currentUser, petitions, cagnottes, volunteerApplications, logout, updateProfile, addNotification, isInstallable, installApp } = useApp();
+  const { currentUser, petitions, cagnottes, volunteerApplications, logout, updateProfile, addNotification } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -420,16 +420,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 ⚠️ Non vérifié (KYC requis)
               </span>
             )}
-            {isInstallable && (
-              <button 
-                type="button"
-                className="btn btn-primary" 
-                style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
-                onClick={installApp}
-              >
-                📲 Installer l'app
-              </button>
-            )}
+
             <button 
               className="btn btn-outline" 
               style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
