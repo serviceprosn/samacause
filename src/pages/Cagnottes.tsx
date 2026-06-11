@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { Cagnotte } from '../types';
 import { TrustScore } from '../components/TrustScore';
 import { PaymentModal } from '../components/PaymentModal';
+import { useSEO } from '../hooks/useSEO';
 
 interface CagnottesProps {
   initialCagnotteId?: string;
@@ -91,6 +92,28 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
 
   // Find active cagnotte
   const currentCagnotte = cagnottes.find(c => c.id === selectedCagnotteId);
+
+  // Dynamic SEO management
+  const seoTitle = activeView === 'detail' && currentCagnotte 
+    ? `Cagnotte : ${currentCagnotte.title}` 
+    : activeView === 'create' 
+      ? 'Créer une cagnotte' 
+      : 'Cagnottes Solidaires';
+  
+  const seoDesc = activeView === 'detail' && currentCagnotte 
+    ? currentCagnotte.description.slice(0, 160) + (currentCagnotte.description.length > 160 ? '...' : '')
+    : activeView === 'create'
+      ? 'Créez votre cagnotte de financement participatif sur Sunu Yité pour financer vos projets solidaires et communautaires au Sénégal.'
+      : 'Découvrez et contribuez aux cagnottes solidaires en cours pour le développement communautaire au Sénégal.';
+
+  const seoImage = activeView === 'detail' && currentCagnotte ? currentCagnotte.coverImage : undefined;
+
+  useSEO({
+    title: seoTitle,
+    description: seoDesc,
+    ogImage: seoImage,
+    keywords: 'Sénégal, cagnotte, financement participatif, solidarité, don, Wave, Orange Money, diaspora, projet'
+  });
 
   // States for cagnotte correction
   const [editTitle, setEditTitle] = useState('');

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Petition } from '../types';
 import { TrustScore } from '../components/TrustScore';
+import { useSEO } from '../hooks/useSEO';
 
 interface PetitionsProps {
   initialPetitionId?: string;
@@ -41,6 +42,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
       }
     }
   }, [aiAppliedData, setAiAppliedData]);
+
 
 
   const [activeView, setActiveView] = useState<'list' | 'detail' | 'create' | 'tracking'>(
@@ -115,6 +117,28 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
   // Find active petition
   const currentPetition = petitions.find(p => p.id === selectedPetitionId);
+
+  // Dynamic SEO management
+  const seoTitle = activeView === 'detail' && currentPetition 
+    ? `Pétition : ${currentPetition.title}` 
+    : activeView === 'create' 
+      ? 'Lancer une pétition' 
+      : 'Pétitions Citoyennes';
+  
+  const seoDesc = activeView === 'detail' && currentPetition 
+    ? currentPetition.description.slice(0, 160) + (currentPetition.description.length > 160 ? '...' : '')
+    : activeView === 'create'
+      ? 'Lancez votre pétition citoyenne sur Sunu Yité et mobilisez la communauté pour le changement au Sénégal.'
+      : 'Découvrez et signez les pétitions citoyennes en cours au Sénégal pour faire entendre votre voix.';
+
+  const seoImage = activeView === 'detail' && currentPetition ? currentPetition.coverImage : undefined;
+
+  useSEO({
+    title: seoTitle,
+    description: seoDesc,
+    ogImage: seoImage,
+    keywords: 'Sénégal, pétition, doléance, changement, citoyen, signature, impact, cause'
+  });
 
   // States for petition correction
   const [editTitle, setEditTitle] = useState('');

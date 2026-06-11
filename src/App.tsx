@@ -29,6 +29,7 @@ const MainLayout: React.FC = () => {
     logout,
     addNotification,
     isProfileComplete,
+    isBasicProfileComplete,
     directMessages,
     activeChatUserId,
     isInstallable,
@@ -148,15 +149,23 @@ const MainLayout: React.FC = () => {
     }
 
     // Citizen profile completion gating
-    const pagesRequiringCompletion = ['create-hub', 'tontines'];
     const isCreateView = params?.view === 'create';
     
-    if (currentUser && (pagesRequiringCompletion.includes(page) || isCreateView)) {
-      if (!isProfileComplete(currentUser)) {
-        addNotification("🔒 Profil incomplet. Renseignez vos informations d'identification pour la sécurité.");
-        setCurrentPage('profile');
-        setNavParams({ requireCompletion: true });
-        return;
+    if (currentUser) {
+      if (page === 'tontines') {
+        if (!isProfileComplete(currentUser)) {
+          addNotification("🔒 Profil d'identité incomplet. Vous devez certifier votre identité (KYC) pour créer ou rejoindre une tontine.");
+          setCurrentPage('profile');
+          setNavParams({ requireCompletion: true, target: 'kyc' });
+          return;
+        }
+      } else if (page === 'create-hub' || isCreateView) {
+        if (!isBasicProfileComplete(currentUser)) {
+          addNotification("🔒 Coordonnées de profil incomplètes. Veuillez renseigner vos informations de base.");
+          setCurrentPage('profile');
+          setNavParams({ requireCompletion: true, target: 'basic' });
+          return;
+        }
       }
     }
 
@@ -195,10 +204,10 @@ const MainLayout: React.FC = () => {
     if (tab === 'create') {
       if (!currentUser) {
         handleNavigate('auth', { redirectPage: 'create-hub' });
-      } else if (!isProfileComplete(currentUser)) {
-        addNotification("🔒 Profil incomplet. Renseignez vos informations d'identification pour la sécurité.");
+      } else if (!isBasicProfileComplete(currentUser)) {
+        addNotification("🔒 Coordonnées de profil incomplètes. Veuillez renseigner vos informations de base.");
         setCurrentPage('profile');
-        setNavParams({ requireCompletion: true });
+        setNavParams({ requireCompletion: true, target: 'basic' });
       } else {
         setCurrentPage('create-hub');
         setNavParams(null);

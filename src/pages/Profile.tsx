@@ -196,7 +196,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     }
   }, [initialParams]);
 
-  const getMissingFields = () => {
+  const getMissingBasicFields = () => {
     if (!currentUser) return ['Compte'];
     const missing = [];
     if (!currentUser.name || !currentUser.name.trim()) missing.push('Prénom & Nom');
@@ -209,18 +209,26 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     if (!currentUser.avatar || !currentUser.avatar.trim() || currentUser.avatar === defaultAvatar) {
       missing.push('Photo de profil personnalisée');
     }
+    return missing;
+  };
+
+  const getMissingKycFields = () => {
+    if (!currentUser) return ['KYC'];
+    const missing = [];
     if (!currentUser.cniNumber || !currentUser.cniNumber.trim()) missing.push("Numéro de CNI / Passeport");
     if (!currentUser.dob || !currentUser.dob.trim()) missing.push("Date de naissance");
     if (!currentUser.idCardRecto || !currentUser.idCardRecto.trim()) missing.push("Pièce d'identité (Recto)");
     if (!currentUser.idCardVerso || !currentUser.idCardVerso.trim()) missing.push("Pièce d'identité (Verso)");
     if (!currentUser.selfie || !currentUser.selfie.trim()) missing.push("Selfie de contrôle");
     if (currentUser.verificationStatus !== 'verified') missing.push("Vérification biométrique d'identité");
-    
     return missing;
   };
 
-  const missingFields = getMissingFields();
-  const isProfileIncomplete = missingFields.length > 0;
+  const missingBasicFields = getMissingBasicFields();
+  const missingKycFields = getMissingKycFields();
+  const isBasicIncomplete = missingBasicFields.length > 0;
+  const isKycIncomplete = missingKycFields.length > 0;
+  const isProfileIncomplete = isBasicIncomplete || isKycIncomplete;
 
   if (!currentUser) {
     return (
@@ -294,20 +302,25 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.5rem' }}>⚠️</span>
             <strong style={{ color: 'var(--danger)', fontSize: '1.05rem' }}>
-              Profil Incomplet - Sécurité & Transparence Obligatoires
+              {isBasicIncomplete ? "Coordonnées de profil requises" : "Certification d'identité (KYC) recommandée pour les Tontines"}
             </strong>
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0, lineHeight: '1.4' }}>
-            Pour garantir la transparence des cagnottes, la légitimité des pétitions et la sécurité des tontines, Sunu Yité requiert que chaque utilisateur soit formellement identifié. Veuillez renseigner les informations obligatoires suivantes dans votre profil :
+            {isBasicIncomplete 
+              ? "Pour pouvoir lancer une cagnotte, créer une pétition ou rejoindre des activités, veuillez renseigner les informations de contact de base suivantes :"
+              : "Pour pouvoir créer ou rejoindre des cercles d'épargne rotatifs (Tontines), vous devez obligatoirement soumettre votre dossier KYC et certifier votre identité :"}
           </p>
           <ul style={{ fontSize: '0.85rem', color: 'var(--danger)', margin: '0.25rem 0 0 1.25rem', padding: 0, fontWeight: 600 }}>
-            {missingFields.map((f, i) => (
+            {(isBasicIncomplete ? missingBasicFields : missingKycFields).map((f, i) => (
               <li key={i}>{f}</li>
             ))}
           </ul>
           {initialParams?.requireCompletion && (
             <div style={{ marginTop: '0.5rem', background: 'rgba(217, 83, 79, 0.1)', padding: '0.5rem 0.75rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--danger)' }}>
-              🔒 Vous devez obligatoirement compléter votre profil pour pouvoir lancer ou participer à des pétitions, des cagnottes ou des tontines.
+              {initialParams?.target === 'kyc' 
+                ? "🔒 La certification d'identité biométrique (KYC) est strictement obligatoire pour pouvoir accéder et participer aux Tontines."
+                : "🔒 Les coordonnées de base de profil sont nécessaires pour pouvoir accéder au hub de création de campagnes."
+              }
             </div>
           )}
         </div>

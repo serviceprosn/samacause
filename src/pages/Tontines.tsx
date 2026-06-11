@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Logo } from '../components/Logo';
 import { TrustScore } from '../components/TrustScore';
+import { useSEO } from '../hooks/useSEO';
 
 // ==========================================
 // INTERFACES ET TYPES POUR LE MODULE TONTINE
@@ -121,6 +122,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   useEffect(() => {
     localStorage.setItem('sc_tontines_list', JSON.stringify(tontines));
   }, [tontines]);
+
 
   // Handle shared link direct load (especially for private tontines)
   useEffect(() => {
@@ -858,6 +860,25 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   // RÉCUPÉRATION DU COMPTE TONTINE EXPLICIT
   // -----------------------------------------
   const currentTontine = tontines.find(t => t.id === selectedTontineId) || null;
+
+  // Dynamic SEO management
+  const seoTitle = selectedTontineId && currentTontine 
+    ? `Tontine : ${currentTontine.name}` 
+    : activeTab === 'create' 
+      ? 'Créer une tontine' 
+      : 'Tontines de Confiance';
+  
+  const seoDesc = selectedTontineId && currentTontine 
+    ? currentTontine.description.slice(0, 160) + (currentTontine.description.length > 160 ? '...' : '')
+    : activeTab === 'create'
+      ? 'Créez un cercle d\'épargne rotatif (Tontine) sécurisé avec contrat d\'engagement sur Sunu Yité.'
+      : 'Gérez et participez à des tontines numériques communautaires et transparentes au Sénégal.';
+
+  useSEO({
+    title: seoTitle,
+    description: seoDesc,
+    keywords: 'Sénégal, tontine, épargne, crédit rotatif, confiance, solidarité, finances'
+  });
 
   return (
     <div className="animate-fade-in" style={{ paddingBottom: '4rem' }}>

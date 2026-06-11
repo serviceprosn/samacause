@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { MapSenegal } from '../components/MapSenegal';
 import { TrustScore } from '../components/TrustScore';
+import { useSEO } from '../hooks/useSEO';
 
 interface HomeProps {
   onNavigate: (page: string, params?: any) => void;
@@ -11,6 +12,12 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { petitions, cagnottes, volunteerMissions, getKPIs } = useApp();
   const kpis = getKPIs();
   
+  useSEO({
+    title: 'Mobilisation Citoyenne & Financement Solidaire',
+    description: "Rejoignez Sunu Yité, la plateforme d'impact citoyen au Sénégal. Signez des pétitions sécurisées, participez à des cagnottes solidaires transparentes et organisez des tontines de confiance.",
+    keywords: 'Sénégal, doléance, pétition, cagnotte, tontine, diaspora, Wave, Orange Money, financement participatif, impact'
+  });
+
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
   const [contactForm, setContactForm] = useState({

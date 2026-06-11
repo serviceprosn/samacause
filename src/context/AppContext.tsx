@@ -51,6 +51,7 @@ interface AppContextType {
     dob?: string
   ) => Promise<boolean>;
   isProfileComplete: (user: User | null) => boolean;
+  isBasicProfileComplete: (user: User | null) => boolean;
   signPetition: (id: string, name: string, email: string, phone: string) => Promise<boolean>;
   boostPetition: (id: string, boostLevel: 'ndamel' | 'teranga' | 'lion', amount: number, paymentMethod: string) => Promise<boolean>;
   donateToCagnotte: (id: string, amount: number, name: string, comment: string, isDiaspora: boolean, paymentMethod: string) => Promise<boolean>;
@@ -1587,6 +1588,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return await signupLocalFallback();
   };
 
+  const isBasicProfileComplete = (user: User | null): boolean => {
+    if (!user) return false;
+    const hasName = !!(user.name && user.name.trim().length > 0);
+    const hasPhone = !!(user.phone && user.phone.trim().length > 0);
+    const hasCountry = !!(user.country && user.country.trim().length > 0);
+    const hasRegion = !!(user.region && user.region.trim().length > 0);
+    const hasAddress = !!(user.address && user.address.trim().length > 0);
+    
+    const defaultAvatar = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==';
+    const hasAvatar = !!(user.avatar && user.avatar.trim().length > 0 && user.avatar !== defaultAvatar);
+    
+    return hasName && hasPhone && hasCountry && hasRegion && hasAddress && hasAvatar;
+  };
+
   const isProfileComplete = (user: User | null): boolean => {
     if (!user) return false;
     const hasName = !!(user.name && user.name.trim().length > 0);
@@ -2007,6 +2022,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification,
       
       isProfileComplete,
+      isBasicProfileComplete,
       
       // Actions
       updateProfile,
