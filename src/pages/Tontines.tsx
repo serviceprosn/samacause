@@ -124,9 +124,73 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
 
   // Handle shared link direct load (especially for private tontines)
   useEffect(() => {
-    if (initialTontineId) {
-      setSelectedTontineId(initialTontineId);
-      const targetTontine = tontines.find(t => t.id === initialTontineId);
+    const params = new URLSearchParams(window.location.search);
+    const tontineDataParam = params.get('tontineData');
+    const tontineIdParam = params.get('tontine');
+    
+    if (tontineDataParam) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(escape(atob(tontineDataParam))));
+        const existing = tontines.find(t => t.id === decoded.id);
+        if (!existing) {
+          let calculatedEndDate = '';
+          try {
+            const startMs = decoded.startDate ? new Date(decoded.startDate).getTime() : Date.now();
+            calculatedEndDate = new Date(startMs + (decoded.participantsMax * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+          } catch {
+            calculatedEndDate = new Date(Date.now() + (decoded.participantsMax * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+          }
+          const newTontine: Tontine = {
+            id: decoded.id,
+            name: decoded.name,
+            description: decoded.description,
+            type: 'private',
+            participantsMax: decoded.participantsMax,
+            joinedCount: 1,
+            cotisation: decoded.cotisation,
+            frequency: decoded.frequency,
+            startDate: decoded.startDate,
+            endDate: calculatedEndDate,
+            orderType: 'random',
+            status: 'recruiting',
+            organizer: {
+              name: decoded.organizerName,
+              email: '',
+              avatar: '',
+              verified: true
+            },
+            members: [
+              {
+                name: decoded.organizerName,
+                avatar: '',
+                email: '',
+                phone: '',
+                verified: true,
+                reputation: 'excellent',
+                rate: 100,
+                hasPaidThisRound: false
+              }
+            ],
+            payments: [],
+            activityLogs: [
+              { id: `log_init_${Date.now()}`, timestamp: new Date().toISOString(), type: 'creation', user: decoded.organizerName, details: `Tontine privée "${decoded.name}" importée via lien d'invitation.` }
+            ],
+            votes: [],
+            chat: [],
+            guaranteeFundActive: false,
+            guaranteeFundAmount: 0,
+            guaranteeFundTotal: 0
+          };
+          setTontines(prev => [newTontine, ...prev]);
+        }
+        setSelectedTontineId(decoded.id);
+        setActiveTab('my-tontines');
+      } catch (err) {
+        console.error("Error decoding tontine shared link", err);
+      }
+    } else if (tontineIdParam) {
+      setSelectedTontineId(tontineIdParam);
+      const targetTontine = tontines.find(t => t.id === tontineIdParam);
       if (targetTontine) {
         setActiveTab('my-tontines');
       }
@@ -271,12 +335,12 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       setTontines(prev => prev.map(t => {
         if (t.id === paymentTontine.id) {
           // Marquer le membre courant comme ayant payé
-          const updatedMembers = t.members.map(m => {
-            if (m.name.toLowerCase() === (currentUser?.name || '').toLowerCase()) {
-              return { ...m, hasPaidThisRound: true, rate: Math.min(100, m.rate + 1) };
-            }
-            return m;
-          });
+            const updatedMembers = t.members.map(m => {
+              if (m.name?.toLowerCase() === (currentUser?.name || '').toLowerCase()) {
+                return { ...m, hasPaidThisRound: true, rate: Math.min(100, m.rate + 1) };
+              }
+              return m;
+            });
 
           return {
             ...t,
@@ -459,6 +523,15 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       hasPaidThisRound: false
     };
 
+    let calculatedEndDate = '';
+    try {
+      const parsedStart = startDate ? new Date(startDate) : new Date();
+      const startMs = isNaN(parsedStart.getTime()) ? Date.now() : parsedStart.getTime();
+      calculatedEndDate = new Date(startMs + (participantsMax * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+    } catch {
+      calculatedEndDate = new Date(Date.now() + (participantsMax * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0];
+    }
+
     const newTontine: Tontine = {
       id: `ton_${Date.now()}`,
       name,
@@ -468,8 +541,8 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       joinedCount: 1,
       cotisation,
       frequency,
-      startDate,
-      endDate: new Date(new Date(startDate).getTime() + (participantsMax * 7 * 24 * 60 * 60 * 1000)).toISOString().split('T')[0], // Calcul approxi de fin
+      startDate: startDate || new Date().toISOString().split('T')[0],
+      endDate: calculatedEndDate,
       orderType,
       status: 'recruiting',
       organizer: {
@@ -495,7 +568,18 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     setTontines(prev => [newTontine, ...prev]);
     
     if (type === 'private') {
-      const shareLink = `${window.location.origin}${window.location.pathname}?tontine=${newTontine.id}`;
+      const tontineDataObj = {
+        id: newTontine.id,
+        name: newTontine.name,
+        description: newTontine.description,
+        cotisation: newTontine.cotisation,
+        frequency: newTontine.frequency,
+        participantsMax: newTontine.participantsMax,
+        startDate: newTontine.startDate,
+        organizerName: newTontine.organizer.name
+      };
+      const encodedData = btoa(unescape(encodeURIComponent(JSON.stringify(tontineDataObj))));
+      const shareLink = `${window.location.origin}${window.location.pathname}?tontineData=${encodedData}`;
       setCreatedPrivateTontineLink(shareLink);
       addNotification(`🔒 Tontine privée "${name}" créée avec succès !`);
     } else {
@@ -889,7 +973,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       {activeTab === 'discover' && !selectedTontineId && (
         <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
           {tontines.filter(t => t.type !== 'private' && (t.type === 'public' || t.status === 'recruiting')).map((t) => {
-            const isUserMember = t.members.some(m => m.name.toLowerCase() === (currentUser?.name || '').toLowerCase());
+            const isUserMember = t.members.some(m => m.name?.toLowerCase() === (currentUser?.name || '').toLowerCase());
             return (
               <div key={t.id} className="premium-card hover-glow" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -930,7 +1014,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                   }}
                 >
                   {(() => {
-                    const orgMatch = usersList.find(u => u.name.toLowerCase() === t.organizer.name.toLowerCase());
+                    const orgMatch = usersList.find(u => u.name?.toLowerCase() === t.organizer?.name?.toLowerCase());
                     return (
                       <div 
                         style={{ cursor: orgMatch ? 'pointer' : 'default' }}
@@ -990,7 +1074,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
           {/* Left panel: list of my tontines */}
           <div style={{ flex: '1 1 280px', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <h3 style={{ fontWeight: 800, fontSize: '1rem', marginBottom: '0.5rem' }}>💼 Vos cercles d'épargne</h3>
-            {tontines.filter(t => t.members.some(m => m.name.toLowerCase() === (currentUser?.name || '').toLowerCase())).map((t) => {
+            {tontines.filter(t => t.members.some(m => m.name?.toLowerCase() === (currentUser?.name || '').toLowerCase())).map((t) => {
               const isSelected = selectedTontineId === t.id;
               return (
                 <div 
@@ -1046,7 +1130,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                       })()} | Type : <strong>{currentTontine.type === 'public' ? 'Public' : 'Privé'}</strong>
                     </span>
                   </div>
-                  {currentTontine.members.some(m => m.name.toLowerCase() === (currentUser?.name || '').toLowerCase()) ? (
+                  {currentTontine.members.some(m => m.name?.toLowerCase() === (currentUser?.name || '').toLowerCase()) ? (
                     <button 
                       className="btn btn-primary animate-pulse" 
                       onClick={() => openPaymentSimulation(currentTontine)}

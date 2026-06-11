@@ -46,7 +46,7 @@ const MainLayout: React.FC = () => {
   // Check URL query parameters for direct shared links (private tontines, etc.)
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tontineId = params.get('tontine');
+    const tontineId = params.get('tontine') || params.get('tontineData');
     if (tontineId) {
       setCurrentPage('tontines');
       setNavParams({ tontineId });
