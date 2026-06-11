@@ -18,6 +18,9 @@ export interface User {
   verificationStatus?: 'none' | 'pending' | 'verified' | 'rejected';
   cniNumber?: string;
   dob?: string;
+  accountType?: 'citizen' | 'company' | 'ngo';
+  following?: string[];
+  followers?: string[];
 }
 
 export interface Update {

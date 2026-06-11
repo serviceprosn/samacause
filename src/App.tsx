@@ -410,27 +410,6 @@ const MainLayout: React.FC = () => {
           {/* Action Toolbar */}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             
-            {/* AI Assistant button */}
-            <button 
-              className="btn" 
-              style={{ 
-                padding: '0.5rem 0.85rem', 
-                fontSize: '0.8rem', 
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--dark)',
-                color: 'white'
-              }}
-              onClick={() => {
-                if (currentUser) {
-                  setIsAiOpen(true);
-                } else {
-                  handleNavigate('auth', { openAiOnSuccess: true });
-                }
-              }}
-            >
-              🤖 Assistant IA
-            </button>
-
             {/* Theme selector */}
             <button 
               className="btn btn-ghost" 
@@ -439,38 +418,6 @@ const MainLayout: React.FC = () => {
             >
               {activeTheme === 'light' ? '🌙' : '☀️'}
             </button>
-
-            {/* Direct messages selector */}
-            {currentUser && (
-              <button 
-                className="btn btn-ghost" 
-                style={{ padding: '0.5rem', minWidth: 'auto', position: 'relative' }}
-                onClick={() => setIsChatOpen(!isChatOpen)}
-                title="Messagerie citoyenne"
-              >
-                💬
-                {(() => {
-                  const unreadCount = directMessages.filter(msg => msg.receiverId === currentUser.id && !msg.read).length;
-                  return unreadCount > 0 ? (
-                    <span 
-                      style={{
-                        position: 'absolute',
-                        top: '2px',
-                        right: '2px',
-                        background: 'var(--danger)',
-                        color: 'white',
-                        borderRadius: '50%',
-                        padding: '0.1rem 0.35rem',
-                        fontSize: '0.6rem',
-                        fontWeight: 'bold'
-                      }}
-                    >
-                      {unreadCount}
-                    </span>
-                  ) : null;
-                })()}
-              </button>
-            )}
 
             {/* Profile Avatar & Connexion/Déconnexion click */}
             {!isMobileView && (

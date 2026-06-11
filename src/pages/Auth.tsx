@@ -19,6 +19,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   const [phone, setPhone] = useState('');
   const [country, setCountry] = useState('Sénégal');
   const [region, setRegion] = useState('Dakar');
+  const [accountType, setAccountType] = useState<'citizen' | 'company' | 'ngo'>('citizen');
 
   // Google Login & Remember me states
   const [rememberMe, setRememberMe] = useState(true);
@@ -88,7 +89,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           setLoading(false);
           return;
         }
-        const success = await signup(name, email, phone, password, country, country === 'Sénégal' ? region : 'Diaspora');
+        const success = await signup(name, email, phone, password, country, country === 'Sénégal' ? region : 'Diaspora', accountType);
         if (success) {
           onSuccess();
         } else {
@@ -174,7 +175,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         mockPhone,
         googleSignupPassword,
         'Sénégal',
-        region
+        region,
+        accountType
       );
       
       if (success) {
@@ -281,6 +283,39 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem', textAlign: 'left' }}>
               {mode === 'signup' && (
                 <>
+                  <div>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Type de Compte</label>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                      <button
+                        type="button"
+                        className={`btn ${accountType === 'citizen' ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                        onClick={() => setAccountType('citizen')}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>👤</span>
+                        <span>Citoyen</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${accountType === 'company' ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                        onClick={() => setAccountType('company')}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>🏢</span>
+                        <span>Entreprise</span>
+                      </button>
+                      <button
+                        type="button"
+                        className={`btn ${accountType === 'ngo' ? 'btn-primary' : 'btn-outline'}`}
+                        style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                        onClick={() => setAccountType('ngo')}
+                      >
+                        <span style={{ fontSize: '1.2rem' }}>🤝</span>
+                        <span>ONG</span>
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Prénom & Nom</label>
                     <input
@@ -789,6 +824,39 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Adresse E-mail Google</label>
                   <div style={{ fontSize: '0.85rem', fontWeight: 'bold', padding: '0.55rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
                     {selectedGoogleEmail}
+                  </div>
+                </div>
+
+                <div style={{ marginBottom: '1rem' }}>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Type de Compte</label>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                    <button
+                      type="button"
+                      className={`btn ${accountType === 'citizen' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                      onClick={() => setAccountType('citizen')}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>👤</span>
+                      <span>Citoyen</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${accountType === 'company' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                      onClick={() => setAccountType('company')}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>🏢</span>
+                      <span>Entreprise</span>
+                    </button>
+                    <button
+                      type="button"
+                      className={`btn ${accountType === 'ngo' ? 'btn-primary' : 'btn-outline'}`}
+                      style={{ padding: '0.5rem 0.25rem', fontSize: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.25rem', height: 'auto', borderRadius: 'var(--radius-sm)' }}
+                      onClick={() => setAccountType('ngo')}
+                    >
+                      <span style={{ fontSize: '1.2rem' }}>🤝</span>
+                      <span>ONG</span>
+                    </button>
                   </div>
                 </div>
 

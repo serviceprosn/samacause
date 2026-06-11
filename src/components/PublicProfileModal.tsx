@@ -10,7 +10,9 @@ export const PublicProfileModal: React.FC = () => {
     petitions,
     cagnottes,
     setActiveChatUserId,
-    currentUser
+    currentUser,
+    followUser,
+    unfollowUser
   } = useApp();
 
   if (!selectedPublicUserId) return null;
@@ -19,6 +21,7 @@ export const PublicProfileModal: React.FC = () => {
   if (!user) return null;
 
   const isSelf = currentUser && currentUser.id === user.id;
+  const isFollowing = currentUser?.following?.includes(user.id);
 
   // Calculate stats
   const organizedPetitions = petitions.filter(p => p.organizer.id === user.id && p.status === 'active');
@@ -37,6 +40,30 @@ export const PublicProfileModal: React.FC = () => {
   const tontinesCount = tontinesList.filter((t: any) =>
     t.members.some((m: any) => m.name.toLowerCase() === user.name.toLowerCase() || (user.email && m.email.toLowerCase() === user.email.toLowerCase()))
   ).length;
+
+  const getAccountTypeBadge = () => {
+    switch (user.accountType) {
+      case 'ngo':
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.6rem', fontSize: '0.75rem', borderRadius: '4px', background: 'rgba(0, 133, 63, 0.1)', color: 'var(--primary)', fontWeight: 'bold' }}>
+            🤝 ONG
+          </span>
+        );
+      case 'company':
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.6rem', fontSize: '0.75rem', borderRadius: '4px', background: 'rgba(30, 41, 59, 0.1)', color: 'var(--dark)', fontWeight: 'bold' }}>
+            🏢 Entreprise
+          </span>
+        );
+      case 'citizen':
+      default:
+        return (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem', padding: '0.25rem 0.6rem', fontSize: '0.75rem', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', fontWeight: 'bold' }}>
+            👤 Citoyen
+          </span>
+        );
+    }
+  };
 
   const getVerificationBadge = () => {
     switch (user.verificationStatus) {
@@ -145,6 +172,7 @@ export const PublicProfileModal: React.FC = () => {
           </span>
 
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+            {getAccountTypeBadge()}
             <TrustScore score={user.trustScore} />
             {getVerificationBadge()}
           </div>
@@ -213,13 +241,23 @@ export const PublicProfileModal: React.FC = () => {
           </button>
           
           {currentUser && !isSelf && (
-            <button
-              className="btn btn-primary"
-              style={{ flex: 1.5, padding: '0.65rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-              onClick={handleStartChat}
-            >
-              💬 Contacter par message
-            </button>
+            <>
+              <button
+                className={`btn ${isFollowing ? 'btn-outline' : 'btn-primary'}`}
+                style={{ flex: 1, padding: '0.65rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem', borderColor: isFollowing ? 'var(--danger)' : undefined, color: isFollowing ? 'var(--danger)' : undefined }}
+                onClick={() => isFollowing ? unfollowUser(user.id) : followUser(user.id)}
+              >
+                {isFollowing ? '❌ Désabonner' : '✨ Suivre'}
+              </button>
+
+              <button
+                className="btn btn-primary"
+                style={{ flex: 1.5, padding: '0.65rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                onClick={handleStartChat}
+              >
+                💬 Contacter
+              </button>
+            </>
           )}
         </div>
       </div>

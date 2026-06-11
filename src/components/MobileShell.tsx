@@ -70,8 +70,8 @@ export const MobileShell: React.FC<MobileShellProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {/* Admin panel or AI Assistant button */}
-          {currentUser?.role === 'admin' ? (
+          {/* Admin panel */}
+          {currentUser?.role === 'admin' && (
             <button 
               className="btn" 
               style={{ 
@@ -91,29 +91,6 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               }}
             >
               🛡️ <span>Admin</span>
-            </button>
-          ) : (
-            <button 
-              className="btn" 
-              style={{ 
-                padding: '0.35rem 0.6rem', 
-                fontSize: '0.7rem', 
-                borderRadius: 'var(--radius-sm)',
-                background: 'var(--dark)',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.25rem'
-              }}
-              onClick={() => {
-                if (currentUser) {
-                  if (onOpenAi) onOpenAi();
-                } else {
-                  if (onNavigate) onNavigate('auth', { openAiOnSuccess: true });
-                }
-              }}
-            >
-              🤖 <span>IA</span>
             </button>
           )}
 

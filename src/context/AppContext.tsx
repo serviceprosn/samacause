@@ -6,7 +6,7 @@ interface AppContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   login: (email: string, pass: string) => Promise<boolean>;
-  signup: (name: string, email: string, phone: string, pass: string, country: string, region: string) => Promise<boolean>;
+  signup: (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType?: 'citizen' | 'company' | 'ngo') => Promise<boolean>;
   logout: () => void;
   loginWithGoogle: () => Promise<void>;
   useSupabase: boolean;
@@ -31,6 +31,8 @@ interface AppContextType {
   setActiveChatUserId: (userId: string | null) => void;
   sendDirectMessage: (receiverId: string, text: string) => void;
   adminUpdateUser: (userId: string, updates: Partial<User>) => Promise<boolean>;
+  followUser: (userId: string) => Promise<boolean>;
+  unfollowUser: (userId: string) => Promise<boolean>;
 
   // Actions
   updateProfile: (
@@ -135,7 +137,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [usersList, setUsersList] = useState<User[]>(() => {
     const saved = localStorage.getItem('sc_users_list');
-    return saved ? JSON.parse(saved) : [];
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed.length > 0) return parsed;
+    }
+    return [
+      {
+        id: 'usr_ong_teranga',
+        name: 'ONG Action Teranga 🇸🇳',
+        email: 'contact@actionteranga.org',
+        phone: '+221 33 822 10 10',
+        role: 'citizen',
+        verified: true,
+        avatar: 'https://images.unsplash.com/photo-1594708767771-a7502209ff51?w=150&fit=crop&q=80',
+        trustScore: 95,
+        badges: ['leader', 'bienfaiteur'],
+        country: 'Sénégal',
+        region: 'Dakar',
+        verificationStatus: 'verified',
+        accountType: 'ngo',
+        following: [],
+        followers: []
+      },
+      {
+        id: 'usr_ent_progres',
+        name: 'Sénégal Progrès S.A. 📈',
+        email: 'info@senegalprogres.sn',
+        phone: '+221 33 845 20 20',
+        role: 'citizen',
+        verified: true,
+        avatar: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=150&fit=crop&q=80',
+        trustScore: 90,
+        badges: ['bienfaiteur'],
+        country: 'Sénégal',
+        region: 'Dakar',
+        verificationStatus: 'verified',
+        accountType: 'company',
+        following: [],
+        followers: []
+      },
+      {
+        id: 'usr_cit_amady',
+        name: 'Amady Ndiaye 🦁',
+        email: 'amady@ndiaye.sn',
+        phone: '+221 77 555 44 33',
+        role: 'citizen',
+        verified: true,
+        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=150&fit=crop&q=80',
+        trustScore: 98,
+        badges: ['leader', 'citoyen', 'ambassadeur'],
+        country: 'Sénégal',
+        region: 'Louga',
+        verificationStatus: 'verified',
+        accountType: 'citizen',
+        following: [],
+        followers: []
+      }
+    ];
   });
 
   const [petitions, setPetitions] = useState<Petition[]>(() => {
@@ -553,6 +611,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 4000);
   };
 
+  const triggerPushNotification = (title: string, body: string) => {
+    addNotification(`🔔 ${title} : ${body}`);
+    if ('Notification' in window) {
+      if (Notification.permission === 'granted') {
+        try {
+          new Notification(title, {
+            body,
+            icon: '/logo.png',
+            badge: '/logo.png',
+            tag: 'sunu-yite-notif'
+          });
+        } catch (err) {
+          console.warn("Direct Notification constructor failed, falling back to Service Worker...", err);
+          if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+            navigator.serviceWorker.ready.then(registration => {
+              registration.showNotification(title, {
+                body,
+                icon: '/logo.png',
+                badge: '/logo.png',
+                tag: 'sunu-yite-notif'
+              });
+            });
+          }
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission();
+    }
+  }, []);
+
   // OTP SIMULATION
   const sendOtpSms = (phone: string) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -869,11 +961,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ADMIN ACTIONS
   const approveCampaign = (id: string, type: 'petition' | 'cagnotte') => {
+    let title = '';
+    let organizerId = '';
+    let organizerName = '';
+
     if (type === 'petition') {
-      setPetitions(prev => prev.map(p => p.id === id ? { ...p, status: 'active', viewedByAdmin: true } : p));
+      setPetitions(prev => prev.map(p => {
+        if (p.id === id) {
+          title = p.title;
+          organizerId = p.organizer.id;
+          organizerName = p.organizer.name;
+          return { ...p, status: 'active', viewedByAdmin: true };
+        }
+        return p;
+      }));
       addNotification('La pétition a été approuvée et publiée.');
     } else {
-      setCagnottes(prev => prev.map(c => c.id === id ? { ...c, status: 'active', viewedByAdmin: true } : c));
+      setCagnottes(prev => prev.map(c => {
+        if (c.id === id) {
+          title = c.title;
+          organizerId = c.organizer.id;
+          organizerName = c.organizer.name;
+          return { ...c, status: 'active', viewedByAdmin: true };
+        }
+        return c;
+      }));
       addNotification('La cagnotte a été approuvée et activée.');
     }
 
@@ -886,6 +998,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (error) console.error("Error approving campaign in Supabase: ", error);
       });
     }
+
+    // Trigger follower notifications!
+    setTimeout(() => {
+      if (organizerId && currentUser?.following?.includes(organizerId)) {
+        triggerPushNotification(
+          `📢 Nouveau projet de ${organizerName}`,
+          `Vient de lancer la campagne : "${title}"`
+        );
+      }
+    }, 1000);
   };
 
   const rejectCampaign = (id: string, type: 'petition' | 'cagnotte', feedback: string) => {
@@ -1332,7 +1454,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // signup action
-  const signup = async (name: string, email: string, phone: string, pass: string, country: string, region: string): Promise<boolean> => {
+  const signup = async (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType: 'citizen' | 'company' | 'ngo' = 'citizen'): Promise<boolean> => {
     if (!useSupabase && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       alert("Cette adresse e-mail est réservée à l'administrateur.");
       return false;
@@ -1355,7 +1477,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         trustScore: 50,
         badges: [],
         country,
-        region
+        region,
+        accountType,
+        following: [],
+        followers: []
       };
 
       // Save password in mock database
@@ -1384,7 +1509,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               trust_score: isAdmin ? 100 : 50,
               avatar: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE6di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
               country,
-              region
+              region,
+              account_type: accountType
             }
           }
         });
@@ -1409,7 +1535,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             trust_score: isAdmin ? 100 : 50,
             avatar: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
             country,
-            region
+            region,
+            account_type: accountType
           };
           
           const { error: profileError } = await supabase.from('profiles').insert([newProfile]);
@@ -1428,7 +1555,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             trustScore: isAdmin ? 100 : 50,
             badges: [],
             country,
-            region
+            region,
+            accountType,
+            following: [],
+            followers: []
           };
           setCurrentUser(newUser);
           setUsersList(prev => [...prev, newUser]);
@@ -1688,7 +1818,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       
       setDirectMessages(prev => [...prev, replyMsg]);
-      addNotification(`💬 Nouveau message de ${receiverName}`);
+      triggerPushNotification(`💬 Message de ${receiverName}`, autoReplyText);
     }, 3000);
   };
 
@@ -1743,6 +1873,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const followUser = async (userId: string): Promise<boolean> => {
+    if (!currentUser) {
+      addNotification("⚠️ Connectez-vous d'abord pour suivre cet utilisateur.");
+      return false;
+    }
+    if (currentUser.id === userId) {
+      addNotification("⚠️ Vous ne pouvez pas vous suivre vous-même.");
+      return false;
+    }
+
+    const currentFollowing = currentUser.following || [];
+    if (currentFollowing.includes(userId)) return true;
+
+    const updatedFollowing = [...currentFollowing, userId];
+    const updatedUser = { ...currentUser, following: updatedFollowing };
+    setCurrentUser(updatedUser);
+
+    setUsersList(prev => prev.map(u => {
+      if (u.id === userId) {
+        const uFollowers = u.followers || [];
+        if (!uFollowers.includes(currentUser.id)) {
+          return { ...u, followers: [...uFollowers, currentUser.id] };
+        }
+      }
+      return u;
+    }));
+
+    addNotification(`✨ Vous suivez maintenant cet utilisateur !`);
+
+    setTimeout(() => {
+      const targetUser = usersList.find(u => u.id === userId);
+      if (targetUser) {
+        triggerPushNotification(
+          `Abonnement`,
+          `Vous êtes maintenant abonné aux publications de ${targetUser.name}.`
+        );
+      }
+    }, 1000);
+
+    setTimeout(() => {
+      const targetUser = usersList.find(u => u.id === userId);
+      if (targetUser) {
+        triggerPushNotification(
+          `📢 Publication de ${targetUser.name}`,
+          `Vient de publier la campagne solidaire : "Reforestation de la forêt classée de Mbao"`
+        );
+      }
+    }, 6000);
+
+    return true;
+  };
+
+  const unfollowUser = async (userId: string): Promise<boolean> => {
+    if (!currentUser) return false;
+
+    const currentFollowing = currentUser.following || [];
+    const updatedFollowing = currentFollowing.filter(id => id !== userId);
+    const updatedUser = { ...currentUser, following: updatedFollowing };
+    setCurrentUser(updatedUser);
+
+    setUsersList(prev => prev.map(u => {
+      if (u.id === userId) {
+        const uFollowers = u.followers || [];
+        return { ...u, followers: uFollowers.filter(id => id !== currentUser.id) };
+      }
+      return u;
+    }));
+
+    addNotification(`🚫 Vous ne suivez plus cet utilisateur.`);
+    return true;
+  };
+
   return (
     <AppContext.Provider value={{
       currentUser,
@@ -1762,6 +1964,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveChatUserId,
       sendDirectMessage,
       adminUpdateUser,
+      followUser,
+      unfollowUser,
       petitions,
       cagnottes,
       volunteerMissions,
