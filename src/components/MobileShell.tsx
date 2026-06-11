@@ -17,7 +17,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   onOpenAi,
   onNavigate
 }) => {
-  const { toggleTheme, activeTheme, currentUser } = useApp();
+  const { toggleTheme, activeTheme, currentUser, isInstallable, installApp } = useApp();
 
   return (
     <div className="mobile-shell-frame animate-fade-in">
@@ -103,6 +103,18 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               }}
             >
               🤖 <span>IA</span>
+            </button>
+          )}
+
+          {/* PWA Install Button */}
+          {isInstallable && (
+            <button 
+              className="btn btn-ghost" 
+              style={{ padding: '0.35rem', minWidth: 'auto', fontSize: '0.9rem' }}
+              onClick={installApp}
+              title="Installer l'application"
+            >
+              📲
             </button>
           )}
 

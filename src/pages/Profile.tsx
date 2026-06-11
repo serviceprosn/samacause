@@ -9,7 +9,7 @@ interface ProfileProps {
 }
 
 export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) => {
-  const { currentUser, petitions, cagnottes, volunteerApplications, logout, updateProfile, addNotification } = useApp();
+  const { currentUser, petitions, cagnottes, volunteerApplications, logout, updateProfile, addNotification, isInstallable, installApp } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -419,6 +419,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               <span style={{ fontSize: '0.75rem', background: 'rgba(217,83,79,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(217,83,79,0.2)' }}>
                 ⚠️ Non vérifié (KYC requis)
               </span>
+            )}
+            {isInstallable && (
+              <button 
+                type="button"
+                className="btn btn-primary" 
+                style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
+                onClick={installApp}
+              >
+                📲 Installer l'app
+              </button>
             )}
             <button 
               className="btn btn-outline" 

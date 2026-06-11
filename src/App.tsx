@@ -30,7 +30,9 @@ const MainLayout: React.FC = () => {
     addNotification,
     isProfileComplete,
     directMessages,
-    activeChatUserId
+    activeChatUserId,
+    isInstallable,
+    installApp
   } = useApp();
 
   const [currentPage, setCurrentPage] = useState('home');
@@ -281,6 +283,25 @@ const MainLayout: React.FC = () => {
 
           {/* Action Toolbar */}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+            {/* PWA Install Button */}
+            {isInstallable && (
+              <button 
+                className="btn btn-primary"
+                style={{ 
+                  padding: '0.5rem 0.85rem', 
+                  fontSize: '0.8rem', 
+                  borderRadius: 'var(--radius-sm)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.25rem',
+                  fontWeight: 'bold'
+                }}
+                onClick={installApp}
+              >
+                📲 Installer
+              </button>
+            )}
+            
             {/* AI Assistant button */}
             <button 
               className="btn" 

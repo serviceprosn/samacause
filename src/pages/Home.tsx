@@ -8,7 +8,7 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, volunteerMissions, getKPIs } = useApp();
+  const { petitions, cagnottes, volunteerMissions, getKPIs, isInstallable, installApp } = useApp();
   const kpis = getKPIs();
   
   const activePetitions = petitions.filter(p => p.status === 'active');
@@ -126,6 +126,46 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           </div>
         </div>
       </section>
+
+      {/* PWA Install Banner */}
+      {isInstallable && (
+        <div 
+          className="premium-card animate-fade-in" 
+          style={{ 
+            background: 'linear-gradient(135deg, rgba(0, 133, 63, 0.08) 0%, rgba(252, 209, 22, 0.08) 100%)', 
+            border: '1.5px solid var(--primary)', 
+            borderRadius: 'var(--radius-md)',
+            padding: '1.5rem', 
+            marginBottom: '2rem', 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            gap: '1.5rem',
+            boxShadow: 'var(--shadow-md)'
+          }}
+        >
+          <div style={{ flex: 1, minWidth: '280px' }}>
+            <h3 style={{ margin: 0, fontWeight: 800, fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              📲 Installer l'application Sama Cause
+            </h3>
+            <p style={{ margin: '0.35rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary-light)', lineHeight: '1.4' }}>
+              Installez Sama Cause sur votre téléphone, tablette ou ordinateur pour un accès ultra-rapide et un fonctionnement hors ligne complet !
+            </p>
+          </div>
+          <button 
+            className="btn btn-primary" 
+            onClick={installApp} 
+            style={{ 
+              padding: '0.75rem 1.5rem', 
+              fontWeight: 'bold', 
+              boxShadow: '0 4px 12px rgba(0, 133, 63, 0.25)' 
+            }}
+          >
+            Installer maintenant
+          </button>
+        </div>
+      )}
 
       {/* Premium Sliding Campaign Carousel */}
       <section className="carousel-container animate-fade-in delay-1">

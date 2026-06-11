@@ -89,6 +89,10 @@ interface AppContextType {
   activeOtpCode: string | null;
   sendOtpSms: (phone: string) => void;
   verifyOtp: (code: string) => boolean;
+
+  // PWA Install
+  isInstallable: boolean;
+  installApp: () => Promise<boolean>;
 }
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'mouhamethsarr98@gmail.com';
@@ -167,6 +171,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [notifications, setNotifications] = useState<string[]>([]);
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
+
+  // PWA Install prompt state & listener
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      console.log('beforeinstallprompt event fired');
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
+
+    // If PWA is already installed and running in standalone
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    if (isStandalone) {
+      setIsInstallable(false);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
+    };
+  }, []);
+
+  const installApp = async (): Promise<boolean> => {
+    if (!deferredPrompt) {
+      console.warn('No PWA install prompt available.');
+      return false;
+    }
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    console.log(`User response to PWA install prompt: ${outcome}`);
+    setDeferredPrompt(null);
+    setIsInstallable(false);
+    return outcome === 'accepted';
+  };
 
   // IA Chat state
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>(() => {
@@ -1760,6 +1802,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // KPIs
       getKPIs,
       
+      // PWA
+      isInstallable,
+      installApp,
+
       // OTP
       activeOtpCode,
       sendOtpSms,
