@@ -65,6 +65,12 @@ const MainLayout: React.FC = () => {
   const handleInstall = async () => {
     if (isInstallable) {
       await installApp();
+    } else {
+      if (isIOSDevices) {
+        alert("Pour installer l'application sur iOS : appuyez sur le bouton 'Partager' (📤 en bas de Safari) puis sélectionnez 'Ajouter sur l'écran d'accueil' (➕).");
+      } else {
+        alert("Pour installer l'application : cliquez sur le menu de votre navigateur (les trois points ⋮ en haut à droite) puis sélectionnez 'Ajouter à l'écran d'accueil' ou 'Installer'.");
+      }
     }
     setShowInstallNotification(false);
   };
@@ -539,38 +545,58 @@ const MainLayout: React.FC = () => {
           </p>
     
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
-            <button 
-              onClick={handleIgnore}
-              style={{
-                background: 'rgba(255,255,255,0.1)',
-                color: 'white',
-                border: 'none',
-                padding: '0.4rem 0.85rem',
-                fontSize: '0.75rem',
-                borderRadius: 'var(--radius-sm)',
-                cursor: 'pointer',
-                fontWeight: 'bold'
-              }}
-            >
-              Ignorer
-            </button>
-            {!isIOSDevices && isInstallable && (
+            {isMobileView ? (
               <button 
                 onClick={handleInstall}
                 style={{
                   background: 'var(--primary)',
                   color: 'white',
                   border: 'none',
-                  padding: '0.4rem 1rem',
-                  fontSize: '0.75rem',
+                  padding: '0.5rem 1.25rem',
+                  fontSize: '0.8rem',
                   borderRadius: 'var(--radius-sm)',
                   cursor: 'pointer',
                   fontWeight: 'bold',
-                  boxShadow: '0 4px 10px rgba(0, 133, 63, 0.3)'
+                  boxShadow: '0 4px 10px rgba(0, 133, 63, 0.3)',
+                  width: '100%'
                 }}
               >
                 Installer 💾
               </button>
+            ) : (
+              <>
+                <button 
+                  onClick={handleIgnore}
+                  style={{
+                    background: 'rgba(255,255,255,0.1)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.4rem 0.85rem',
+                    fontSize: '0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  Ignorer
+                </button>
+                <button 
+                  onClick={handleInstall}
+                  style={{
+                    background: 'var(--primary)',
+                    color: 'white',
+                    border: 'none',
+                    padding: '0.4rem 1rem',
+                    fontSize: '0.75rem',
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    boxShadow: '0 4px 10px rgba(0, 133, 63, 0.3)'
+                  }}
+                >
+                  Installer 💾
+                </button>
+              </>
             )}
           </div>
         </div>
