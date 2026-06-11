@@ -45,20 +45,27 @@ const MainLayout: React.FC = () => {
     const isApple = /iphone|ipad|ipod/.test(userAgent);
     const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
     
-    if (isApple && !isStandaloneMode) {
-      setIsIOSDevices(true);
+    // Always show notification on entry/reload if not already in standalone mode
+    if (!isStandaloneMode) {
       setShowInstallNotification(true);
+    }
+    
+    if (isApple) {
+      setIsIOSDevices(true);
     }
   }, []);
 
   React.useEffect(() => {
-    if (isInstallable) {
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    if (isInstallable && !isStandaloneMode) {
       setShowInstallNotification(true);
     }
   }, [isInstallable]);
 
   const handleInstall = async () => {
-    await installApp();
+    if (isInstallable) {
+      await installApp();
+    }
     setShowInstallNotification(false);
   };
 
@@ -526,7 +533,9 @@ const MainLayout: React.FC = () => {
           <p style={{ margin: 0, fontSize: '0.8rem', color: '#cbd5e1', lineHeight: '1.4' }}>
             {isIOSDevices 
               ? "Appuyez sur Partager 📤 dans Safari, puis sélectionnez \"Ajouter sur l'écran d'accueil\" ➕." 
-              : "Installez l'application Sama Cause pour un chargement instantané et un accès complet hors-ligne."}
+              : isInstallable
+                ? "Installez l'application Sama Cause pour un chargement instantané et un accès complet hors-ligne."
+                : "Pour installer, cliquez sur l'icône d'installation dans la barre d'adresse ou ouvrez le menu de votre navigateur (⋮) puis sélectionnez \"Ajouter à l'écran d'accueil\" ou \"Installer\"."}
           </p>
     
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', marginTop: '0.25rem' }}>
@@ -545,7 +554,7 @@ const MainLayout: React.FC = () => {
             >
               Ignorer
             </button>
-            {!isIOSDevices && (
+            {!isIOSDevices && isInstallable && (
               <button 
                 onClick={handleInstall}
                 style={{
