@@ -5,8 +5,12 @@
   --primary: #00853F;       /* Vert Sénégal */
   --primary-light: #00a850;
   --primary-dark: #00602e;
-  --secondary: #FCD116;     /* Jaune Sénégal */
-  --secondary-dark: #e0b80d;
+  --secondary: #FDB913;     /* Jaune Sénégal (Logo) */
+  --secondary-dark: #d99c08;
+  
+  --logo-blue: #0A3A60;     /* Bleu Sombre (Logo) */
+  --logo-red: #E31B23;      /* Rouge (Logo) */
+  --logo-yellow: #FDB913;   /* Jaune (Logo) */
   
   --dark: #111111;
   --dark-soft: #1c1c1e;
@@ -141,6 +145,39 @@ input::placeholder, textarea::placeholder {
 @keyframes shimmer {
   0% { background-position: -200% 0; }
   100% { background-position: 200% 0; }
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+@keyframes pulseScale {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes fillProgress {
+  0% { width: 0%; }
+  100% { width: 100%; }
+}
+
+@keyframes paperPlaneFly {
+  0%, 100% { transform: translateY(0) translateX(0) rotate(0deg); }
+  50% { transform: translateY(-12px) translateX(8px) rotate(8deg); }
+}
+
+.paperplane-icon {
+  animation: paperPlaneFly 2.5s ease-in-out infinite;
+}
+
+.btn-spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
 }
 
 /* Utility Classes */

@@ -11,6 +11,16 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { petitions, cagnottes, volunteerMissions, getKPIs } = useApp();
   const kpis = getKPIs();
   
+  const [formSubmitted, setFormSubmitted] = useState(false);
+  const [formLoading, setFormLoading] = useState(false);
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    subject: 'Général',
+    message: ''
+  });
+  
   const activePetitions = petitions.filter(p => p.status === 'active');
   const activeCagnottes = cagnottes.filter(c => c.status === 'active');
 
@@ -350,7 +360,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         <div className="grid-cols-2" style={{ gap: '2rem' }}>
           <div style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '1.5rem' }}>
             <p style={{ fontStyle: 'italic', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-              "Grâce à Sama Cause, nous avons collecté 4,5 millions FCFA en 12 jours pour équiper le forage solaire de Barkedji. L'onglet Transparence nous a permis de publier chaque facture d'achat de tuyaux, rassurant ainsi nos donateurs de la diaspora."
+              "Grâce à Sunu Yité, nous avons collecté 4,5 millions FCFA en 12 jours pour équiper le forage solaire de Barkedji. L'onglet Transparence nous a permis de publier chaque facture d'achat de tuyaux, rassurant ainsi nos donateurs de la diaspora."
             </p>
             <strong>Amady Ndiaye</strong>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Président de l'association Horizon Louga</div>
@@ -358,13 +368,239 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
           <div style={{ borderLeft: '3px solid var(--secondary)', paddingLeft: '1.5rem' }}>
             <p style={{ fontStyle: 'italic', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-              "J'habite à Lyon et je cherchais un moyen fiable d'aider l'école de mon village. Avec la cagnotte Sama Cause et le score de confiance vérifié, j'ai fait un don par carte bancaire. J'ai pu suivre l'avancée des travaux photo par photo."
+              "J'habite à Lyon et je cherchais un moyen fiable d'aider l'école de mon village. Avec la cagnotte Sunu Yité et le score de confiance vérifié, j'ai fait un don par carte bancaire. J'ai pu suivre l'avancée des travaux photo par photo."
             </p>
             <strong>Moussa Diagne</strong>
             <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Membre de la Diaspora (France)</div>
           </div>
         </div>
       </section>
+
+      {/* Modern & Animated Contact Form Section */}
+      <section id="contact-section" style={{ marginTop: '5rem', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <div style={{ maxWidth: '750px', width: '100%', textAlign: 'center', marginBottom: '2.5rem' }}>
+          <span 
+            style={{ 
+              background: 'rgba(10, 58, 96, 0.1)', 
+              color: 'var(--logo-blue, #0A3A60)', 
+              fontSize: '0.8rem', 
+              fontWeight: 800, 
+              padding: '0.35rem 0.8rem', 
+              borderRadius: '9999px',
+              textTransform: 'uppercase',
+              letterSpacing: '1px'
+            }}
+          >
+            📬 Nous Contacter
+          </span>
+          <h2 style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.75rem', marginBottom: '0.5rem' }}>
+            Une question ou une suggestion ?
+          </h2>
+          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem' }}>
+            Notre équipe citoyenne Sunu Yité est à votre disposition pour vous accompagner dans vos mobilisations.
+          </p>
+        </div>
+
+        <div className="premium-card animate-fade-in" style={{ width: '100%', maxWidth: '650px', padding: '2.5rem 2rem', background: 'var(--light-card)', position: 'relative', overflow: 'hidden', border: '1.5px solid var(--border-light)' }}>
+          {formSubmitted ? (
+            <div className="animate-fade-in" style={{ textAlign: 'center', padding: '2rem 1rem' }}>
+              <div className="paperplane-icon" style={{ fontSize: '4.5rem', marginBottom: '1rem', display: 'inline-block' }}>
+                ✈️
+              </div>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.75rem' }}>
+                Message envoyé avec succès !
+              </h3>
+              <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', maxWidth: '450px', margin: '0 auto 1.5rem' }}>
+                Merci d'avoir contacté Sunu Yité. Notre équipe de modération et d'entraide citoyenne vous répondra sous 24 heures.
+              </p>
+              <button 
+                className="btn btn-primary"
+                onClick={() => {
+                  setFormSubmitted(false);
+                  setContactForm({ name: '', email: '', phone: '', subject: 'Général', message: '' });
+                }}
+              >
+                Envoyer un autre message
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              setFormLoading(true);
+              setTimeout(() => {
+                setFormLoading(false);
+                setFormSubmitted(true);
+              }, 1800);
+            }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
+                {/* Name field */}
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
+                    Prénom & Nom
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: Babacar Diop"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: 'var(--light)',
+                      border: '1.5px solid var(--border-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    value={contactForm.name}
+                    onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                  />
+                </div>
+
+                {/* Email field */}
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
+                    Adresse E-mail
+                  </label>
+                  <input
+                    type="email"
+                    required
+                    placeholder="Ex: babacar@gmail.com"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: 'var(--light)',
+                      border: '1.5px solid var(--border-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    value={contactForm.email}
+                    onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                  />
+                </div>
+              </div>
+
+              <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
+                {/* Phone field */}
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
+                    Téléphone (Optionnel)
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Ex: +221 77 123 45 67"
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: 'var(--light)',
+                      border: '1.5px solid var(--border-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    value={contactForm.phone}
+                    onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                  />
+                </div>
+
+                {/* Subject Selector */}
+                <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
+                    Sujet de votre message
+                  </label>
+                  <select
+                    style={{
+                      width: '100%',
+                      padding: '0.75rem',
+                      background: 'var(--light)',
+                      border: '1.5px solid var(--border-light)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.9rem',
+                      outline: 'none',
+                      color: 'var(--text-primary-light)',
+                      transition: 'border-color 0.2s ease'
+                    }}
+                    value={contactForm.subject}
+                    onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+                  >
+                    <option value="Général">Question Générale</option>
+                    <option value="Pétition">Aide sur les Pétitions ✍️</option>
+                    <option value="Cagnotte">Suivi ou Création de Cagnotte 💰</option>
+                    <option value="Tontine">Cercles d'épargne (Tontines) 🪙</option>
+                    <option value="Partenariat">Projet Diaspora / Partenariat 🌍</option>
+                    <option value="Technique">Problème Technique 🛠️</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Message field */}
+              <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
+                <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
+                  Votre Message
+                </label>
+                <textarea
+                  required
+                  rows={5}
+                  placeholder="Décrivez votre demande en détail..."
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: 'var(--light)',
+                    border: '1.5px solid var(--border-light)',
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.9rem',
+                    outline: 'none',
+                    resize: 'none',
+                    transition: 'border-color 0.2s ease'
+                  }}
+                  value={contactForm.message}
+                  onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                />
+              </div>
+
+              {/* Submit button with loading spinner */}
+              <button 
+                type="submit" 
+                className="btn"
+                disabled={formLoading}
+                style={{
+                  padding: '0.85rem 1.5rem',
+                  fontSize: '0.95rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.75rem',
+                  marginTop: '0.5rem',
+                  width: '100%',
+                  background: 'var(--logo-blue, #0A3A60)',
+                  color: 'white',
+                  borderRadius: 'var(--radius-md)',
+                  border: 'none',
+                  boxShadow: '0 4px 14px rgba(10, 58, 96, 0.25)',
+                  cursor: formLoading ? 'not-allowed' : 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                {formLoading ? (
+                  <>
+                    <div className="btn-spinner" />
+                    <span>Envoi en cours...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Envoyer le Message ✉️</span>
+                  </>
+                )}
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
     </div>
   );
 };
+
+export default Home;

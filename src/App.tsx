@@ -38,6 +38,14 @@ const MainLayout: React.FC = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [showInstallNotification, setShowInstallNotification] = useState(false);
   const [isIOSDevices, setIsIOSDevices] = useState(false);
+  const [showSplashScreen, setShowSplashScreen] = useState(true);
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setShowSplashScreen(false);
+    }, 1800);
+    return () => clearTimeout(timer);
+  }, []);
 
   React.useEffect(() => {
     // Detect iOS devices
@@ -152,8 +160,17 @@ const MainLayout: React.FC = () => {
       }
     }
 
-    setCurrentPage(page);
-    setNavParams(params);
+  };
+
+  const scrollToContact = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setCurrentPage('home');
+    setTimeout(() => {
+      const el = document.getElementById('contact-section');
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth' });
+      }
+    }, 100);
   };
 
   const handleAuthSuccess = () => {
@@ -241,6 +258,71 @@ const MainLayout: React.FC = () => {
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      {/* PWA Splash Screen */}
+      {showSplashScreen && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100vw',
+            height: '100vh',
+            background: '#0A3A60',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            transition: 'opacity 0.4s ease',
+            opacity: showSplashScreen ? 1 : 0,
+            pointerEvents: showSplashScreen ? 'auto' : 'none'
+          }}
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '1.5rem', textAlign: 'center', padding: '2rem' }}>
+            <div style={{ position: 'relative', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div 
+                style={{
+                  position: 'absolute',
+                  width: '140px',
+                  height: '140px',
+                  borderRadius: '50%',
+                  border: '3px solid transparent',
+                  borderTopColor: '#00853F',
+                  borderLeftColor: '#FDB913',
+                  borderRightColor: '#E31B23',
+                  animation: 'spin 2s linear infinite'
+                }}
+              />
+              <img 
+                src="/logo.png" 
+                alt="Sunu Yité Logo" 
+                style={{
+                  width: '110px',
+                  height: '110px',
+                  borderRadius: '50%',
+                  objectFit: 'contain',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+                  animation: 'pulseScale 2s infinite'
+                }}
+              />
+            </div>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              <h1 style={{ fontSize: '2.5rem', fontWeight: 900, margin: 0, letterSpacing: '-1px' }}>
+                Sunu<span style={{ color: '#FDB913' }}> Yité</span>
+              </h1>
+              <p style={{ margin: 0, fontSize: '0.85rem', color: '#cbd5e1', fontWeight: 600, letterSpacing: '2px', textTransform: 'uppercase' }}>
+                Mobilisation & Solidarité 🇸🇳
+              </p>
+            </div>
+            
+            <div style={{ width: '150px', height: '4px', background: 'rgba(255,255,255,0.1)', borderRadius: '2px', overflow: 'hidden', marginTop: '1rem' }}>
+              <div className="splash-progress" style={{ height: '100%', background: 'linear-gradient(90deg, #FDB913, #00853F, #E31B23)', borderRadius: '2px' }} />
+            </div>
+          </div>
+        </div>
+      )}
       {/* DESKTOP HEADER & GLOBAL NAVIGATION */}
       <header 
         className="glass desktop-header-only"
@@ -260,7 +342,7 @@ const MainLayout: React.FC = () => {
           >
             <Logo size={32} />
             <strong style={{ fontSize: '1.25rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-              Sama<span style={{ color: 'var(--primary)' }}>Cause</span>
+              Sunu<span style={{ color: 'var(--primary)' }}> Yité</span>
             </strong>
           </div>
 
@@ -469,13 +551,13 @@ const MainLayout: React.FC = () => {
         >
           <div className="app-container" style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1.5rem' }}>
             <div>
-              <strong style={{ color: 'var(--text-primary-light)' }}>Sama Cause © 2026</strong>
+              <strong style={{ color: 'var(--text-primary-light)' }}>Sunu Yité © 2026</strong>
               <div style={{ marginTop: '0.25rem' }}>Plateforme d'impact et de mobilisation citoyenne solidaire au Sénégal.</div>
             </div>
             <div style={{ display: 'flex', gap: '1.5rem' }}>
               <a href="#charte">Charte de confiance</a>
               <a href="#mentions">Mentions légales</a>
-              <a href="#contact">Contact & Support</a>
+              <a href="#contact" onClick={scrollToContact}>Contact & Support</a>
             </div>
           </div>
         </footer>
@@ -522,11 +604,8 @@ const MainLayout: React.FC = () => {
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <span style={{ fontSize: '1.5rem' }}>📲</span>
-              <div>
-                <strong style={{ fontSize: '0.95rem', display: 'block', color: 'white' }}>Sama Cause App</strong>
-                <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Installer sur cet appareil</span>
-              </div>
+              <strong style={{ fontSize: '0.95rem', display: 'block', color: 'white' }}>Sunu Yité App</strong>
+              <span style={{ fontSize: '0.75rem', color: '#cbd5e1' }}>Installer sur cet appareil</span>
             </div>
             <button 
               onClick={handleIgnore}
@@ -540,7 +619,7 @@ const MainLayout: React.FC = () => {
             {isIOSDevices 
               ? "Appuyez sur Partager 📤 dans Safari, puis sélectionnez \"Ajouter sur l'écran d'accueil\" ➕." 
               : isInstallable
-                ? "Installez l'application Sama Cause pour un chargement instantané et un accès complet hors-ligne."
+                ? "Installez l'application Sunu Yité pour un chargement instantané et un accès complet hors-ligne."
                 : "Pour installer, cliquez sur l'icône d'installation dans la barre d'adresse ou ouvrez le menu de votre navigateur (⋮) puis sélectionnez \"Ajouter à l'écran d'accueil\" ou \"Installer\"."}
           </p>
     

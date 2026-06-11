@@ -42,7 +42,7 @@ export const Diaspora: React.FC<DiasporaProps> = ({ onNavigate }) => {
             Le levier solidaire de votre village d'origine.
           </h1>
           <p style={{ fontSize: '1rem', opacity: 0.9, lineHeight: 1.5, marginBottom: '1.5rem' }}>
-            Sama Cause sécurise l'investissement social de la diaspora. Suivez l'avancée de vos financements en toute transparence, sans intermédiaire opaque, avec des reçus justificatifs à chaque étape.
+            Sunu Yité sécurise l'investissement social de la diaspora. Suivez l'avancée de vos financements en toute transparence, sans intermédiaire opaque, avec des reçus justificatifs à chaque étape.
           </p>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.15)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>🛡️ Paiement Sécurisé 3D Secure</span>
@@ -100,7 +100,7 @@ export const Diaspora: React.FC<DiasporaProps> = ({ onNavigate }) => {
 
         <div>
           <h2 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem' }}>
-            Pourquoi passer par Sama Cause ?
+            Pourquoi passer par Sunu Yité ?
           </h2>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <div style={{ display: 'flex', gap: '1rem' }}>

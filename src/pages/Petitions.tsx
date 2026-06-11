@@ -875,7 +875,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
               Félicitations ! Votre demande a été envoyée avec succès
             </h2>
             <p style={{ fontSize: '0.95rem', color: 'var(--text-primary-light)', marginTop: '0.5rem', marginBottom: '1.5rem', fontWeight: 600 }}>
-              L'équipe de Sama Cause étudiera votre dossier et vous reviendra dans un délai maximum de 24h.
+              L'équipe de Sunu Yité étudiera votre dossier et vous reviendra dans un délai maximum de 24h.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
@@ -1412,7 +1412,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <a 
                 href={`https://wa.me/?text=${encodeURIComponent(
-                  `*✍️ Signez cette pétition sur Sama Cause :* ${currentPetition.title}\n\nDestinataire : ${currentPetition.recipient}\n\n👉 Ensemble, faisons bouger les lignes ! Soutenez-nous ici : https://samacause.sn/petitions/${currentPetition.id}`
+                  `*✍️ Signez cette pétition sur Sunu Yité :* ${currentPetition.title}\n\nDestinataire : ${currentPetition.recipient}\n\n👉 Ensemble, faisons bouger les lignes ! Soutenez-nous ici : https://sunuyite.sn/petitions/${currentPetition.id}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1434,7 +1434,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
               <a 
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                  `https://samacause.sn/petitions/${currentPetition.id}`
+                  `https://sunuyite.sn/petitions/${currentPetition.id}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1463,14 +1463,14 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   readOnly 
                   className="premium-card" 
                   style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
-                  value={`https://samacause.sn/petitions/${currentPetition.id}`}
+                  value={`https://sunuyite.sn/petitions/${currentPetition.id}`}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
                 <button 
                   className="btn btn-primary" 
                   style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
                   onClick={() => {
-                    navigator.clipboard.writeText(`https://samacause.sn/petitions/${currentPetition.id}`);
+                    navigator.clipboard.writeText(`https://sunuyite.sn/petitions/${currentPetition.id}`);
                     addNotification("📋 Lien copié dans le presse-papier !");
                   }}
                 >

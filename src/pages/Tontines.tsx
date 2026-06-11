@@ -2067,7 +2067,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                 <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
                 <h3 style={{ fontWeight: 800, color: 'var(--primary)', marginBottom: '0.5rem' }}>Certification Réussie !</h3>
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
-                  Votre profil est désormais certifié et conforme aux exigences de sécurité financière de Sama Cause.
+                  Votre profil est désormais certifié et conforme aux exigences de sécurité financière de Sunu Yité.
                 </p>
                 <button className="btn btn-primary" style={{ width: '100%' }} onClick={proceedToContract}>
                   Passer au contrat d'engagement ➔

@@ -86,7 +86,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ cagnotte, onClose })
     // Simulate download by converting text to printable data URI or triggering browser printing
     const receiptContent = `
 =========================================
-          REÇU DE DON - SAMA CAUSE
+          REÇU DE DON - SUNU YITÉ
 =========================================
 Référence : ${txRef}
 Date : ${new Date().toLocaleDateString('fr-FR')}
@@ -96,7 +96,7 @@ Organisateur : ${cagnotte.organizer.name}
 Donateur : ${donorName}
 Montant : ${finalAmount.toLocaleString('fr-FR')} FCFA (${eurAmount} EUR)
 Mode de Paiement : ${method.toUpperCase()}
-Statut : PAYÉ (Sécurisé par Sama Cause)
+Statut : PAYÉ (Sécurisé par Sunu Yité)
 -----------------------------------------
 Merci pour votre action citoyenne !
 Transformons ensemble le Sénégal.
@@ -105,7 +105,7 @@ Transformons ensemble le Sénégal.
     const element = document.createElement("a");
     const file = new Blob([receiptContent], {type: 'text/plain'});
     element.href = URL.createObjectURL(file);
-    element.download = `recu_samacause_${txRef}.txt`;
+    element.download = `recu_sunuyite_${txRef}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -453,7 +453,7 @@ Transformons ensemble le Sénégal.
                             <strong> {cardCvv || '•••'}</strong>
                           </div>
                           <div style={{ fontSize: '0.5rem', opacity: 0.5, marginTop: '0.5rem' }}>
-                            Ce paiement est chiffré de bout en bout via Stripe. Sama Cause ne stocke aucune coordonnée bancaire.
+                            Ce paiement est chiffré de bout en bout via Stripe. Sunu Yité ne stocke aucune coordonnée bancaire.
                           </div>
                         </div>
                       </div>

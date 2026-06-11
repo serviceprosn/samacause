@@ -134,7 +134,7 @@ export const Admin: React.FC = () => {
               <div><strong>D.N. :</strong> 25/08/1993</div>
               <div><strong>LIEU :</strong> Louga, Sénégal</div>
               <div><strong>ADRESSE :</strong> Quartier Santhiaba, Louga</div>
-              <div style={{ marginTop: '0.25rem', fontSize: '0.6rem', color: 'green', fontWeight: 'bold' }}>● PROFIL VALIDÉ SAMA CAUSE</div>
+              <div style={{ marginTop: '0.25rem', fontSize: '0.6rem', color: 'green', fontWeight: 'bold' }}>● PROFIL VALIDÉ SUNU YITÉ</div>
             </div>
           </div>
           <div style={{ fontSize: '0.5rem', color: '#666', marginTop: '0.75rem', textAlign: 'right', borderTop: '1px dashed #ccc', paddingTop: '0.25rem' }}>
@@ -268,7 +268,7 @@ export const Admin: React.FC = () => {
     <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
       <h1 style={{ fontSize: '2rem', fontWeight: 800, marginBottom: '0.5rem' }}>Espace Administration</h1>
       <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem', marginBottom: '2rem' }}>
-        Modération des contenus, suivi des transactions financières et administration générale de la plateforme Sama Cause.
+        Modération des contenus, suivi des transactions financières et administration générale de la plateforme Sunu Yité.
       </p>
 
       {/* ADMIN LEVEL METRICS */}

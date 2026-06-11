@@ -54,7 +54,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
         >
           <Logo size={24} />
           <strong style={{ fontSize: '0.95rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-            Sama<span style={{ color: 'var(--primary)' }}>Cause</span>
+            Sunu<span style={{ color: 'var(--primary)' }}> Yité</span>
           </strong>
         </div>
 

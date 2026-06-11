@@ -584,7 +584,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             {googleStep === 'accounts' && (
               <div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem' }}>
-                  Choisissez un compte Google pour continuer sur **Sama Cause**.
+                  Choisissez un compte Google pour continuer sur **Sunu Yité**.
                 </p>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem', maxHeight: '220px', overflowY: 'auto', paddingRight: '4px' }}>

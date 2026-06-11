@@ -1082,7 +1082,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
               Félicitations ! Votre cagnotte a été soumise avec succès
             </h2>
             <p style={{ fontSize: '0.95rem', color: 'var(--text-primary-light)', marginTop: '0.5rem', marginBottom: '1.5rem', fontWeight: 600 }}>
-              L'équipe de Sama Cause étudiera vos justificatifs et vous reviendra dans un délai maximum de 24h.
+              L'équipe de Sunu Yité étudiera vos justificatifs et vous reviendra dans un délai maximum de 24h.
             </p>
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
               <button 
@@ -1638,7 +1638,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                 <div>Référence : {viewInvoice.id.toUpperCase()}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <strong>SAMA CAUSE</strong>
+                <strong>SUNU YITÉ</strong>
                 <div>Date : {viewInvoice.date}</div>
               </div>
             </div>
@@ -1732,7 +1732,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
               <a 
                 href={`https://wa.me/?text=${encodeURIComponent(
-                  `*🤝 Soutenez ce projet solidaire sur Sama Cause :* ${currentCagnotte.title}\n\n📍 Région : ${currentCagnotte.location}\n\n👉 Faites un don via Wave/OM ou partagez le lien pour nous aider : https://samacause.sn/cagnottes/${currentCagnotte.id}`
+                  `*🤝 Soutenez ce projet solidaire sur Sunu Yité :* ${currentCagnotte.title}\n\n📍 Région : ${currentCagnotte.location}\n\n👉 Faites un don via Wave/OM ou partagez le lien pour nous aider : https://sunuyite.sn/cagnottes/${currentCagnotte.id}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1754,7 +1754,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
 
               <a 
                 href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                  `https://samacause.sn/cagnottes/${currentCagnotte.id}`
+                  `https://sunuyite.sn/cagnottes/${currentCagnotte.id}`
                 )}`}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -1783,14 +1783,14 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                   readOnly 
                   className="premium-card" 
                   style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
-                  value={`https://samacause.sn/cagnottes/${currentCagnotte.id}`}
+                  value={`https://sunuyite.sn/cagnottes/${currentCagnotte.id}`}
                   onClick={(e) => (e.target as HTMLInputElement).select()}
                 />
                 <button 
                   className="btn btn-primary" 
                   style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
                   onClick={() => {
-                    navigator.clipboard.writeText(`https://samacause.sn/cagnottes/${currentCagnotte.id}`);
+                    navigator.clipboard.writeText(`https://sunuyite.sn/cagnottes/${currentCagnotte.id}`);
                     addNotification("📋 Lien copié dans le presse-papier !");
                   }}
                 >

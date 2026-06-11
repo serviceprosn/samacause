@@ -287,7 +287,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             </strong>
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0, lineHeight: '1.4' }}>
-            Pour garantir la transparence des cagnottes, la légitimité des pétitions et la sécurité des tontines, Sama Cause requiert que chaque utilisateur soit formellement identifié. Veuillez renseigner les informations obligatoires suivantes dans votre profil :
+            Pour garantir la transparence des cagnottes, la légitimité des pétitions et la sécurité des tontines, Sunu Yité requiert que chaque utilisateur soit formellement identifié. Veuillez renseigner les informations obligatoires suivantes dans votre profil :
           </p>
           <ul style={{ fontSize: '0.85rem', color: 'var(--danger)', margin: '0.25rem 0 0 1.25rem', padding: 0, fontWeight: 600 }}>
             {missingFields.map((f, i) => (
@@ -455,7 +455,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           className="premium-card animate-fade-in" 
           style={{ marginBottom: '2.5rem', background: 'var(--light-card)', padding: '2rem' }}
         >
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>Compléter mon profil Sama Cause</h3>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>Compléter mon profil Sunu Yité</h3>
           
           {/* Aperçu de la photo de profil & Sélection d'avatars par défaut */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>

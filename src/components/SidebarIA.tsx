@@ -73,7 +73,7 @@ export const SidebarIA: React.FC<SidebarIAProps> = ({ isOpen, onClose, onApplyDa
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span style={{ fontSize: '1.5rem' }}>🤖</span>
           <div>
-            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Sama Cause IA</h3>
+            <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Sunu Yité IA</h3>
             <span style={{ fontSize: '0.65rem', color: 'var(--secondary)' }}>Générateur de campagne citoyenne</span>
           </div>
         </div>
@@ -214,7 +214,7 @@ export const SidebarIA: React.FC<SidebarIAProps> = ({ isOpen, onClose, onApplyDa
                           {msg.generationResult.description.slice(0, 100)}...
                         </p>
                         <span style={{ fontSize: '0.55rem', textTransform: 'uppercase', letterSpacing: '1px', border: '1px solid rgba(255,255,255,0.3)', padding: '0.2rem 0.5rem', display: 'inline-block' }}>
-                          SamaCause.sn
+                          SunuYite.sn
                         </span>
                       </div>
                     </div>

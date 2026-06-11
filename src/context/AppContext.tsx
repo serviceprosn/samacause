@@ -218,7 +218,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'msg_welcome',
         sender: 'ia',
-        text: 'Sénégal Sama Cause Assistant IA 👋 ! Je peux vous aider à rédiger le titre, la description, les messages de partage WhatsApp, Facebook et concevoir une affiche publicitaire pour votre pétition ou cagnotte. Que souhaitez-vous mobiliser aujourd\'hui ?',
+        text: 'Sénégal Sunu Yité Assistant IA 👋 ! Je peux vous aider à rédiger le titre, la description, les messages de partage WhatsApp, Facebook et concevoir une affiche publicitaire pour votre pétition ou cagnotte. Que souhaitez-vous mobiliser aujourd\'hui ?',
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         suggestions: [
           'Créer un forage à Barkedji',
@@ -1124,9 +1124,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const toneEmoji = tone === 'Engagé' ? '🔥' : tone === 'Urgent' ? '⚠️' : '🤝';
 
-      const facebookPost = `${toneEmoji} APPEL À LA SOLIDARITÉ CITOYENNE : ${title.toUpperCase()} ${toneEmoji}\n\n📍 Sénégal, Région concernée.\n\n${description}\n\nChaque partage compte, chaque geste sauve. Rejoignez-nous pour transformer cette cause en impact réel !\n\n👉 Signez et donnez sur SamaCause.sn\n#SamaCause #Senegal #Solidarite #Impact`;
+      const facebookPost = `${toneEmoji} APPEL À LA SOLIDARITÉ CITOYENNE : ${title.toUpperCase()} ${toneEmoji}\n\n📍 Sénégal, Région concernée.\n\n${description}\n\nChaque partage compte, chaque geste sauve. Rejoignez-nous pour transformer cette cause en impact réel !\n\n👉 Signez et donnez sur SunuYite.sn\n#SunuYite #Senegal #Solidarite #Impact`;
 
-      const whatsappMessage = `*${toneEmoji} MObilisons-nous pour : ${title}* ${toneEmoji}\n\n${description.slice(0, 150)}...\n\nS\'il vous plaît, prenez 1 minute pour signer la pétition ou faire un don via Wave/Orange Money.\n\n👉 Lien de la cause : https://samacause.sn/campagne-live\n\n_Transmettez à vos groupes d\'entraide !_`;
+      const whatsappMessage = `*${toneEmoji} MObilisons-nous pour : ${title}* ${toneEmoji}\n\n${description.slice(0, 150)}...\n\nS\'il vous plaît, prenez 1 minute pour signer la pétition ou faire un don via Wave/Orange Money.\n\n👉 Lien de la cause : https://sunuyite.sn/campagne-live\n\n_Transmettez à vos groupes d\'entraide !_`;
 
       const flyerBg = tone === 'Urgent' ? 'radial-gradient(circle, #7f1d1d 0%, #111827 100%)' : 'radial-gradient(circle, #064e3b 0%, #111827 100%)';
       const flyerLayout = `
@@ -1156,7 +1156,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       setChatHistory(prev => [...prev, iaMsg]);
-      addNotification('🤖 Contenu de campagne généré par Sama Cause IA !');
+      addNotification('🤖 Contenu de campagne généré par Sunu Yité IA !');
     }, 1500);
   };
 
@@ -1165,7 +1165,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       {
         id: 'msg_welcome',
         sender: 'ia',
-        text: 'Sénégal Sama Cause Assistant IA 👋 ! Je peux vous aider à rédiger le titre, la description, les messages de partage WhatsApp, Facebook et concevoir une affiche publicitaire pour votre pétition ou cagnotte. Que souhaitez-vous mobiliser aujourd\'hui ?',
+        text: 'Sénégal Sunu Yité Assistant IA 👋 ! Je peux vous aider à rédiger le titre, la description, les messages de partage WhatsApp, Facebook et concevoir une affiche publicitaire pour votre pétition ou cagnotte. Que souhaitez-vous mobiliser aujourd\'hui ?',
         timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
         suggestions: [
           'Créer un forage à Barkedji',
@@ -1432,7 +1432,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           };
           setCurrentUser(newUser);
           setUsersList(prev => [...prev, newUser]);
-          addNotification('🎉 Compte créé ! Bienvenue sur Sama Cause.');
+          addNotification('🎉 Compte créé ! Bienvenue sur Sunu Yité.');
           return true;
         }
         return false;
@@ -1676,7 +1676,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setTimeout(() => {
       const receiver = usersList.find(u => u.id === receiverId);
       const receiverName = receiver ? receiver.name : "Citoyen";
-      const autoReplyText = `Merci pour votre message ! Je soutiens pleinement vos initiatives citoyennes. Discutons-en au prochain rassemblement Sama Cause !`;
+      const autoReplyText = `Merci pour votre message ! Je soutiens pleinement vos initiatives citoyennes. Discutons-en au prochain rassemblement Sunu Yité !`;
       
       const replyMsg: DirectMessage = {
         id: `msg_${Date.now() + 1}`,

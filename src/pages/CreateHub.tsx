@@ -443,7 +443,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
               </div>
 
               <div style={{ background: 'rgba(0,133,63,0.05)', border: '1px dashed var(--primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary-light)', lineHeight: 1.4 }}>
-                💡 En activant cette tontine, Sama Cause génère un calendrier de tirage transparent et envoie un SMS automatique d'invitation à vos participants.
+                💡 En activant cette tontine, Sunu Yité génère un calendrier de tirage transparent et envoie un SMS automatique d'invitation à vos participants.
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>

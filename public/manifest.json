@@ -1,10 +1,10 @@
 {
-  "name": "Sama Cause",
-  "short_name": "Sama Cause",
+  "name": "Sunu Yité",
+  "short_name": "Sunu Yité",
   "description": "Plateforme citoyenne et de financement participatif solidaire au Sénégal",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#00853F",
+  "background_color": "#0A3A60",
   "theme_color": "#00853F",
   "orientation": "portrait-primary",
   "icons": [
