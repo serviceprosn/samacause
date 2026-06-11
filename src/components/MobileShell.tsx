@@ -19,6 +19,18 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 }) => {
   const { toggleTheme, activeTheme, currentUser, isInstallable, installApp } = useApp();
 
+  const [showIOSBanner, setShowIOSBanner] = React.useState(false);
+
+  React.useEffect(() => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const isAppleDevice = /iphone|ipad|ipod/.test(userAgent);
+    const isStandaloneMode = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
+    
+    if (isAppleDevice && !isStandaloneMode) {
+      setShowIOSBanner(true);
+    }
+  }, []);
+
   return (
     <div className="mobile-shell-frame animate-fade-in">
       {/* Top Notch & Status Bar */}
@@ -154,6 +166,77 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           )}
         </div>
       </div>
+
+      {/* PWA Mobile Banner Android/Chrome */}
+      {isInstallable && (
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, var(--primary) 0%, #006630 100%)',
+            color: 'white',
+            padding: '0.65rem 1rem',
+            fontSize: '0.75rem',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            borderBottom: '1px solid rgba(255,255,255,0.1)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+            <span style={{ fontSize: '1.1rem' }}>📲</span>
+            <div>
+              <div style={{ fontWeight: 'bold' }}>Sama Cause App</div>
+              <div style={{ fontSize: '0.65rem', opacity: 0.9 }}>Ajouter à l'écran d'accueil</div>
+            </div>
+          </div>
+          <button 
+            onClick={installApp}
+            style={{
+              background: 'var(--secondary)',
+              color: 'var(--dark)',
+              padding: '0.35rem 0.75rem',
+              fontSize: '0.7rem',
+              borderRadius: 'var(--radius-sm)',
+              border: 'none',
+              fontWeight: 'bold',
+              cursor: 'pointer'
+            }}
+          >
+            INSTALLER
+          </button>
+        </div>
+      )}
+
+      {/* PWA Mobile Banner iOS/Safari */}
+      {showIOSBanner && (
+        <div 
+          style={{
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)',
+            color: 'white',
+            padding: '0.65rem 1rem',
+            fontSize: '0.75rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.3rem',
+            borderBottom: '1px solid rgba(255,255,255,0.1)'
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              <span style={{ fontSize: '1.1rem' }}>🍎</span>
+              <strong>Sama Cause sur iPhone</strong>
+            </div>
+            <button 
+              onClick={() => setShowIOSBanner(false)} 
+              style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: '0.9rem', cursor: 'pointer', padding: 0 }}
+            >
+              ✕
+            </button>
+          </div>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: '1.4' }}>
+            Pour installer, appuyez sur le bouton **Partager** <span style={{ fontSize: '0.9rem' }}>📤</span> dans Safari, puis sélectionnez **"Ajouter sur l'écran d'accueil"** <span style={{ fontSize: '0.9rem' }}>➕</span>.
+          </p>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="mobile-shell-content">
