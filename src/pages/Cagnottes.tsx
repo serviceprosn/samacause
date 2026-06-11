@@ -563,7 +563,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                     </p>
                   ) : (
                     currentCagnotte.donors.map((don, idx) => {
-                      const donorMatch = usersList.find(u => u.name.toLowerCase() === don.name.toLowerCase());
+                      const donorMatch = usersList.find(u => u.name && don.name && u.name.toLowerCase() === don.name.toLowerCase());
                       return (
                         <div key={idx} className="premium-card" style={{ background: 'var(--light)', padding: '1rem' }}>
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem', flexWrap: 'wrap' }}>

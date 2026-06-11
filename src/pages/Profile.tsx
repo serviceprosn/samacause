@@ -236,11 +236,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
 
   // Calculate stats based on current user name in mock data
   const signedPetitionsCount = petitions.filter(p => 
-    p.signers.some(s => s.name.toLowerCase() === currentUser.name.toLowerCase())
+    p.signers.some(s => (s.name || '').toLowerCase() === (currentUser?.name || '').toLowerCase())
   ).length;
 
   const userDonations = cagnottes.reduce((list: any[], c) => {
-    const matchingDons = c.donors.filter(d => d.name.toLowerCase() === currentUser.name.toLowerCase());
+    const matchingDons = c.donors.filter(d => (d.name || '').toLowerCase() === (currentUser?.name || '').toLowerCase());
     matchingDons.forEach(d => {
       list.push({ cagnotteTitle: c.title, amount: d.amount, date: d.date });
     });
@@ -250,7 +250,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const totalDonated = userDonations.reduce((sum, d) => sum + d.amount, 0);
 
   const appliedMissionsCount = volunteerApplications.filter(a => 
-    a.userName.toLowerCase() === currentUser.name.toLowerCase()
+    (a.userName || '').toLowerCase() === (currentUser?.name || '').toLowerCase()
   ).length;
 
   const handleUpdateSubmit = async (e: React.FormEvent) => {
@@ -987,9 +987,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             <div>
               {/* Petitions signed */}
               {petitions
-                .filter(p => p.signers.some(s => s.name.toLowerCase() === currentUser.name.toLowerCase()))
+                .filter(p => p.signers.some(s => (s.name || '').toLowerCase() === (currentUser?.name || '').toLowerCase()))
                 .map(p => {
-                  const mySig = p.signers.find(s => s.name.toLowerCase() === currentUser.name.toLowerCase());
+                  const mySig = p.signers.find(s => (s.name || '').toLowerCase() === (currentUser?.name || '').toLowerCase());
                   return (
                     <div key={`sig-${p.id}`} className="premium-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', background: 'var(--light-card)' }}>
                       <div>
@@ -1023,7 +1023,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
 
               {/* Volunteer applied */}
               {volunteerApplications
-                .filter(a => a.userName.toLowerCase() === currentUser.name.toLowerCase())
+                .filter(a => (a.userName || '').toLowerCase() === (currentUser?.name || '').toLowerCase())
                 .map(app => {
                   return (
                     <div key={`app-${app.id}`} className="premium-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', background: 'var(--light-card)' }}>

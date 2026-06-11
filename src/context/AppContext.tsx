@@ -466,7 +466,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 selfie: profile.selfie,
                 verificationStatus: profile.verification_status || 'none',
                 cniNumber: profile.cni_number,
-                dob: profile.dob
+                dob: profile.dob,
+                following: profile.following || [],
+                followers: profile.followers || []
               };
             } else {
               console.warn("⚠️ Profil de session introuvable. Création d'un profil de secours...");
@@ -503,7 +505,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 badges: [],
                 country: fallbackProfile.country,
                 region: fallbackProfile.region,
-                verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected'
+                verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected',
+                following: [],
+                followers: []
               };
             }
             setCurrentUser(matchedUser);
@@ -1352,7 +1356,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               selfie: profile.selfie,
               verificationStatus: profile.verification_status || 'none',
               cniNumber: profile.cni_number,
-              dob: profile.dob
+              dob: profile.dob,
+              following: profile.following || [],
+              followers: profile.followers || []
             };
             setCurrentUser(matchedUser);
             addNotification(`Bonjour, ${matchedUser.name} !`);
@@ -1391,7 +1397,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               badges: [],
               country: fallbackProfile.country,
               region: fallbackProfile.region,
-              verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected'
+              verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected',
+              following: [],
+              followers: []
             };
             setCurrentUser(matchedUser);
             addNotification(`Bonjour, ${matchedUser.name} (profil initialisé) !`);
@@ -1406,8 +1414,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
 
-    if (email.toLowerCase() === adminEmail.toLowerCase() && pass === adminPassword) {
-      const existingAdmin = usersList.find(u => u.email.toLowerCase() === adminEmail.toLowerCase());
+    if (email && adminEmail && email.toLowerCase() === adminEmail.toLowerCase() && pass === adminPassword) {
+      const existingAdmin = usersList.find(u => u.email && u.email.toLowerCase() === adminEmail.toLowerCase());
       const adminUser: User = {
         id: 'usr_admin_mouhameth',
         name: 'Mouhameth Sarr',
@@ -1423,11 +1431,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // Ensure admin exists in usersList or is updated
       setUsersList(prev => {
-        const index = prev.findIndex(u => u.email.toLowerCase() === adminEmail.toLowerCase());
+        const index = prev.findIndex(u => u.email && u.email.toLowerCase() === adminEmail.toLowerCase());
         if (index === -1) {
           return [adminUser, ...prev];
         } else {
-          return prev.map(u => u.email.toLowerCase() === adminEmail.toLowerCase() ? { ...u, ...adminUser } : u);
+          return prev.map(u => (u.email && u.email.toLowerCase() === adminEmail.toLowerCase()) ? { ...u, ...adminUser } : u);
         }
       });
 
@@ -1437,7 +1445,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Citizen login check
-    const existingUser = usersList.find(u => u.email.toLowerCase() === email.toLowerCase());
+    const existingUser = usersList.find(u => u.email && email && u.email.toLowerCase() === email.toLowerCase());
     if (existingUser) {
       const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
       const savedPass = mockPasswords[email.toLowerCase()];
@@ -1455,13 +1463,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // signup action
   const signup = async (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType: 'citizen' | 'company' | 'ngo' = 'citizen'): Promise<boolean> => {
-    if (!useSupabase && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    if (!useSupabase && email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
       alert("Cette adresse e-mail est réservée à l'administrateur.");
       return false;
     }
 
     const signupLocalFallback = async (): Promise<boolean> => {
-      if (usersList.some(u => u.email.toLowerCase() === email.toLowerCase())) {
+      if (usersList.some(u => u.email && email && u.email.toLowerCase() === email.toLowerCase())) {
         addNotification('❌ Cet email est déjà utilisé.');
         return false;
       }
@@ -1496,7 +1504,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (useSupabase) {
       try {
-        const isAdmin = email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        const isAdmin = email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
         const { data, error } = await supabase.auth.signUp({
           email,
           password: pass,
@@ -1641,7 +1649,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
     
     setCurrentUser(updatedUser);
-    setUsersList(prev => prev.map(u => u.email.toLowerCase() === currentUser.email.toLowerCase() ? { ...u, ...updatedUser } : u));
+    setUsersList(prev => prev.map(u => (u.id === currentUser.id || (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase())) ? { ...u, ...updatedUser } : u));
     
     if (useSupabase) {
       supabase.from('profiles').update({
@@ -1735,32 +1743,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     
     // Signatures
     const signedPetitionsCount = petitions.filter(p => 
-      p.signers.some(s => s.name.toLowerCase() === user.name.toLowerCase() || (user.email && s.name.toLowerCase() === user.email.toLowerCase()))
+      p.signers.some(s => {
+        const sNameLower = (s.name || '').toLowerCase();
+        const uNameLower = (user.name || '').toLowerCase();
+        const sEmailLower = (s.name || '').toLowerCase(); // sometimes signers email is mapped in name field
+        const uEmailLower = (user.email || '').toLowerCase();
+        return sNameLower === uNameLower || (uEmailLower && (sNameLower === uEmailLower || sEmailLower === uEmailLower));
+      })
     ).length;
     score += Math.min(10, signedPetitionsCount * 2);
     
     // Donations
     const donationsCount = cagnottes.reduce((sum, c) => {
-      const match = c.donors.filter(d => d.name.toLowerCase() === user.name.toLowerCase());
+      const match = c.donors.filter(d => (d.name || '').toLowerCase() === (user.name || '').toLowerCase());
       return sum + match.length;
     }, 0);
     score += Math.min(15, donationsCount * 3);
     
     // Volunteer applications
     const volunteerCount = volunteerApplications.filter(a => 
-      a.userName.toLowerCase() === user.name.toLowerCase()
+      (a.userName || '').toLowerCase() === (user.name || '').toLowerCase()
     ).length;
     score += Math.min(15, volunteerCount * 5);
     
     // Organized campaigns
-    const organizedCount = petitions.filter(p => p.organizer.id === user.id).length + 
-                           cagnottes.filter(c => c.organizer.id === user.id).length;
+    const organizedCount = petitions.filter(p => p.organizer?.id === user.id).length + 
+                           cagnottes.filter(c => c.organizer?.id === user.id).length;
     score += Math.min(20, organizedCount * 10);
     
     // Tontines joined/created
     const savedTontines = JSON.parse(localStorage.getItem('sc_tontines_list') || '[]');
     const tontinesCount = savedTontines.filter((t: any) => 
-      t.members.some((m: any) => m.name.toLowerCase() === user.name.toLowerCase() || (user.email && m.email.toLowerCase() === user.email.toLowerCase()))
+      t.members && t.members.some((m: any) => {
+        const mName = typeof m === 'string' ? m : m?.name;
+        const mEmail = typeof m === 'string' ? '' : m?.email;
+        const userNameLower = (user.name || '').toLowerCase();
+        const userEmailLower = (user.email || '').toLowerCase();
+        const mNameLower = (mName || '').toLowerCase();
+        const mEmailLower = (mEmail || '').toLowerCase();
+        return (mNameLower === userNameLower) || (userEmailLower && mEmailLower === userEmailLower);
+      })
     ).length;
     score += Math.min(15, tontinesCount * 5);
     
@@ -1773,7 +1795,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (newScore !== currentUser.trustScore) {
         const updatedUser = { ...currentUser, trustScore: newScore };
         setCurrentUser(updatedUser);
-        setUsersList(prev => prev.map(u => u.email.toLowerCase() === currentUser.email.toLowerCase() ? { ...u, trustScore: newScore } : u));
+        setUsersList(prev => prev.map(u => {
+          if (u.id === currentUser.id) return { ...u, trustScore: newScore };
+          const uEmail = (u.email || '').toLowerCase();
+          const curEmail = (currentUser.email || '').toLowerCase();
+          if (uEmail && curEmail && uEmail === curEmail) return { ...u, trustScore: newScore };
+          return u;
+        }));
         
         if (useSupabase) {
           supabase.from('profiles').update({ trust_score: newScore }).eq('id', currentUser.id).then(({ error }) => {

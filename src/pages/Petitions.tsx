@@ -526,7 +526,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   </p>
                 ) : (
                   currentPetition.signers.map((sig, idx) => {
-                    const signerMatch = usersList.find(u => u.name.toLowerCase() === sig.name.toLowerCase());
+                    const signerMatch = usersList.find(u => u.name && sig.name && u.name.toLowerCase() === sig.name.toLowerCase());
                     return (
                       <div 
                         key={idx} 

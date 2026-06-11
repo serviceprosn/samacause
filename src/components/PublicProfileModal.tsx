@@ -24,21 +24,29 @@ export const PublicProfileModal: React.FC = () => {
   const isFollowing = currentUser?.following?.includes(user.id);
 
   // Calculate stats
-  const organizedPetitions = petitions.filter(p => p.organizer.id === user.id && p.status === 'active');
-  const organizedCagnottes = cagnottes.filter(c => c.organizer.id === user.id && c.status === 'active');
+  const organizedPetitions = petitions.filter(p => p.organizer?.id === user.id && p.status === 'active');
+  const organizedCagnottes = cagnottes.filter(c => c.organizer?.id === user.id && c.status === 'active');
   
   const signedPetitionsCount = petitions.filter(p =>
-    p.signers.some(s => s.name.toLowerCase() === user.name.toLowerCase())
+    p.signers.some(s => (s.name || '').toLowerCase() === (user.name || '').toLowerCase())
   ).length;
 
   const donationsCount = cagnottes.reduce((sum, c) => {
-    const match = c.donors.filter(d => d.name.toLowerCase() === user.name.toLowerCase());
+    const match = c.donors.filter(d => (d.name || '').toLowerCase() === (user.name || '').toLowerCase());
     return sum + match.length;
   }, 0);
 
   const tontinesList = JSON.parse(localStorage.getItem('sc_tontines_list') || '[]');
   const tontinesCount = tontinesList.filter((t: any) =>
-    t.members.some((m: any) => m.name.toLowerCase() === user.name.toLowerCase() || (user.email && m.email.toLowerCase() === user.email.toLowerCase()))
+    t.members && t.members.some((m: any) => {
+      const mName = typeof m === 'string' ? m : m?.name;
+      const mEmail = typeof m === 'string' ? '' : m?.email;
+      const userNameLower = (user.name || '').toLowerCase();
+      const userEmailLower = (user.email || '').toLowerCase();
+      const mNameLower = (mName || '').toLowerCase();
+      const mEmailLower = (mEmail || '').toLowerCase();
+      return (mNameLower === userNameLower) || (userEmailLower && mEmailLower === userEmailLower);
+    })
   ).length;
 
   const getAccountTypeBadge = () => {

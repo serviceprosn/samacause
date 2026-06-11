@@ -120,7 +120,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     setSelectedGoogleEmail(gEmail);
     setSelectedGoogleName(gName);
 
-    const userExists = usersList.some(u => u.email.toLowerCase() === gEmail.toLowerCase());
+    const userExists = usersList.some(u => u.email && gEmail && u.email.toLowerCase() === gEmail.toLowerCase());
     if (userExists) {
       setGooglePassword('');
       setGoogleStep('password');
@@ -138,7 +138,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       const success = await login(selectedGoogleEmail, googlePassword);
       if (success) {
         setLocalGoogleAccounts(prev => {
-          if (!prev.some(a => a.email.toLowerCase() === selectedGoogleEmail.toLowerCase())) {
+          if (!prev.some(a => a.email && selectedGoogleEmail && a.email.toLowerCase() === selectedGoogleEmail.toLowerCase())) {
             const updated = [...prev, { email: selectedGoogleEmail, name: selectedGoogleName }];
             localStorage.setItem('sc_connected_google_accounts', JSON.stringify(updated));
             return updated;
@@ -181,7 +181,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       
       if (success) {
         setLocalGoogleAccounts(prev => {
-          if (!prev.some(a => a.email.toLowerCase() === selectedGoogleEmail.toLowerCase())) {
+          if (!prev.some(a => a.email && selectedGoogleEmail && a.email.toLowerCase() === selectedGoogleEmail.toLowerCase())) {
             const updated = [...prev, { email: selectedGoogleEmail, name: selectedGoogleName }];
             localStorage.setItem('sc_connected_google_accounts', JSON.stringify(updated));
             return updated;
@@ -211,7 +211,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   };
 
   const handleRemoveLocalGoogleAccount = (emailToRemove: string) => {
-    const updated = localGoogleAccounts.filter(a => a.email.toLowerCase() !== emailToRemove.toLowerCase());
+    const updated = localGoogleAccounts.filter(a => a.email && emailToRemove && a.email.toLowerCase() !== emailToRemove.toLowerCase());
     setLocalGoogleAccounts(updated);
     localStorage.setItem('sc_connected_google_accounts', JSON.stringify(updated));
     addNotification("Compte retiré de cet appareil.");

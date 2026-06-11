@@ -1111,7 +1111,8 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{currentTontine.name}</h2>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
                       Organisateur : {(() => {
-                        const orgMatch = usersList.find(u => u.name.toLowerCase() === currentTontine.organizer.name.toLowerCase());
+                        const orgName = typeof currentTontine.organizer === 'string' ? currentTontine.organizer : currentTontine.organizer?.name;
+                        const orgMatch = usersList.find(u => u.name && orgName && u.name.toLowerCase() === orgName.toLowerCase());
                         return (
                           <strong 
                             style={{ 
@@ -1124,13 +1125,13 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                             }}
                             title={orgMatch ? "Voir le profil de l'organisateur" : undefined}
                           >
-                            {currentTontine.organizer.name}
+                            {orgName}
                           </strong>
                         );
                       })()} | Type : <strong>{currentTontine.type === 'public' ? 'Public' : 'Privé'}</strong>
                     </span>
                   </div>
-                  {currentTontine.members.some(m => m.name?.toLowerCase() === (currentUser?.name || '').toLowerCase()) ? (
+                  {currentTontine.members.some(m => (typeof m === 'string' ? m : m.name)?.toLowerCase() === (currentUser?.name || '').toLowerCase()) ? (
                     <button 
                       className="btn btn-primary animate-pulse" 
                       onClick={() => openPaymentSimulation(currentTontine)}
@@ -1214,8 +1215,11 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                     <div>
                       <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>👥 Membres actifs et Score de Confiance :</strong>
                       <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        {currentTontine.members.map((member, i) => {
-                          const memMatch = usersList.find(u => u.name.toLowerCase() === member.name.toLowerCase());
+                        {currentTontine.members.map((member: any, i) => {
+                          const mName = typeof member === 'string' ? member : member?.name;
+                          const mReputation = typeof member === 'string' ? 'nouveau' : (member?.reputation || 'nouveau');
+                          const mRate = typeof member === 'string' ? 100 : (member?.rate || 100);
+                          const memMatch = usersList.find(u => u.name && mName && u.name.toLowerCase() === mName.toLowerCase());
                           return (
                             <div 
                               key={i} 
@@ -1236,21 +1240,21 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                               title={memMatch ? "Voir le profil de ce membre" : undefined}
                             >
                               <span style={{ textDecoration: memMatch ? 'underline' : 'none', color: memMatch ? 'var(--primary)' : 'inherit' }}>
-                                👤 {member.name}
+                                👤 {mName}
                               </span>
                               <span 
                                 style={{ 
                                   fontSize: '0.65rem', 
-                                  background: member.reputation === 'excellent' ? '#d1fae5' : member.reputation === 'fiable' ? '#dbeafe' : member.reputation === 'nouveau' ? '#fef3c7' : '#fee2e2',
-                                  color: member.reputation === 'excellent' ? '#065f46' : member.reputation === 'fiable' ? '#1e40af' : member.reputation === 'nouveau' ? '#92400e' : '#991b1b',
+                                  background: mReputation === 'excellent' ? '#d1fae5' : mReputation === 'fiable' ? '#dbeafe' : mReputation === 'nouveau' ? '#fef3c7' : '#fee2e2',
+                                  color: mReputation === 'excellent' ? '#065f46' : mReputation === 'fiable' ? '#1e40af' : mReputation === 'nouveau' ? '#92400e' : '#991b1b',
                                   padding: '0.1rem 0.4rem',
                                   borderRadius: '10px',
                                   fontWeight: 'bold'
                                 }}
                               >
-                                {member.reputation === 'excellent' ? '🥇 Excellent' : member.reputation === 'fiable' ? '🥈 Fiable' : member.reputation === 'nouveau' ? '🥉 Nouveau' : '⚠️ Sanctionné'}
+                                {mReputation === 'excellent' ? '🥇 Excellent' : mReputation === 'fiable' ? '🥈 Fiable' : mReputation === 'nouveau' ? '🥉 Nouveau' : '⚠️ Sanctionné'}
                               </span>
-                              <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>({member.rate}%)</span>
+                              <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>({mRate}%)</span>
                             </div>
                           );
                         })}
@@ -1615,7 +1619,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                     >
                       {currentTontine.chat.length > 0 ? (
                         currentTontine.chat.map((msg) => {
-                          const isMe = msg.sender.toLowerCase() === (currentUser?.name || '').toLowerCase();
+                          const isMe = (msg.sender || '').toLowerCase() === (currentUser?.name || '').toLowerCase();
                           return (
                             <div 
                               key={msg.id}
