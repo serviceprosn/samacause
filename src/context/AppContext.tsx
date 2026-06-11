@@ -371,17 +371,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             } else {
               console.warn("⚠️ Profil de session introuvable. Création d'un profil de secours...");
               const u = session.user;
+              const isSessionAdmin = u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
               const fallbackProfile = {
                 id: u.id,
                 name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Citoyen',
                 email: u.email || '',
                 phone: u.user_metadata?.phone || '',
-                role: (u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (u.user_metadata?.role || 'citizen'),
-                verified: u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? true : false,
-                trust_score: u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase() ? 100 : 50,
+                role: isSessionAdmin ? 'admin' : (u.user_metadata?.role || 'citizen'),
+                verified: isSessionAdmin ? true : false,
+                trust_score: isSessionAdmin ? 100 : 50,
                 avatar: u.user_metadata?.avatar_url || u.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
                 country: u.user_metadata?.country || 'Sénégal',
-                region: u.user_metadata?.region || 'Dakar'
+                region: u.user_metadata?.region || 'Dakar',
+                verification_status: isSessionAdmin ? 'verified' : 'none'
               };
 
               const { error: insertError } = await supabase.from('profiles').insert([fallbackProfile]);
@@ -394,13 +396,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 name: fallbackProfile.name,
                 email: fallbackProfile.email,
                 phone: fallbackProfile.phone,
-                role: fallbackProfile.role,
+                role: fallbackProfile.role as 'citizen' | 'organizer' | 'admin',
                 verified: fallbackProfile.verified,
                 avatar: fallbackProfile.avatar,
                 trustScore: fallbackProfile.trust_score,
                 badges: [],
                 country: fallbackProfile.country,
-                region: fallbackProfile.region
+                region: fallbackProfile.region,
+                verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected'
               };
             }
             setCurrentUser(matchedUser);
@@ -1192,17 +1195,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return true;
           } else {
             console.warn("⚠️ Profil introuvable dans la table profiles. Création d'un profil de secours...");
+            const isSessionAdmin = data.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
             const fallbackProfile = {
               id: data.user.id,
               name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Citoyen',
               email: data.user.email || '',
               phone: data.user.user_metadata?.phone || '',
-              role: (data.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (data.user.user_metadata?.role || 'citizen'),
-              verified: false,
-              trust_score: 50,
+              role: isSessionAdmin ? 'admin' : (data.user.user_metadata?.role || 'citizen'),
+              verified: isSessionAdmin ? true : false,
+              trust_score: isSessionAdmin ? 100 : 50,
               avatar: data.user.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
               country: data.user.user_metadata?.country || 'Sénégal',
-              region: data.user.user_metadata?.region || 'Dakar'
+              region: data.user.user_metadata?.region || 'Dakar',
+              verification_status: isSessionAdmin ? 'verified' : 'none'
             };
             
             const { error: insertError } = await supabase.from('profiles').insert([fallbackProfile]);
@@ -1215,13 +1220,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: fallbackProfile.name,
               email: fallbackProfile.email,
               phone: fallbackProfile.phone,
-              role: fallbackProfile.role,
+              role: fallbackProfile.role as 'citizen' | 'organizer' | 'admin',
               verified: fallbackProfile.verified,
               avatar: fallbackProfile.avatar,
               trustScore: fallbackProfile.trust_score,
               badges: [],
               country: fallbackProfile.country,
-              region: fallbackProfile.region
+              region: fallbackProfile.region,
+              verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected'
             };
             setCurrentUser(matchedUser);
             addNotification(`Bonjour, ${matchedUser.name} (profil initialisé) !`);
@@ -1237,24 +1243,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (email.toLowerCase() === adminEmail.toLowerCase() && pass === adminPassword) {
+      const existingAdmin = usersList.find(u => u.email.toLowerCase() === adminEmail.toLowerCase());
       const adminUser: User = {
         id: 'usr_admin_mouhameth',
         name: 'Mouhameth Sarr',
         email: adminEmail,
         phone: '+221 70 111 22 33',
-        role: 'admin',
-        verified: true,
         avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80',
-        trustScore: 100,
-        badges: ['leader', 'bienfaiteur', 'citoyen']
+        badges: ['leader', 'bienfaiteur', 'citoyen'],
+        ...existingAdmin, // preserves modified properties (phone, address, dob, CNI, verificationStatus, selfie, etc.)
+        role: 'admin',    // enforces admin role
+        verified: true,   // enforces verified status
+        trustScore: 100   // enforces trust score
       };
       
-      // Ensure admin exists in usersList
+      // Ensure admin exists in usersList or is updated
       setUsersList(prev => {
-        if (!prev.some(u => u.email.toLowerCase() === adminEmail.toLowerCase())) {
+        const index = prev.findIndex(u => u.email.toLowerCase() === adminEmail.toLowerCase());
+        if (index === -1) {
           return [adminUser, ...prev];
+        } else {
+          return prev.map(u => u.email.toLowerCase() === adminEmail.toLowerCase() ? { ...u, ...adminUser } : u);
         }
-        return prev;
       });
 
       setCurrentUser(adminUser);
