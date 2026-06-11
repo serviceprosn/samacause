@@ -59,29 +59,52 @@ export const MobileShell: React.FC<MobileShellProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
-          {/* AI Assistant button */}
-          <button 
-            className="btn" 
-            style={{ 
-              padding: '0.35rem 0.6rem', 
-              fontSize: '0.7rem', 
-              borderRadius: 'var(--radius-sm)',
-              background: 'var(--dark)',
-              color: 'white',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '0.25rem'
-            }}
-            onClick={() => {
-              if (currentUser) {
-                if (onOpenAi) onOpenAi();
-              } else {
-                if (onNavigate) onNavigate('auth', { openAiOnSuccess: true });
-              }
-            }}
-          >
-            🤖 <span>IA</span>
-          </button>
+          {/* Admin panel or AI Assistant button */}
+          {currentUser?.role === 'admin' ? (
+            <button 
+              className="btn" 
+              style={{ 
+                padding: '0.35rem 0.6rem', 
+                fontSize: '0.7rem', 
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--warning)',
+                color: 'var(--dark)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                fontWeight: 'bold',
+                border: '1px solid var(--warning)'
+              }}
+              onClick={() => {
+                if (onNavigate) onNavigate('admin');
+              }}
+            >
+              🛡️ <span>Admin</span>
+            </button>
+          ) : (
+            <button 
+              className="btn" 
+              style={{ 
+                padding: '0.35rem 0.6rem', 
+                fontSize: '0.7rem', 
+                borderRadius: 'var(--radius-sm)',
+                background: 'var(--dark)',
+                color: 'white',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem'
+              }}
+              onClick={() => {
+                if (currentUser) {
+                  if (onOpenAi) onOpenAi();
+                } else {
+                  if (onNavigate) onNavigate('auth', { openAiOnSuccess: true });
+                }
+              }}
+            >
+              🤖 <span>IA</span>
+            </button>
+          )}
 
           {/* Theme selector */}
           <button 

@@ -140,18 +140,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               <p className="carousel-desc">{item.desc}</p>
               <button 
                 className="btn btn-primary"
-                onClick={() => {
-                  const item = carouselItems[idx];
-                  if (item.type === 'cagnotte') {
-                    onNavigate('cagnottes', { id: item.id });
-                  } else if (item.type === 'petition') {
-                    onNavigate('petitions', { id: item.id });
-                  } else if (item.type === 'diaspora') {
-                    onNavigate('diaspora');
-                  } else if (item.type === 'benevolat') {
-                    onNavigate('benevolat');
-                  }
-                }}
+                onClick={() => onNavigate('explore')}
                 style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
               >
                 Rejoindre la cause ➔
@@ -303,7 +292,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <button 
             className="btn btn-outline" 
             style={{ width: '100%', marginTop: '0.5rem' }}
-            onClick={() => onNavigate('cagnottes')}
+            onClick={() => onNavigate('explore')}
           >
             Découvrir toutes les causes ➔
           </button>

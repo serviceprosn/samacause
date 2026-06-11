@@ -13,6 +13,7 @@ import { Logo } from './components/Logo';
 import { Auth } from './pages/Auth';
 import { CreateHub } from './pages/CreateHub';
 import { Tontines } from './pages/Tontines';
+import { Explorer } from './pages/Explorer';
 import { PublicProfileModal } from './components/PublicProfileModal';
 import { DirectChatPanel } from './components/DirectChatPanel';
 
@@ -139,7 +140,7 @@ const MainLayout: React.FC = () => {
       setCurrentPage('home');
       setNavParams(null);
     } else if (tab === 'explore') {
-      setCurrentPage('cagnottes');
+      setCurrentPage('explore');
       setNavParams(null);
     }
   };
@@ -147,7 +148,7 @@ const MainLayout: React.FC = () => {
   const getMobileActiveTab = () => {
     if (currentPage === 'home') return 'home';
     if (currentPage === 'create-hub') return 'create';
-    if (currentPage === 'cagnottes' || currentPage === 'petitions' || currentPage === 'benevolat' || currentPage === 'diaspora') return 'explore';
+    if (currentPage === 'explore' || currentPage === 'cagnottes' || currentPage === 'petitions' || currentPage === 'benevolat' || currentPage === 'diaspora') return 'explore';
     if (currentPage === 'profile') return 'profile';
     if (currentPage === 'auth') return 'profile';
     return 'explore';
@@ -158,6 +159,8 @@ const MainLayout: React.FC = () => {
     switch (currentPage) {
       case 'home':
         return <Home onNavigate={handleNavigate} />;
+      case 'explore':
+        return <Explorer onNavigate={handleNavigate} />;
       case 'petitions':
         return <Petitions initialPetitionId={navParams?.id} initialView={navParams?.view} initialAction={navParams?.action} onNavigate={handleNavigate} aiAppliedData={aiAppliedData} setAiAppliedData={setAiAppliedData} />;
       case 'cagnottes':
