@@ -277,12 +277,12 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   const activeTontinesCount = tontines.filter(t => t.status === 'active').length;
   
   // Taux de paiement moyen basé sur les membres
-  const totalPaymentRate = Math.round(
+  const totalPaymentRate = tontines.length > 0 ? Math.round(
     tontines.reduce((acc, t) => {
       const sum = t.members.reduce((sumM, m) => sumM + m.rate, 0);
       return acc + (t.members.length ? sum / t.members.length : 100);
     }, 0) / tontines.length
-  );
+  ) : 100;
 
   // -----------------------------------------
   // PAIEMENT ET COTISATION
@@ -668,7 +668,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   // -----------------------------------------
   const runAiRiskAnalysis = (tontine: Tontine) => {
     // Analyse factice basée sur le taux de paiement historique des membres
-    const averageRate = tontine.members.reduce((acc, m) => acc + m.rate, 0) / tontine.members.length;
+    const averageRate = tontine.members.length > 0 ? tontine.members.reduce((acc, m) => acc + m.rate, 0) / tontine.members.length : 100;
     const size = tontine.members.length;
     const amount = tontine.cotisation;
     
