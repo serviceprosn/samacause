@@ -40,8 +40,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const [editSelfie, setEditSelfie] = useState('');
   const [editVerificationStatus, setEditVerificationStatus] = useState<'none' | 'pending' | 'verified' | 'rejected'>('none');
 
+  const [showAvatarOptions, setShowAvatarOptions] = useState(false);
+  const [isDirectUpload, setIsDirectUpload] = useState(false);
+
   // Camera Overlay and Biometric Simulation states
-  const [cameraTarget, setCameraTarget] = useState<'recto' | 'verso' | 'selfie' | null>(null);
+  const [cameraTarget, setCameraTarget] = useState<'recto' | 'verso' | 'selfie' | 'avatar' | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const streamRef = React.useRef<MediaStream | null>(null);
@@ -73,7 +76,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     setCameraError(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: cameraTarget === 'selfie' ? 'user' : 'environment' } 
+        video: { facingMode: (cameraTarget === 'selfie' || cameraTarget === 'avatar') ? 'user' : 'environment' } 
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -109,7 +112,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
       canvas.height = video.videoHeight || 480;
       const ctx = canvas.getContext('2d');
       if (ctx) {
-        if (cameraTarget === 'selfie') {
+        if (cameraTarget === 'selfie' || cameraTarget === 'avatar') {
           ctx.translate(canvas.width, 0);
           ctx.scale(-1, 1);
         }
@@ -118,6 +121,27 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         if (cameraTarget === 'recto') setEditIdRecto(base64);
         else if (cameraTarget === 'verso') setEditIdVerso(base64);
         else if (cameraTarget === 'selfie') setEditSelfie(base64);
+        else if (cameraTarget === 'avatar') {
+          setEditAvatar(base64);
+          if (isDirectUpload && currentUser) {
+            updateProfile(
+              currentUser.name,
+              currentUser.phone,
+              base64,
+              currentUser.bio || '',
+              currentUser.address || '',
+              currentUser.country,
+              currentUser.region,
+              currentUser.idCardRecto,
+              currentUser.idCardVerso,
+              currentUser.selfie,
+              currentUser.verificationStatus,
+              currentUser.cniNumber,
+              currentUser.dob
+            );
+            addNotification('📸 Photo de profil mise à jour avec succès !');
+          }
+        }
         
         setCameraTarget(null);
         addNotification("📷 Capture photo réussie !");
@@ -342,7 +366,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         }}
       >
         <div 
-          onClick={() => document.getElementById('avatar-direct-upload')?.click()}
+          onClick={() => {
+            setEditAvatar(currentUser.avatar || '');
+            setIsDirectUpload(true);
+            setShowAvatarOptions(true);
+          }}
           style={{ 
             width: '100px', 
             height: '100px', 
@@ -359,7 +387,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             justifyContent: 'center',
             overflow: 'hidden'
           }} 
-          title="Cliquez pour changer directement votre photo de profil"
+          title="Cliquez pour voir ou modifier votre photo de profil"
         >
           {/* Subtle hover overlay to prompt upload */}
           <div 
@@ -382,34 +410,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
           >
-            📷
+            👁️📷
           </div>
         </div>
-        
-        <input
-          id="avatar-direct-upload"
-          type="file"
-          accept="image/*"
-          style={{ display: 'none' }}
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) {
-              const reader = new FileReader();
-              reader.onloadend = async () => {
-                const base64 = reader.result as string;
-                await updateProfile(
-                  currentUser.name,
-                  currentUser.phone,
-                  base64,
-                  currentUser.bio || '',
-                  currentUser.address || ''
-                );
-                addNotification('📸 Photo de profil mise à jour avec succès !');
-              };
-              reader.readAsDataURL(file);
-            }
-          }}
-        />
 
         <div style={{ flex: 1, minWidth: '250px' }}>
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
@@ -489,50 +492,55 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           {/* Aperçu de la photo de profil & Sélection d'avatars par défaut */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>
             <div 
+              onClick={() => {
+                setIsDirectUpload(false);
+                setShowAvatarOptions(true);
+              }}
               style={{
                 width: '100px',
                 height: '100px',
                 borderRadius: '50%',
-                backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE6di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 border: '3px solid var(--primary)',
-                boxShadow: 'var(--shadow-sm)'
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden'
               }}
-            />
-            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>
-              Photo de profil sélectionnée
-            </label>
-            
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
-              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>Choisir un avatar par défaut :</span>
-              <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', justifyContent: 'center' }}>
-                {[
-                  { name: 'Fatou', url: 'https://images.unsplash.com/photo-1531123897727-8f129e1688ce?w=150&fit=crop&q=80' },
-                  { name: 'Amady', url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&fit=crop&q=80' },
-                  { name: 'Mouhameth', url: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80' },
-                  { name: 'Awa', url: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=150&fit=crop&q=80' }
-                ].map((av, idx) => (
-                  <div 
-                    key={idx}
-                    onClick={() => setEditAvatar(av.url)}
-                    style={{
-                      width: '55px',
-                      height: '55px',
-                      borderRadius: '50%',
-                      backgroundImage: `url(${av.url})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      cursor: 'pointer',
-                      border: editAvatar === av.url ? '3px solid var(--primary)' : '1px solid var(--border-light)',
-                      transform: editAvatar === av.url ? 'scale(1.1)' : 'none',
-                      transition: 'var(--transition-fast)'
-                    }}
-                    title={av.name}
-                  />
-                ))}
+              title="Cliquez pour voir ou modifier votre photo de profil"
+            >
+              {/* Hover overlay to prompt edit */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'rgba(0,0,0,0.4)',
+                  opacity: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '1.1rem',
+                  transition: 'var(--transition-fast)',
+                  borderRadius: '50%'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+              >
+                👁️📷
               </div>
             </div>
+            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>
+              Photo de profil (cliquez pour voir ou modifier)
+            </label>
           </div>
 
           <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
@@ -1143,6 +1151,107 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         </button>
       </div>
 
+      {/* 0. AVATAR OPTIONS MODAL */}
+      {showAvatarOptions && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+          backgroundColor: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+          zIndex: 1500, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem'
+        }}>
+          <div className="glass animate-fade-in" style={{ width: '100%', maxWidth: '380px', background: 'var(--light-card)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', textAlign: 'center', border: '1.5px solid var(--primary)', boxShadow: 'var(--shadow-lg)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+              <strong style={{ fontSize: '1rem', fontWeight: 800 }}>🖼️ Photo de profil</strong>
+              <button type="button" className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', minWidth: 'auto' }} onClick={() => setShowAvatarOptions(false)}>✕</button>
+            </div>
+            
+            {/* Full Photo Preview */}
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '1.5rem' }}>
+              <div 
+                style={{
+                  width: '180px',
+                  height: '180px',
+                  borderRadius: '50%',
+                  backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  border: '4px solid var(--primary)',
+                  boxShadow: 'var(--shadow-md)'
+                }}
+              />
+            </div>
+
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem', lineHeight: 1.4 }}>
+              Visualisez votre photo de profil actuelle ou modifiez-la en sélectionnant l'une des options ci-dessous.
+            </p>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '0.65rem' }}
+                onClick={() => {
+                  setCameraTarget('avatar');
+                  setShowAvatarOptions(false);
+                }}
+              >
+                📷 Prendre en direct (Caméra)
+              </button>
+              
+              <label 
+                className="btn btn-outline" 
+                style={{ width: '100%', padding: '0.65rem', margin: 0, display: 'block', cursor: 'pointer', textAlign: 'center', boxSizing: 'border-box' }}
+              >
+                📁 Importer depuis mes fichiers
+                <input 
+                  type="file" 
+                  accept="image/*" 
+                  style={{ display: 'none' }} 
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = async () => {
+                        const base64 = reader.result as string;
+                        setEditAvatar(base64);
+                        setShowAvatarOptions(false);
+                        if (isDirectUpload && currentUser) {
+                          await updateProfile(
+                            currentUser.name,
+                            currentUser.phone,
+                            base64,
+                            currentUser.bio || '',
+                            currentUser.address || '',
+                            currentUser.country,
+                            currentUser.region,
+                            currentUser.idCardRecto,
+                            currentUser.idCardVerso,
+                            currentUser.selfie,
+                            currentUser.verificationStatus,
+                            currentUser.cniNumber,
+                            currentUser.dob
+                          );
+                          addNotification('📸 Photo de profil mise à jour avec succès !');
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} 
+                />
+              </label>
+              
+              <button 
+                type="button" 
+                className="btn btn-ghost" 
+                style={{ width: '100%', padding: '0.65rem' }}
+                onClick={() => setShowAvatarOptions(false)}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 1. CAMERA OVERLAY MODAL */}
       {cameraTarget && (
         <div style={{
@@ -1153,7 +1262,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           <div className="glass animate-fade-in" style={{ width: '100%', maxWidth: '480px', background: 'var(--light-card)', borderRadius: 'var(--radius-lg)', padding: '1.5rem', textAlign: 'center', border: '1.5px solid var(--primary)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <strong style={{ textTransform: 'capitalize' }}>
-                📷 Capture en direct - {cameraTarget === 'selfie' ? 'Selfie de contrôle' : `Pièce d'identité (${cameraTarget})`}
+                📷 Capture en direct - {cameraTarget === 'selfie' ? 'Selfie de contrôle' : (cameraTarget === 'avatar' ? 'Photo de profil' : `Pièce d'identité (${cameraTarget})`)}
               </strong>
               <button type="button" className="btn btn-ghost" style={{ padding: '0.2rem 0.5rem', minWidth: 'auto' }} onClick={() => setCameraTarget(null)}>✕</button>
             </div>
@@ -1162,13 +1271,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               <div style={{ color: 'var(--danger)', fontSize: '0.85rem', padding: '1.5rem 0' }}>⚠️ {cameraError}</div>
             ) : (
               <div style={{ position: 'relative', width: '100%', height: '280px', background: 'black', borderRadius: '8px', overflow: 'hidden', marginBottom: '1.5rem' }}>
-                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: cameraTarget === 'selfie' ? 'scaleX(-1)' : 'none' }} />
+                <video ref={videoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover', transform: (cameraTarget === 'selfie' || cameraTarget === 'avatar') ? 'scaleX(-1)' : 'none' }} />
                 <div style={{
                   position: 'absolute', top: '10%', left: '10%', width: '80%', height: '80%',
-                  border: '2px dashed rgba(255,255,255,0.5)', borderRadius: cameraTarget === 'selfie' ? '50%' : '8px',
+                  border: '2px dashed rgba(255,255,255,0.5)', borderRadius: (cameraTarget === 'selfie' || cameraTarget === 'avatar') ? '50%' : '8px',
                   pointerEvents: 'none', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'rgba(255,255,255,0.7)', fontSize: '0.75rem'
                 }}>
-                  {cameraTarget === 'selfie' ? 'Cadrez votre visage' : 'Cadrez le document'}
+                  {(cameraTarget === 'selfie' || cameraTarget === 'avatar') ? 'Cadrez votre visage' : 'Cadrez le document'}
                 </div>
               </div>
             )}
