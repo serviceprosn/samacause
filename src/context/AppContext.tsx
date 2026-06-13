@@ -50,6 +50,7 @@ interface AppContextType {
     cniNumber?: string,
     dob?: string
   ) => Promise<boolean>;
+  deleteAccount: () => Promise<boolean>;
   isProfileComplete: (user: User | null) => boolean;
   isBasicProfileComplete: (user: User | null) => boolean;
   signPetition: (id: string, name: string, email: string, phone: string) => Promise<boolean>;
@@ -1751,6 +1752,56 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  // deleteAccount action
+  const deleteAccount = async (): Promise<boolean> => {
+    if (!currentUser) return false;
+    const userId = currentUser.id;
+    const email = currentUser.email;
+
+    try {
+      if (useSupabase) {
+        // Delete profile row
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .delete()
+          .eq('id', userId);
+
+        if (profileError) {
+          console.error("Erreur lors de la suppression du profil dans Supabase :", profileError);
+          addNotification("❌ Impossible de supprimer le profil de la base de données.");
+          return false;
+        }
+
+        // Try to trigger self user deletion via RPC if configured
+        try {
+          await supabase.rpc('delete_user_self');
+        } catch (err) {
+          console.warn("RPC delete_user_self non configuré ou échec de l'appel direct, déconnexion...", err);
+        }
+
+        // Sign out auth user
+        await supabase.auth.signOut();
+      }
+
+      // Cleanup local lists
+      setUsersList(prev => prev.filter(u => u.id !== userId && (!u.email || u.email.toLowerCase() !== email.toLowerCase())));
+      
+      const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
+      if (email) {
+        delete mockPasswords[email.toLowerCase()];
+        localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
+      }
+
+      setCurrentUser(null);
+      addNotification("🗑️ Votre compte et toutes vos données personnelles ont été supprimés.");
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      addNotification(`❌ Erreur lors de la suppression: ${err.message}`);
+      return false;
+    }
+  };
+
   // GET PLATFORM KPIS
   const getKPIs = (): AdminKPIs => {
     const totalDonations = cagnottes
@@ -2072,6 +2123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // Actions
       updateProfile,
+      deleteAccount,
       signPetition,
       boostPetition,
       donateToCagnotte,

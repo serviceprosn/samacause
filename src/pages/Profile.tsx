@@ -19,7 +19,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     addNotification,
     usersList,
     unfollowUser,
-    setSelectedPublicUserId
+    setSelectedPublicUserId,
+    deleteAccount
   } = useApp();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -1058,7 +1059,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
       </section>
 
       {/* Bouton de déconnexion au bas de la page */}
-      <div style={{ marginTop: '3.5rem', marginBottom: '2rem', display: 'flex', justifyContent: 'center', width: '100%' }}>
+      <div style={{ marginTop: '3.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'center', width: '100%' }}>
         <button 
           className="btn" 
           style={{ 
@@ -1081,6 +1082,64 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           onClick={logout}
         >
           🚪 Se déconnecter
+        </button>
+      </div>
+
+      {/* Danger Zone - Supprimer mon compte */}
+      <div 
+        style={{ 
+          marginTop: '1rem', 
+          marginBottom: '3rem', 
+          display: 'flex', 
+          flexDirection: 'column', 
+          alignItems: 'center', 
+          width: '100%', 
+          padding: '1.5rem', 
+          border: '1px solid rgba(220, 53, 69, 0.3)', 
+          background: 'rgba(220, 53, 69, 0.05)', 
+          borderRadius: 'var(--radius-md)', 
+          maxWidth: '350px', 
+          marginLeft: 'auto', 
+          marginRight: 'auto',
+          textAlign: 'center'
+        }}
+      >
+        <h4 style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
+          ⚠️ Zone de Danger
+        </h4>
+        <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', lineHeight: 1.4, marginBottom: '1rem' }}>
+          La suppression de votre compte est définitive. Toutes vos données personnelles (CNI, selfie, adresse, coordonnées) seront effacées de notre base de données.
+        </p>
+        <button 
+          className="btn" 
+          style={{ 
+            padding: '0.65rem 1.5rem', 
+            fontSize: '0.85rem', 
+            color: 'white', 
+            background: 'var(--danger)', 
+            border: 'none',
+            borderRadius: 'var(--radius-sm)',
+            fontWeight: 'bold',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.5rem',
+            cursor: 'pointer',
+            justifyContent: 'center',
+            boxShadow: '0 2px 8px rgba(220, 53, 69, 0.2)',
+            width: '100%'
+          }}
+          onClick={async () => {
+            if (confirm("Êtes-vous absolument sûr de vouloir supprimer définitivement votre compte et toutes vos données personnelles ? Cette action est irréversible.")) {
+              const success = await deleteAccount();
+              if (success) {
+                if (onNavigate) {
+                  onNavigate('auth');
+                }
+              }
+            }
+          }}
+        >
+          🗑️ Supprimer mon compte
         </button>
       </div>
 
