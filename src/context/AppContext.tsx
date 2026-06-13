@@ -1464,21 +1464,48 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // signup action
   const signup = async (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType: 'citizen' | 'company' | 'ngo' = 'citizen'): Promise<boolean> => {
-    if (!useSupabase && email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) {
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPhone = phone.replace(/[\s-]/g, '');
+
+    // 1. Email format check
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(cleanEmail)) {
+      throw new Error("Veuillez saisir une adresse e-mail valide.");
+    }
+
+    // 2. Phone length check
+    if (cleanPhone.length < 7) {
+      throw new Error("Veuillez saisir un numéro de téléphone valide.");
+    }
+
+    // 3. Email and phone uniqueness checks on local usersList cache
+    const emailExists = usersList.some(u => u.email && u.email.toLowerCase() === cleanEmail);
+    if (emailExists) {
+      throw new Error("Cette adresse e-mail est déjà associée à un compte.");
+    }
+    const phoneExists = usersList.some(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone);
+    if (phoneExists) {
+      throw new Error("Ce numéro de téléphone est déjà associé à un compte.");
+    }
+
+    if (!useSupabase && cleanEmail === ADMIN_EMAIL.toLowerCase()) {
       alert("Cette adresse e-mail est réservée à l'administrateur.");
       return false;
     }
 
     const signupLocalFallback = async (): Promise<boolean> => {
-      if (usersList.some(u => u.email && email && u.email.toLowerCase() === email.toLowerCase())) {
-        addNotification('❌ Cet email est déjà utilisé.');
-        return false;
+      // Double check in fallback
+      if (usersList.some(u => u.email && u.email.toLowerCase() === cleanEmail)) {
+        throw new Error("Cette adresse e-mail est déjà associée à un compte.");
+      }
+      if (usersList.some(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone)) {
+        throw new Error("Ce numéro de téléphone est déjà associé à un compte.");
       }
 
       const newUser: User = {
         id: `usr_${Math.random().toString(36).substr(2, 9)}`,
         name,
-        email,
+        email: cleanEmail,
         phone,
         role: 'citizen',
         verified: false,
@@ -1494,7 +1521,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       // Save password in mock database
       const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
-      mockPasswords[email.toLowerCase()] = pass;
+      mockPasswords[cleanEmail] = pass;
       localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
 
       setUsersList(prev => [...prev, newUser]);
@@ -1505,9 +1532,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (useSupabase) {
       try {
-        const isAdmin = email && email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+        // 4. Supabase DB Uniqueness Checks before calling auth.signUp
+        const { data: existingProfiles, error: checkError } = await supabase
+          .from('profiles')
+          .select('id, email, phone')
+          .or(`email.eq.${cleanEmail},phone.eq.${cleanPhone}`);
+
+        if (checkError) {
+          console.error("Erreur lors de la vérification d'unicité dans Supabase :", checkError);
+        } else if (existingProfiles && existingProfiles.length > 0) {
+          const emailDuplicate = existingProfiles.some(p => p.email && p.email.toLowerCase() === cleanEmail);
+          const phoneDuplicate = existingProfiles.some(p => p.phone && p.phone.replace(/[\s-]/g, '') === cleanPhone);
+          if (emailDuplicate) {
+            throw new Error("Cette adresse e-mail est déjà associée à un compte.");
+          }
+          if (phoneDuplicate) {
+            throw new Error("Ce numéro de téléphone est déjà associé à un compte.");
+          }
+        }
+
+        const isAdmin = cleanEmail === ADMIN_EMAIL.toLowerCase();
         const { data, error } = await supabase.auth.signUp({
-          email,
+          email: cleanEmail,
           password: pass,
           options: {
             data: {
@@ -1537,7 +1583,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const newProfile = {
             id: data.user.id,
             name,
-            email,
+            email: cleanEmail,
             phone,
             role: isAdmin ? 'admin' : 'citizen',
             verified: isAdmin ? true : false,
@@ -1556,7 +1602,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           const newUser: User = {
             id: data.user.id,
             name,
-            email,
+            email: cleanEmail,
             phone,
             role: isAdmin ? 'admin' : 'citizen',
             verified: isAdmin ? true : false,

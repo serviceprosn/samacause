@@ -21,8 +21,41 @@
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js')
-            .then((reg) => console.log('SW enregistré avec succès ! Scope:', reg.scope))
+            .then((reg) => {
+              console.log('SW enregistré avec succès ! Scope:', reg.scope);
+              
+              // Check for service worker updates every 15 minutes
+              setInterval(() => {
+                reg.update();
+              }, 1000 * 60 * 15);
+
+              // Update detection
+              reg.onupdatefound = () => {
+                const installingWorker = reg.installing;
+                if (installingWorker) {
+                  installingWorker.onstatechange = () => {
+                    if (installingWorker.state === 'installed') {
+                      if (navigator.serviceWorker.controller) {
+                        // Prompt user to update
+                        if (confirm("Une nouvelle version de l'application Sunu Yité est disponible. Souhaitez-vous mettre à jour maintenant ?")) {
+                          window.location.reload();
+                        }
+                      }
+                    }
+                  };
+                }
+              };
+            })
             .catch((err) => console.error('SW échec d\'enregistrement :', err));
+
+          // Reload page when the new Service Worker takes over control
+          let refreshing = false;
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+              refreshing = true;
+              window.location.reload();
+            }
+          });
         });
       }
     </script>

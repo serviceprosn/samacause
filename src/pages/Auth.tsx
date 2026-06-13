@@ -89,11 +89,43 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           setLoading(false);
           return;
         }
+
+        // 1. Email format check
+        const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+        if (!emailRegex.test(email)) {
+          setError("Veuillez saisir une adresse e-mail valide.");
+          setLoading(false);
+          return;
+        }
+
+        // 2. Phone format check (clean spaces and hyphens first)
+        const cleanPhone = phone.replace(/[\s-]/g, '');
+        if (cleanPhone.length < 7) {
+          setError("Veuillez saisir un numéro de téléphone valide.");
+          setLoading(false);
+          return;
+        }
+
+        // 3. Uniqueness checks on local usersList
+        const emailExists = usersList.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+        if (emailExists) {
+          setError("Cette adresse e-mail est déjà associée à un compte.");
+          setLoading(false);
+          return;
+        }
+
+        const phoneExists = usersList.some(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone);
+        if (phoneExists) {
+          setError("Ce numéro de téléphone est déjà associé à un compte.");
+          setLoading(false);
+          return;
+        }
+
         const success = await signup(name, email, phone, password, country, country === 'Sénégal' ? region : 'Diaspora', accountType);
         if (success) {
           onSuccess();
         } else {
-          setError('Inscription impossible. Cet e-mail est peut-être déjà utilisé.');
+          setError("Inscription impossible. L'adresse e-mail ou le numéro de téléphone est déjà utilisé.");
         }
       }
     } catch (err: any) {
@@ -503,27 +535,31 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               </button>
             </form>
 
-            {/* Separator and Google Login */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem 0' }}>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>ou</span>
-              <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
-            </div>
+            {/* Google Login button disabled for now */}
+            {false && (
+              <>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem 0' }}>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>ou</span>
+                  <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
+                </div>
 
-            <button 
-              type="button" 
-              className="btn btn-outline" 
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444', borderColor: '#e2e8f0', marginBottom: '1rem' }}
-              onClick={handleGoogleLoginClick}
-            >
-              <svg width="18" height="18" viewBox="0 0 18 18" style={{ marginRight: '4px' }}>
-                <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.71v2.24h2.91c1.7-1.56 2.69-3.86 2.69-6.58z"/>
-                <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.24c-.8.54-1.84.87-3.05.87-2.34 0-4.33-1.58-5.03-3.7H.95v2.3C2.43 15.89 5.5 18 9 18z"/>
-                <path fill="#FBBC05" d="M3.97 10.75c-.18-.54-.28-1.12-.28-1.75s.1-1.21.28-1.75V4.95H.95C.34 6.16 0 7.54 0 9s.34 2.84.95 4.05l3.02-2.3z"/>
-                <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.4C13.46.99 11.42 0 9 0 5.5 0 2.43 2.11.95 5.09l3.02 2.3c.7-2.12 2.69-3.7 5.03-3.7z"/>
-              </svg>
-              Continuer avec Google
-            </button>
+                <button 
+                  type="button" 
+                  className="btn btn-outline" 
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444', borderColor: '#e2e8f0', marginBottom: '1rem' }}
+                  onClick={handleGoogleLoginClick}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18" style={{ marginRight: '4px' }}>
+                    <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.71v2.24h2.91c1.7-1.56 2.69-3.86 2.69-6.58z"/>
+                    <path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.91-2.24c-.8.54-1.84.87-3.05.87-2.34 0-4.33-1.58-5.03-3.7H.95v2.3C2.43 15.89 5.5 18 9 18z"/>
+                    <path fill="#FBBC05" d="M3.97 10.75c-.18-.54-.28-1.12-.28-1.75s.1-1.21.28-1.75V4.95H.95C.34 6.16 0 7.54 0 9s.34 2.84.95 4.05l3.02-2.3z"/>
+                    <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.4C13.46.99 11.42 0 9 0 5.5 0 2.43 2.11.95 5.09l3.02 2.3c.7-2.12 2.69-3.7 5.03-3.7z"/>
+                  </svg>
+                  Continuer avec Google
+                </button>
+              </>
+            )}
 
             <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
               {mode === 'login' ? (
@@ -555,7 +591,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
       </div>
 
       {/* GOOGLE SIGN IN MODAL */}
-      {showGoogleModal && (
+      {false && showGoogleModal && (
         <div 
           style={{
             position: 'fixed',
