@@ -23,6 +23,8 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
   // Google Login & Remember me states
   const [rememberMe, setRememberMe] = useState(true);
+  const [isConfirmationPending, setIsConfirmationPending] = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState('');
   const [showGoogleModal, setShowGoogleModal] = useState(false);
   const [googleStep, setGoogleStep] = useState<'accounts' | 'password' | 'region'>('accounts');
   const [selectedGoogleEmail, setSelectedGoogleEmail] = useState('');
@@ -121,9 +123,14 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
           return;
         }
 
-        const success = await signup(name, email, phone, password, country, country === 'Sénégal' ? region : 'Diaspora', accountType);
-        if (success) {
-          onSuccess();
+        const result = await signup(name, email, phone, password, country, country === 'Sénégal' ? region : 'Diaspora', accountType);
+        if (result.success) {
+          if (result.needsConfirmation) {
+            setIsConfirmationPending(true);
+            setRegisteredEmail(email);
+          } else {
+            onSuccess();
+          }
         } else {
           setError("Inscription impossible. L'adresse e-mail ou le numéro de téléphone est déjà utilisé.");
         }
@@ -201,7 +208,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     try {
       const mockPhone = '';
       
-      const success = await signup(
+      const result = await signup(
         selectedGoogleName,
         selectedGoogleEmail,
         mockPhone,
@@ -211,7 +218,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         accountType
       );
       
-      if (success) {
+      if (result.success) {
         setLocalGoogleAccounts(prev => {
           if (!prev.some(a => a.email && selectedGoogleEmail && a.email.toLowerCase() === selectedGoogleEmail.toLowerCase())) {
             const updated = [...prev, { email: selectedGoogleEmail, name: selectedGoogleName }];
@@ -222,7 +229,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         });
 
         setShowGoogleModal(false);
-        onSuccess();
+        if (result.needsConfirmation) {
+          setIsConfirmationPending(true);
+          setRegisteredEmail(selectedGoogleEmail);
+        } else {
+          onSuccess();
+        }
       } else {
         setError("Ce compte est déjà enregistré. Veuillez entrer votre mot de passe pour vous connecter.");
         setGoogleStep('password');
@@ -281,7 +293,62 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
         {/* Right Side: Form panel */}
         <div className="auth-form-panel">
-          <div style={{ width: '100%', maxWidth: '340px', textAlign: 'center' }}>
+          {isConfirmationPending ? (
+            <div style={{ width: '100%', maxWidth: '340px', textAlign: 'center' }} className="animate-fade-in">
+              <Logo size={45} style={{ marginBottom: '1.5rem' }} />
+              <div style={{ fontSize: '3.5rem', marginBottom: '1rem', animation: 'float 2s infinite' }}>📧</div>
+              <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
+                Confirmation requise
+              </h2>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
+                Un e-mail de confirmation a été envoyé à l'adresse suivante :
+              </p>
+              <div 
+                style={{ 
+                  background: 'var(--light)', 
+                  border: '1.5px solid var(--border-light)', 
+                  padding: '0.75rem 1rem', 
+                  borderRadius: 'var(--radius-md)', 
+                  fontWeight: 'bold', 
+                  fontSize: '0.9rem', 
+                  color: 'var(--primary)',
+                  marginBottom: '1.5rem',
+                  wordBreak: 'break-all'
+                }}
+              >
+                {registeredEmail}
+              </div>
+              <div 
+                className="premium-card" 
+                style={{ 
+                  background: 'rgba(0, 133, 63, 0.05)', 
+                  border: '1px solid rgba(0, 133, 63, 0.2)', 
+                  borderRadius: 'var(--radius-md)', 
+                  padding: '1rem',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-primary-light)',
+                  lineHeight: 1.5,
+                  textAlign: 'left',
+                  marginBottom: '2rem'
+                }}
+              >
+                💡 <strong>Étape suivante</strong> : Ouvrez votre messagerie (vérifiez aussi le dossier Courriers indésirables / Spams) et cliquez sur le lien d'activation reçu pour confirmer votre compte. Une fois activé, vous pourrez vous connecter immédiatement.
+              </div>
+              <button 
+                type="button" 
+                className="btn btn-primary" 
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold' }}
+                onClick={() => {
+                  setIsConfirmationPending(false);
+                  setMode('login');
+                  setError('');
+                }}
+              >
+                Retourner à la connexion ➔
+              </button>
+            </div>
+          ) : (
+            <div style={{ width: '100%', maxWidth: '340px', textAlign: 'center' }}>
             {/* Logo and Brand */}
             <div style={{ marginBottom: '1.5rem' }}>
               <Logo size={45} style={{ marginBottom: '0.5rem' }} />
@@ -587,6 +654,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               )}
             </div>
           </div>
+          )}
         </div>
       </div>
 

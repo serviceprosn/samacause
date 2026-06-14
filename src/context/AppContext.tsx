@@ -6,7 +6,7 @@ interface AppContextType {
   currentUser: User | null;
   setCurrentUser: (user: User | null) => void;
   login: (email: string, pass: string) => Promise<boolean>;
-  signup: (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType?: 'citizen' | 'company' | 'ngo') => Promise<boolean>;
+  signup: (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType?: 'citizen' | 'company' | 'ngo') => Promise<{ success: boolean; needsConfirmation: boolean }>;
   logout: () => void;
   loginWithGoogle: () => Promise<void>;
   useSupabase: boolean;
@@ -1515,7 +1515,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // signup action
-  const signup = async (name: string, email: string, phone: string, pass: string, country: string, region: string, accountType: 'citizen' | 'company' | 'ngo' = 'citizen'): Promise<boolean> => {
+  const signup = async (
+    name: string, 
+    email: string, 
+    phone: string, 
+    pass: string, 
+    country: string, 
+    region: string, 
+    accountType: 'citizen' | 'company' | 'ngo' = 'citizen'
+  ): Promise<{ success: boolean; needsConfirmation: boolean }> => {
     const cleanEmail = email.trim().toLowerCase();
     const cleanPhone = phone.replace(/[\s-]/g, '');
 
@@ -1525,12 +1533,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error("Veuillez saisir une adresse e-mail valide.");
     }
 
-    // 2. Phone length check
+    // 2. Strict disposable email domain blacklist check
+    const domain = cleanEmail.split('@')[1];
+    const DISPOSABLE_DOMAINS = [
+      'yopmail.com', 'mailinator.com', 'tempmail.com', 'temp-mail.org', 
+      '10minutemail.com', 'guerrillamail.com', 'getairmail.com', 'sharklasers.com', 
+      'dispostable.com', 'crazymailing.com', 'tempmailaddress.com', 'yopmail.fr', 
+      'yopmail.net', 'cool.fr.nf', 'jetable.fr.nf', 'courriel.fr.nf', 'moncourrier.fr.nf',
+      'monemail.fr.nf', 'monmail.fr.nf', 'tempmail.dev', 'tempmail.net'
+    ];
+    if (DISPOSABLE_DOMAINS.includes(domain)) {
+      throw new Error("Les adresses e-mail temporaires ou jetables ne sont pas autorisées pour s'inscrire.");
+    }
+
+    // 3. Phone length check
     if (cleanPhone.length < 7) {
       throw new Error("Veuillez saisir un numéro de téléphone valide.");
     }
 
-    // 3. Email and phone uniqueness checks on local usersList cache
+    // 4. Email and phone uniqueness checks on local usersList cache
     const emailExists = usersList.some(u => u.email && u.email.toLowerCase() === cleanEmail);
     if (emailExists) {
       throw new Error("Cette adresse e-mail est déjà associée à un compte.");
@@ -1542,10 +1563,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (!useSupabase && cleanEmail === ADMIN_EMAIL.toLowerCase()) {
       alert("Cette adresse e-mail est réservée à l'administrateur.");
-      return false;
+      return { success: false, needsConfirmation: false };
     }
 
-    const signupLocalFallback = async (): Promise<boolean> => {
+    const signupLocalFallback = async (): Promise<{ success: boolean; needsConfirmation: boolean }> => {
       // Double check in fallback
       if (usersList.some(u => u.email && u.email.toLowerCase() === cleanEmail)) {
         throw new Error("Cette adresse e-mail est déjà associée à un compte.");
@@ -1583,12 +1604,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUsersList(prev => [...prev, newUser]);
       setCurrentUser(newUser);
       addNotification('⚠️ [Mode Secours] Inscription locale réussie suite à une limite de Supabase.');
-      return true;
+      return { success: true, needsConfirmation: false };
     };
 
     if (useSupabase) {
       try {
-        // 4. Supabase DB Uniqueness Checks before calling auth.signUp
+        // 5. Supabase DB Uniqueness Checks before calling auth.signUp
         const { data: existingProfiles, error: checkError } = await supabase
           .from('profiles')
           .select('id, email, phone')
@@ -1618,7 +1639,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               role: isAdmin ? 'admin' : 'citizen',
               verified: isAdmin ? true : false,
               trust_score: isAdmin ? 100 : 50,
-              avatar: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE6di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
+              avatar: 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
               country,
               region,
               account_type: accountType
@@ -1671,12 +1692,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             following: [],
             followers: []
           };
-          setCurrentUser(newUser);
-          setUsersList(prev => [...prev, newUser]);
-          addNotification('🎉 Compte créé ! Bienvenue sur Sunu Yité.');
-          return true;
+          
+          if (data.session) {
+            setCurrentUser(newUser);
+            setUsersList(prev => [...prev, newUser]);
+            addNotification('🎉 Compte créé ! Bienvenue sur Sunu Yité.');
+            return { success: true, needsConfirmation: false };
+          } else {
+            addNotification('📧 Un e-mail de confirmation a été envoyé. Veuillez activer votre compte via le lien reçu.');
+            return { success: true, needsConfirmation: true };
+          }
         }
-        return false;
+        return { success: false, needsConfirmation: false };
       } catch (err: any) {
         console.error(err);
         if (err.message.toLowerCase().includes('rate limit') || err.message.toLowerCase().includes('rate_limit')) {
