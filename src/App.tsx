@@ -33,7 +33,8 @@ const MainLayout: React.FC = () => {
     directMessages,
     activeChatUserId,
     isInstallable,
-    installApp
+    installApp,
+    useSupabase
   } = useApp();
 
   const [currentPage, setCurrentPage] = useState('home');
@@ -511,6 +512,16 @@ const MainLayout: React.FC = () => {
             <div>
               <strong style={{ color: 'var(--text-primary-light)' }}>Sunu Yité © 2026</strong>
               <div style={{ marginTop: '0.25rem' }}>Plateforme d'impact et de mobilisation citoyenne solidaire au Sénégal.</div>
+              <div style={{ marginTop: '0.5rem', fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <span style={{ 
+                  width: '7px', 
+                  height: '7px', 
+                  borderRadius: '50%', 
+                  backgroundColor: useSupabase ? '#00853F' : '#f59e0b',
+                  display: 'inline-block'
+                }} />
+                <span>Base de données : <strong>{useSupabase ? 'Supabase (En ligne)' : 'Mode Secours (Local)'}</strong></span>
+              </div>
             </div>
             <div style={{ display: 'flex', gap: '1.5rem' }}>
               <a href="#charte">Charte de confiance</a>

@@ -17,7 +17,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   onOpenAi,
   onNavigate
 }) => {
-  const { toggleTheme, activeTheme, currentUser } = useApp();
+  const { toggleTheme, activeTheme, currentUser, useSupabase } = useApp();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -291,6 +291,18 @@ export const MobileShell: React.FC<MobileShellProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Database Connection Badge */}
+            <div style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-light)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary-light)' }}>
+              <span style={{ 
+                width: '6px', 
+                height: '6px', 
+                borderRadius: '50%', 
+                backgroundColor: useSupabase ? '#00853F' : '#f59e0b',
+                display: 'inline-block'
+              }} />
+              <span>Base : {useSupabase ? 'En ligne (Supabase)' : 'Hors-ligne (Local)'}</span>
+            </div>
           </div>
         </div>
       )}
