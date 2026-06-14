@@ -964,7 +964,8 @@ export const Admin: React.FC = () => {
                             onClick={() => {
                               adminUpdateUser(user.id, { 
                                 verificationStatus: 'rejected', 
-                                verified: false 
+                                verified: false,
+                                trustScore: 50
                               });
                             }}
                           >

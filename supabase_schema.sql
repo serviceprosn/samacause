@@ -19,8 +19,18 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     address TEXT,
     country TEXT,
     region TEXT,
+    id_card_recto TEXT,
+    id_card_verso TEXT,
+    selfie TEXT,
+    verification_status TEXT DEFAULT 'none' CHECK (verification_status IN ('none', 'pending', 'verified', 'rejected')),
+    cni_number TEXT,
+    dob TEXT,
+    account_type TEXT DEFAULT 'citizen' CHECK (account_type IN ('citizen', 'company', 'ngo')),
+    following TEXT[] DEFAULT '{}',
+    followers TEXT[] DEFAULT '{}',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
+
 
 -- Activez la sécurité de niveau ligne (RLS)
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;

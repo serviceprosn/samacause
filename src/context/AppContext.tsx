@@ -1688,8 +1688,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ): Promise<boolean> => {
     if (!currentUser) return false;
 
-    const isVerified = (verificationStatus === 'verified' || currentUser.verificationStatus === 'verified') ? true : currentUser.verified;
-    const newTrustScore = (verificationStatus === 'verified' || currentUser.verificationStatus === 'verified') ? 100 : currentUser.trustScore;
+    let isVerified = currentUser.verified;
+    if (verificationStatus === 'verified') {
+      isVerified = true;
+    } else if (verificationStatus === 'pending' || verificationStatus === 'rejected') {
+      isVerified = false;
+    }
 
     const updatedUser: User = {
       ...currentUser,
@@ -1707,8 +1711,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cniNumber: cniNumber !== undefined ? cniNumber : currentUser.cniNumber,
       dob: dob !== undefined ? dob : currentUser.dob,
       verified: isVerified,
-      trustScore: newTrustScore
+      trustScore: isVerified ? 100 : 50 // Will be calculated dynamically below
     };
+
+    updatedUser.trustScore = isVerified ? 100 : recalculateUserTrustScore(updatedUser);
+    const newTrustScore = updatedUser.trustScore;
     
     setCurrentUser(updatedUser);
     setUsersList(prev => prev.map(u => (u.id === currentUser.id || (u.email && currentUser.email && u.email.toLowerCase() === currentUser.email.toLowerCase())) ? { ...u, ...updatedUser } : u));

@@ -185,7 +185,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     setTimeout(() => {
       setVerificationProgress(100);
       setVerificationStep('success');
-      setEditVerificationStatus('verified');
+      setEditVerificationStatus('pending');
       
       updateProfile(
         editName,
@@ -198,11 +198,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         editIdRecto,
         editIdVerso,
         editSelfie,
-        'verified',
+        'pending',
         editCniNumber,
         editDob
       ).then(() => {
-        addNotification("✅ Identité vérifiée et certifiée !");
+        addNotification("⏳ Dossier KYC soumis pour validation !");
       });
       
     }, 6500);
@@ -309,7 +309,32 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   return (
     <div className="animate-fade-in animate-slide-up" style={{ paddingBottom: '3rem' }}>
       {/* WARNING BANNER FOR INCOMPLETE PROFILE */}
-      {isProfileIncomplete && (
+      {currentUser.verificationStatus === 'pending' ? (
+        <div 
+          className="premium-card animate-fade-in" 
+          style={{ 
+            background: 'rgba(252, 209, 22, 0.05)', 
+            border: '1.5px solid var(--secondary)', 
+            borderRadius: 'var(--radius-md)', 
+            padding: '1.25rem',
+            marginBottom: '2rem',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.5rem',
+            textAlign: 'left'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+            <span style={{ fontSize: '1.5rem' }}>⏳</span>
+            <strong style={{ color: 'var(--secondary-dark)', fontSize: '1.05rem' }}>
+              Votre configuration pour votre clé KYC est en cours
+            </strong>
+          </div>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0, lineHeight: '1.4' }}>
+            Vos documents (pièce d'identité et selfie de contrôle) ont été soumis. Un administrateur examine actuellement votre dossier pour valider votre profil citoyen. Vous recevrez une notification dès que la vérification sera complétée.
+          </p>
+        </div>
+      ) : isProfileIncomplete && (
         <div 
           className="premium-card animate-fade-in" 
           style={{ 
@@ -442,6 +467,14 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             {currentUser.verificationStatus === 'verified' ? (
               <span style={{ fontSize: '0.75rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(0,133,63,0.2)' }}>
                 🛡️ Identité Certifiée
+              </span>
+            ) : currentUser.verificationStatus === 'pending' ? (
+              <span style={{ fontSize: '0.75rem', background: 'rgba(252,209,22,0.15)', color: 'var(--secondary-dark)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(252,209,22,0.3)' }}>
+                ⏳ Certification en cours
+              </span>
+            ) : currentUser.verificationStatus === 'rejected' ? (
+              <span style={{ fontSize: '0.75rem', background: 'rgba(217,83,79,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(217,83,79,0.2)' }}>
+                ❌ KYC rejeté (Veuillez resoumettre)
               </span>
             ) : (
               <span style={{ fontSize: '0.75rem', background: 'rgba(217,83,79,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(217,83,79,0.2)' }}>
@@ -1310,14 +1343,14 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               {verificationStep === 'scan' && "Numérisation des pièces..."}
               {verificationStep === 'ocr' && "Extraction des données (OCR)..."}
               {verificationStep === 'face' && "Comparaison Faciale Biométrique..."}
-              {verificationStep === 'success' && "Certification d'Identité Réussie !"}
+              {verificationStep === 'success' && "Dossier KYC Soumis !"}
             </h3>
             
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem', lineHeight: 1.4 }}>
               {verificationStep === 'scan' && "Vérification de l'intégrité des photos de votre carte d'identité."}
               {verificationStep === 'ocr' && "Lecture des caractères textuels et du numéro de CNI."}
               {verificationStep === 'face' && "Comparaison biométrique des repères faciaux de la CNI et de votre selfie."}
-              {verificationStep === 'success' && "Félicitations ! Les photos correspondent à 98.4%. Votre profil citoyen est certifié."}
+              {verificationStep === 'success' && "Votre configuration pour votre clé KYC est en cours. Un administrateur examine vos pièces d'identité (CNI & selfie) pour valider votre profil."}
             </p>
             
             <div style={{ width: '100%', height: '8px', background: 'var(--border-light)', borderRadius: '4px', overflow: 'hidden', marginBottom: '1rem' }}>
