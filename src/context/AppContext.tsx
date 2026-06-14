@@ -729,10 +729,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
         const registration = await navigator.serviceWorker.ready;
-        const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || 'BFGv54e4vPzN2TebxP34ZPlgN4f...';
+        const REAL_VAPID_KEY = 'BFtOahXP3492CcOIZe1V9_7_6FKgulXUbcENVLZh5xIi7w2N-iY9GUp_MvQJ1jPKK-8ldZTU1xVK4aRGlilhmFQ';
+        const rawVapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
+        const vapidKey = (rawVapidKey && rawVapidKey !== 'BFGv54e4vPzN2TebxP34ZPlgN4f...') ? rawVapidKey : REAL_VAPID_KEY;
+
         const token = await getToken(messaging, {
           serviceWorkerRegistration: registration,
-          vapidKey: vapidKey !== 'BFGv54e4vPzN2TebxP34ZPlgN4f...' ? vapidKey : undefined
+          vapidKey: vapidKey
         });
 
         if (token) {
@@ -768,33 +771,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const fcmToken = data.fcm_token;
-      const serverKey = import.meta.env.VITE_FCM_SERVER_KEY;
-      if (serverKey) {
-        await fetch('https://fcm.googleapis.com/fcm/send', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `key=${serverKey}`
-          },
-          body: JSON.stringify({
-            to: fcmToken,
-            notification: {
-              title,
-              body,
-              icon: '/logo.png',
-              click_action: '/'
-            },
-            data: {
-              click_action: '/'
-            }
-          })
-        });
-        console.log(`Push notification envoyée via FCM à ${userId}`);
+      // Appel de la fonction serverless Vercel sécurisée
+      const response = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          token: fcmToken,
+          title,
+          body
+        })
+      });
+
+      if (response.ok) {
+        console.log(`Push notification envoyée via Vercel FCM v1 API à ${userId}`);
       } else {
-        console.warn("VITE_FCM_SERVER_KEY non configuré. Push impossible.");
+        const errData = await response.json().catch(() => ({}));
+        console.warn(`Échec de l'envoi du push via l'API Vercel pour ${userId} :`, errData);
       }
     } catch (err) {
-      console.error("Erreur lors de l'envoi du push FCM :", err);
+      console.error("Erreur lors de l'envoi du push FCM via Vercel :", err);
     }
   };
 

@@ -24,15 +24,28 @@ import {
 import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { Petition, Cagnotte, User } from '../types';
 
-// 1. CONFIGURATION FIREBASE
-// Remplacez cet objet par les clés de votre projet Firebase Console
+// 1. CONFIGURATION FIREBASE PROD FALLBACKS
+const REAL_FIREBASE_API_KEY = "AIzaSyCWvuDRexrbZbEusRfhWWYUrjYEyBBD2ZA";
+const REAL_FIREBASE_AUTH_DOMAIN = "sunuyite-6a7ac.firebaseapp.com";
+const REAL_FIREBASE_PROJECT_ID = "sunuyite-6a7ac";
+const REAL_FIREBASE_STORAGE_BUCKET = "sunuyite-6a7ac.firebasestorage.app";
+const REAL_FIREBASE_MESSAGING_SENDER_ID = "887808926036";
+const REAL_FIREBASE_APP_ID = "1:887808926036:web:7eb61aecd57a986287a8c1";
+
+const rawApiKey = import.meta.env.VITE_FIREBASE_API_KEY;
+const rawAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN;
+const rawProjectId = import.meta.env.VITE_FIREBASE_PROJECT_ID;
+const rawStorageBucket = import.meta.env.VITE_FIREBASE_STORAGE_BUCKET;
+const rawMessagingSenderId = import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID;
+const rawAppId = import.meta.env.VITE_FIREBASE_APP_ID;
+
 const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyFakeKey...",
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || "sama-cause.firebaseapp.com",
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || "sama-cause",
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || "sama-cause.appspot.com",
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || "000000000000",
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || "1:00000000:web:00000000"
+  apiKey: (rawApiKey && rawApiKey !== "AIzaSyFakeKey...") ? rawApiKey : REAL_FIREBASE_API_KEY,
+  authDomain: (rawAuthDomain && !rawAuthDomain.includes("sama-cause")) ? rawAuthDomain : REAL_FIREBASE_AUTH_DOMAIN,
+  projectId: (rawProjectId && rawProjectId !== "sama-cause") ? rawProjectId : REAL_FIREBASE_PROJECT_ID,
+  storageBucket: (rawStorageBucket && !rawStorageBucket.includes("sama-cause")) ? rawStorageBucket : REAL_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: (rawMessagingSenderId && rawMessagingSenderId !== "000000000000") ? rawMessagingSenderId : REAL_FIREBASE_MESSAGING_SENDER_ID,
+  appId: (rawAppId && !rawAppId.includes("1:00000000")) ? rawAppId : REAL_FIREBASE_APP_ID
 };
 
 // Initialiser Firebase
