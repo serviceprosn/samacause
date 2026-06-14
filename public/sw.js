@@ -96,8 +96,17 @@ self.addEventListener('push', (event) => {
   if (event.data) {
     try {
       const payload = event.data.json();
-      title = payload.title || title;
-      options = { ...options, ...payload.options };
+      if (payload.notification) {
+        title = payload.notification.title || title;
+        options.body = payload.notification.body || options.body;
+        options.icon = payload.notification.icon || options.icon;
+        if (payload.data) {
+          options.data = { ...options.data, ...payload.data };
+        }
+      } else {
+        title = payload.title || title;
+        options = { ...options, ...payload.options };
+      }
     } catch (e) {
       options.body = event.data.text();
     }

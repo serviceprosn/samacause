@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Petition, Cagnotte, VolunteerMission, VolunteerApplication, Badge, ChatMessage, AdminKPIs, Update, Expense, DirectMessage } from '../types';
 import { supabase } from '../services/supabaseClient';
+import { messaging } from '../services/firebaseClient';
+import { getToken } from 'firebase/messaging';
 
 interface AppContextType {
   currentUser: User | null;
@@ -720,6 +722,88 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   };
 
+  // FCM PUSH NOTIFICATIONS
+  const registerFcmToken = async (userId: string) => {
+    if (!messaging) return;
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === 'granted') {
+        const registration = await navigator.serviceWorker.ready;
+        const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY || 'BFGv54e4vPzN2TebxP34ZPlgN4f...';
+        const token = await getToken(messaging, {
+          serviceWorkerRegistration: registration,
+          vapidKey: vapidKey !== 'BFGv54e4vPzN2TebxP34ZPlgN4f...' ? vapidKey : undefined
+        });
+
+        if (token) {
+          console.log('FCM Token récupéré :', token);
+          const { error } = await supabase
+            .from('profiles')
+            .update({ fcm_token: token })
+            .eq('id', userId);
+          
+          if (error) {
+            console.warn("Impossible d'enregistrer le token FCM dans profiles (migration SQL nécessaire) :", error.message);
+          } else {
+            console.log("Token FCM enregistré dans la table profiles !");
+          }
+        }
+      }
+    } catch (err) {
+      console.warn("Échec de récupération du token FCM :", err);
+    }
+  };
+
+  const sendPushToUser = async (userId: string, title: string, body: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('fcm_token')
+        .eq('id', userId)
+        .single();
+      
+      if (error || !data || !data.fcm_token) {
+        console.log(`Aucun token FCM trouvé pour l'utilisateur ${userId}`);
+        return;
+      }
+
+      const fcmToken = data.fcm_token;
+      const serverKey = import.meta.env.VITE_FCM_SERVER_KEY;
+      if (serverKey) {
+        await fetch('https://fcm.googleapis.com/fcm/send', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `key=${serverKey}`
+          },
+          body: JSON.stringify({
+            to: fcmToken,
+            notification: {
+              title,
+              body,
+              icon: '/logo.png',
+              click_action: '/'
+            },
+            data: {
+              click_action: '/'
+            }
+          })
+        });
+        console.log(`Push notification envoyée via FCM à ${userId}`);
+      } else {
+        console.warn("VITE_FCM_SERVER_KEY non configuré. Push impossible.");
+      }
+    } catch (err) {
+      console.error("Erreur lors de l'envoi du push FCM :", err);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser && currentUser.id) {
+      registerFcmToken(currentUser.id);
+    }
+  }, [currentUser?.id]);
+
   // ACTIONS
   const signPetition = async (id: string, name: string, email: string, phone: string): Promise<boolean> => {
     // Add signer to list
@@ -1058,7 +1142,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
     }
 
-    // Trigger follower notifications!
+    // Trigger follower notifications in-app and via FCM push
     setTimeout(() => {
       if (organizerId && currentUser?.following?.includes(organizerId)) {
         triggerPushNotification(
@@ -1067,6 +1151,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
     }, 1000);
+
+    if (organizerId) {
+      supabase.from('profiles').select('followers').eq('id', organizerId).single().then(({ data }) => {
+        if (data && data.followers) {
+          data.followers.forEach((followerId: string) => {
+            sendPushToUser(
+              followerId,
+              `📢 Nouveau projet de ${organizerName}`,
+              `Vient de lancer la campagne : "${title}"`
+            );
+          });
+        }
+      });
+    }
   };
 
   const rejectCampaign = (id: string, type: 'petition' | 'cagnotte', feedback: string) => {
@@ -2017,6 +2115,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
 
     setDirectMessages(prev => [...prev, newMsg]);
+
+    // Déclenchement de la notification push FCM au destinataire
+    sendPushToUser(receiverId, `💬 Message de ${currentUser.name}`, text);
 
     // Simulate auto-reply from other user to make it interactive and feel alive!
     setTimeout(() => {

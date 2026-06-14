@@ -21,6 +21,7 @@ import {
   query, 
   orderBy 
 } from 'firebase/firestore';
+import { getMessaging, getToken, onMessage } from 'firebase/messaging';
 import { Petition, Cagnotte, User } from '../types';
 
 // 1. CONFIGURATION FIREBASE
@@ -38,6 +39,16 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 export const db = getFirestore(app);
+
+let messaging: any = null;
+if (typeof window !== 'undefined') {
+  try {
+    messaging = getMessaging(app);
+  } catch (err) {
+    console.warn("FCM non supporté ou échec d'initialisation :", err);
+  }
+}
+export { messaging };
 
 /* 
 ================================================================================
