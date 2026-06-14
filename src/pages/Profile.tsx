@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { BadgeList } from '../components/BadgeList';
 import { TrustScore } from '../components/TrustScore';
 
@@ -64,6 +65,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     setSelectedPublicUserId,
     deleteAccount
   } = useApp();
+  const { t } = useLanguage();
 
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState('');
@@ -371,7 +373,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.5rem' }}>⏳</span>
             <strong style={{ color: 'var(--secondary-dark)', fontSize: '1.05rem' }}>
-              Votre configuration pour votre clé KYC est en cours
+              {t('profile.kyc.pending')}
             </strong>
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0, lineHeight: '1.4' }}>
@@ -396,13 +398,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
             <span style={{ fontSize: '1.5rem' }}>⚠️</span>
             <strong style={{ color: 'var(--danger)', fontSize: '1.05rem' }}>
-              {isBasicIncomplete ? "Coordonnées de profil requises" : "Certification d'identité (KYC) recommandée pour les Tontines"}
+              {isBasicIncomplete ? "Coordonnées de profil requises" : t('profile.kyc.alert.title')}
             </strong>
           </div>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0, lineHeight: '1.4' }}>
             {isBasicIncomplete 
               ? "Pour pouvoir lancer une cagnotte, créer une pétition ou rejoindre des activités, veuillez renseigner les informations de contact de base suivantes :"
-              : "Pour pouvoir créer ou rejoindre des cercles d'épargne rotatifs (Tontines), vous devez obligatoirement soumettre votre dossier KYC et certifier votre identité :"}
+              : t('profile.kyc.alert.desc')}
           </p>
           <ul style={{ fontSize: '0.85rem', color: 'var(--danger)', margin: '0.25rem 0 0 1.25rem', padding: 0, fontWeight: 600 }}>
             {(isBasicIncomplete ? missingBasicFields : missingKycFields).map((f, i) => (
@@ -1213,7 +1215,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         }}
       >
         <h4 style={{ color: 'var(--danger)', fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
-          ⚠️ Zone de Danger
+          ⚠️ {t('profile.danger_zone')}
         </h4>
         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', lineHeight: 1.4, marginBottom: '1rem' }}>
           La suppression de votre compte est définitive. Toutes vos données personnelles (CNI, selfie, adresse, coordonnées) seront effacées de notre base de données.
@@ -1247,7 +1249,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             }
           }}
         >
-          🗑️ Supprimer mon compte
+          🗑️ {t('profile.delete_account')}
         </button>
       </div>
 

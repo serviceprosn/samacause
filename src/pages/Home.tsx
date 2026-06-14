@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { MapSenegal } from '../components/MapSenegal';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
@@ -11,6 +12,7 @@ interface HomeProps {
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
   const { petitions, cagnottes, volunteerMissions, getKPIs, useSupabase } = useApp();
+  const { t } = useLanguage();
   const kpis = getKPIs();
   
   useSEO({
@@ -120,26 +122,26 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             🇸🇳 Mobilisation Citoyenne au Sénégal
           </span>
           <h1 className="hero-title">
-            Chaque citoyen est une <span className="text-gradient">force de changement</span>.
+            {t('home.welcome')}
           </h1>
           <p className="hero-desc">
-            Lancez des pétitions pour faire entendre votre voix, collectez des fonds de manière transparente via Wave, Orange Money ou Stripe, et engagez des bénévoles pour résoudre les problèmes de votre communauté.
+            {t('home.tagline')}
           </p>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <button 
               className="btn btn-primary" 
-              onClick={() => onNavigate('cagnottes')}
+              onClick={() => onNavigate('explore')}
               style={{ padding: '0.9rem 2rem' }}
             >
-              🤝 Soutenir un projet
+              🤝 {t('home.hero.cta1')}
             </button>
             <button 
               className="btn btn-outline" 
-              onClick={() => onNavigate('petitions')}
+              onClick={() => onNavigate('create-hub')}
               style={{ padding: '0.9rem 2rem' }}
             >
-              ✍️ Signer une pétition
+              ✍️ {t('home.hero.cta2')}
             </button>
           </div>
         </div>
@@ -202,7 +204,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
               {kpis.totalSignatures.toLocaleString('fr-FR')}
             </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>Signatures de Pétitions</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>{t('home.stats.petitions')}</p>
           </div>
 
           <div className="premium-card hover-scale animate-fade-in delay-2" style={{ textAlign: 'center' }}>
@@ -210,7 +212,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
               {kpis.totalDonations.toLocaleString('fr-FR')} F
             </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>Fonds Collectés (FCFA)</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>{t('home.stats.funds')}</p>
           </div>
 
           <div className="premium-card hover-scale animate-fade-in delay-3" style={{ textAlign: 'center' }}>
@@ -218,7 +220,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
               {kpis.totalVolunteers.toLocaleString('fr-FR')}
             </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>Bénévoles Engagés</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>{t('home.stats.users')}</p>
           </div>
 
           <div className="premium-card hover-scale animate-fade-in delay-4" style={{ textAlign: 'center' }}>

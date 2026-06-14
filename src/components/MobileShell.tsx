@@ -1,5 +1,6 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Logo } from './Logo';
 
 interface MobileShellProps {
@@ -18,6 +19,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   onNavigate
 }) => {
   const { toggleTheme, activeTheme, currentUser, useSupabase } = useApp();
+  const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   return (
@@ -146,7 +148,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           style={{ background: 'none', border: 'none' }}
         >
           <span style={{ fontSize: '1.2rem' }}>🏠</span>
-          <span>Accueil</span>
+          <span>{t('nav.home')}</span>
         </button>
 
         <button 
@@ -155,7 +157,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           style={{ background: 'none', border: 'none' }}
         >
           <span style={{ fontSize: '1.2rem' }}>🔍</span>
-          <span>Explorer</span>
+          <span>{t('nav.explorer').replace(' 🔍', '')}</span>
         </button>
 
         <button 
@@ -164,7 +166,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           style={{ background: 'none', border: 'none' }}
         >
           <span style={{ fontSize: '1.4rem', color: 'var(--primary)', fontWeight: 'bold' }}>➕</span>
-          <span>Créer</span>
+          <span>{t('btn.create')}</span>
         </button>
 
         <button 
@@ -173,7 +175,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           style={{ background: 'none', border: 'none' }}
         >
           <span style={{ fontSize: '1.2rem' }}>👤</span>
-          <span>Profil</span>
+          <span>{t('nav.profile')}</span>
         </button>
       </div>
 
@@ -230,13 +232,13 @@ export const MobileShell: React.FC<MobileShellProps> = ({
             {/* Menu List */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
               {[
-                { name: 'Accueil', page: 'home', icon: '🏠' },
-                { name: 'Pétitions', page: 'petitions', icon: '✍️' },
-                { name: 'Cagnottes', page: 'cagnottes', icon: '💰' },
-                { name: 'Bénévolat', page: 'benevolat', icon: '🛠️' },
-                { name: 'Tontines', page: 'tontines', icon: '🔄' },
-                { name: 'Diaspora', page: 'diaspora', icon: '🌍' },
-                { name: 'Explorer tout', page: 'explore', icon: '🔍' },
+                { name: t('nav.home'), page: 'home', icon: '🏠' },
+                { name: t('nav.petitions'), page: 'petitions', icon: '✍️' },
+                { name: t('nav.cagnottes'), page: 'cagnottes', icon: '💰' },
+                { name: t('nav.benevolat'), page: 'benevolat', icon: '🛠️' },
+                { name: t('nav.tontines').replace(' 🪙', ''), page: 'tontines', icon: '🔄' },
+                { name: t('nav.diaspora'), page: 'diaspora', icon: '🌍' },
+                { name: t('nav.explorer'), page: 'explore', icon: '🔍' },
               ].map((item) => (
                 <button
                   key={item.page}
@@ -273,7 +275,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 
             {/* Bottom User Profile card in menu */}
             {currentUser && (
-              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem', marginTop: 'auto', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                 <div 
                   style={{ 
                     width: '32px', 
@@ -292,8 +294,40 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               </div>
             )}
 
+            {/* Drawer Language Switcher */}
+            <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-light)' }}>
+              <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-secondary-light)', marginBottom: '0.4rem' }}>Langue / Kóbó :</div>
+              <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-light)', padding: '0.2rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+                {(['fr', 'wo', 'en'] as const).map((lang) => (
+                  <button
+                    key={lang}
+                    onClick={() => setLanguage(lang)}
+                    style={{
+                      flex: 1,
+                      padding: '0.35rem 0.25rem',
+                      fontSize: '0.75rem',
+                      fontWeight: 'bold',
+                      borderRadius: 'var(--radius-sm)',
+                      border: 'none',
+                      background: language === lang ? 'var(--primary)' : 'transparent',
+                      color: language === lang ? 'white' : 'var(--text-muted)',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '0.2rem',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span>{lang === 'fr' ? '🇫🇷' : lang === 'wo' ? '🇸🇳' : '🇬🇧'}</span>
+                    <span style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>{lang}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {/* Database Connection Badge */}
-            <div style={{ marginTop: '1rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-light)', fontSize: '0.7rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary-light)' }}>
+            <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-light)', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary-light)' }}>
               <span style={{ 
                 width: '6px', 
                 height: '6px', 

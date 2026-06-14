@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Petition, Cagnotte, VolunteerMission } from '../types';
 import { TrustScore } from '../components/TrustScore';
 
@@ -9,6 +10,7 @@ interface ExplorerProps {
 
 export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
   const { petitions, cagnottes, volunteerMissions } = useApp();
+  const { t } = useLanguage();
 
   // Load tontines from localStorage
   const [tontines, setTontines] = useState<any[]>(() => {
@@ -61,7 +63,7 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
       {/* Page Header */}
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2rem', fontWeight: 800, letterSpacing: '-0.5px' }}>
-          Explorez les Causes & Projets
+          {t('explore.title')}
         </h1>
         <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', marginTop: '0.25rem' }}>
           Découvrez, signez, financez et engagez-vous dans les initiatives de la communauté.
@@ -73,7 +75,7 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
         <input
           type="text"
           className="premium-card"
-          placeholder="Rechercher une cause, une tontine, un projet ou une région..."
+          placeholder={t('explore.search_placeholder')}
           style={{
             width: '100%',
             padding: '0.85rem 1rem 0.85rem 2.75rem',
@@ -130,11 +132,11 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
         }}
       >
         {[
-          { id: 'all', label: 'Tous', icon: '🌍' },
-          { id: 'petitions', label: 'Pétitions', icon: '✍️' },
-          { id: 'cagnottes', label: 'Cagnottes', icon: '💰' },
-          { id: 'tontines', label: 'Tontines', icon: '🪙' },
-          { id: 'benevolat', label: 'Bénévolat', icon: '🛠️' }
+          { id: 'all', label: t('explore.tabs.all'), icon: '🌍' },
+          { id: 'petitions', label: t('explore.tabs.petitions'), icon: '✍️' },
+          { id: 'cagnottes', label: t('explore.tabs.cagnottes'), icon: '💰' },
+          { id: 'tontines', label: t('explore.tabs.tontines'), icon: '🪙' },
+          { id: 'benevolat', label: t('explore.tabs.benevolat'), icon: '🛠️' }
         ].map((tab) => (
           <button
             key={tab.id}
@@ -189,35 +191,35 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
             let progressPct = 0;
 
             if (item.type === 'petition') {
-              badgeText = '✍️ Pétition';
+              badgeText = `✍️ ${t('explore.tabs.petitions')}`;
               badgeBg = 'rgba(0, 133, 63, 0.1)';
               badgeColor = 'var(--primary)';
               progressPct = Math.min(100, Math.round((item.signaturesCount / item.signaturesTarget) * 100));
               footerLeft = `${item.signaturesCount.toLocaleString('fr-FR')} signatures / Cible ${item.signaturesTarget.toLocaleString('fr-FR')}`;
-              actionText = 'Signer la pétition';
+              actionText = t('btn.sign');
               actionPage = 'petitions';
             } else if (item.type === 'cagnotte') {
-              badgeText = '💰 Cagnotte';
+              badgeText = `💰 ${t('explore.tabs.cagnottes')}`;
               badgeBg = 'rgba(252, 209, 22, 0.15)';
               badgeColor = 'var(--secondary-dark)';
               progressPct = Math.min(100, Math.round((item.amountCollected / item.amountTarget) * 100));
               footerLeft = `${item.amountCollected.toLocaleString('fr-FR')} F / Cible ${item.amountTarget.toLocaleString('fr-FR')} F`;
-              actionText = 'Faire un don';
+              actionText = t('btn.donate');
               actionPage = 'cagnottes';
             } else if (item.type === 'benevolat') {
-              badgeText = '🛠️ Bénévolat';
+              badgeText = `🛠️ ${t('explore.tabs.benevolat')}`;
               badgeBg = 'rgba(59, 130, 246, 0.1)';
               badgeColor = '#3b82f6';
               progressPct = Math.min(100, Math.round((item.volunteersCount / item.volunteersTarget) * 100));
               footerLeft = `${item.volunteersCount} bénévoles / Objectif ${item.volunteersTarget}`;
-              actionText = 'Participer';
+              actionText = t('btn.apply');
               actionPage = 'benevolat';
             } else if (item.type === 'tontine') {
-              badgeText = '🪙 Tontine';
+              badgeText = `🪙 ${t('explore.tabs.tontines')}`;
               badgeBg = 'rgba(139, 92, 246, 0.1)';
               badgeColor = '#8b5cf6';
               footerLeft = `Cotisation : ${item.cotisation.toLocaleString('fr-FR')} F • ${item.frequency === 'daily' ? 'Journalière' : item.frequency === 'weekly' ? 'Hebdomadaire' : 'Mensuelle'}`;
-              actionText = 'Rejoindre';
+              actionText = t('btn.apply'); // Use general apply button
               actionPage = 'tontines';
               actionParams = null; // direct page navigation
             }

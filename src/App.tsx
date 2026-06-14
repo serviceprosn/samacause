@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
+import { LanguageProvider, useLanguage } from './context/LanguageContext';
 import { Home } from './pages/Home';
 import { Petitions } from './pages/Petitions';
 import { Cagnottes } from './pages/Cagnottes';
@@ -36,6 +37,7 @@ const MainLayout: React.FC = () => {
     installApp,
     useSupabase
   } = useApp();
+  const { language, setLanguage, t } = useLanguage();
 
   const [currentPage, setCurrentPage] = useState('home');
   const [showInstallNotification, setShowInstallNotification] = useState(false);
@@ -366,42 +368,42 @@ const MainLayout: React.FC = () => {
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('home')}
               >
-                Accueil
+                {t('nav.home')}
               </button>
               <button 
                 className={`btn ${currentPage === 'petitions' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('petitions')}
               >
-                Pétitions
+                {t('nav.petitions')}
               </button>
               <button 
                 className={`btn ${currentPage === 'cagnottes' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('cagnottes')}
               >
-                Cagnottes
+                {t('nav.cagnottes')}
               </button>
               <button 
                 className={`btn ${currentPage === 'benevolat' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('benevolat')}
               >
-                Bénévolat
+                {t('nav.benevolat')}
               </button>
               <button 
                 className={`btn ${currentPage === 'tontines' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('tontines')}
               >
-                Tontines 🪙
+                {t('nav.tontines')}
               </button>
               <button 
                 className={`btn ${currentPage === 'diaspora' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('diaspora')}
               >
-                Diaspora
+                {t('nav.diaspora')}
               </button>
               
               {/* Quick toggle check for Admin roles */}
@@ -411,7 +413,7 @@ const MainLayout: React.FC = () => {
                   style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem', color: 'var(--warning)', fontWeight: 'bold' }}
                   onClick={() => handleNavigate('admin')}
                 >
-                  Admin 🛡️
+                  {t('nav.admin')}
                 </button>
               )}
             </nav>
@@ -420,6 +422,34 @@ const MainLayout: React.FC = () => {
           {/* Action Toolbar */}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             
+            {/* Language Selector */}
+            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-light)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+              {(['fr', 'wo', 'en'] as const).map((lang) => (
+                <button
+                  key={lang}
+                  onClick={() => setLanguage(lang)}
+                  style={{
+                    padding: '0.25rem 0.5rem',
+                    fontSize: '0.75rem',
+                    fontWeight: 'bold',
+                    borderRadius: 'var(--radius-sm)',
+                    border: 'none',
+                    background: language === lang ? 'var(--primary)' : 'transparent',
+                    color: language === lang ? 'white' : 'var(--text-muted)',
+                    cursor: 'pointer',
+                    textTransform: 'uppercase',
+                    transition: 'all 0.2s ease',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center'
+                  }}
+                  title={lang === 'fr' ? 'Français' : lang === 'wo' ? 'Wolof' : 'English'}
+                >
+                  {lang === 'fr' ? '🇫🇷' : lang === 'wo' ? '🇸🇳' : '🇬🇧'}
+                </button>
+              ))}
+            </div>
+
             {/* Theme selector */}
             <button 
               className="btn btn-ghost" 
@@ -655,7 +685,9 @@ const MainLayout: React.FC = () => {
 export const App: React.FC = () => {
   return (
     <AppProvider>
-      <MainLayout />
+      <LanguageProvider>
+        <MainLayout />
+      </LanguageProvider>
     </AppProvider>
   );
 };
