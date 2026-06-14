@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { TrustScore } from '../components/TrustScore';
+import { supabase } from '../services/supabaseClient';
 
 export const Admin: React.FC = () => {
   const { 
@@ -24,6 +25,27 @@ export const Admin: React.FC = () => {
   // Modals states
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedDoc, setSelectedDoc] = useState<string | null>(null);
+
+  const [contactMessages, setContactMessages] = useState<any[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+
+  useEffect(() => {
+    if (currentUser && currentUser.role === 'admin') {
+      setMessagesLoading(true);
+      supabase
+        .from('contact_messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .then(({ data, error }) => {
+          setMessagesLoading(false);
+          if (error) {
+            console.error("Erreur lors de la récupération des messages :", error);
+          } else if (data) {
+            setContactMessages(data);
+          }
+        });
+    }
+  }, [currentUser]);
 
   if (!currentUser || currentUser.role !== 'admin') {
     return (
@@ -1019,6 +1041,61 @@ export const Admin: React.FC = () => {
         </div>
       </section>
 
+      {/* 4. CONTACT MESSAGES PANEL */}
+      <section style={{ marginTop: '3rem' }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>📩 Messages reçus (Formulaire de Contact)</h2>
+        
+        {messagesLoading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>Chargement des messages...</div>
+        ) : contactMessages.length === 0 ? (
+          <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)' }}>
+            <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
+              Aucun message de contact reçu pour le moment.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {contactMessages.map((msg) => (
+              <div 
+                key={msg.id} 
+                className="premium-card" 
+                style={{ 
+                  background: 'var(--light-card)', 
+                  borderLeft: '4px solid var(--primary)', 
+                  padding: '1.25rem',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+                  <div>
+                    <strong style={{ fontSize: '0.95rem', display: 'block' }}>👤 {msg.name}</strong>
+                    <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
+                      📧 {msg.email} {msg.phone && `| 📱 ${msg.phone}`}
+                    </span>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <span style={{ fontSize: '0.75rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.15rem 0.4rem', borderRadius: '4px', fontWeight: 'bold', display: 'inline-block', marginBottom: '0.25rem' }}>
+                      Objet : {msg.subject}
+                    </span>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+                      {new Date(msg.created_at).toLocaleString('fr-FR')}
+                    </div>
+                  </div>
+                </div>
+                <p style={{ fontSize: '0.85rem', color: '#444', whiteSpace: 'pre-line', margin: 0, lineHeight: 1.5 }}>
+                  {msg.message}
+                </p>
+                <div style={{ marginTop: '0.75rem', fontSize: '0.7rem', color: 'var(--text-secondary-light)', borderTop: '1px dashed var(--border-light)', paddingTop: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Destinataire configuré : <strong>{msg.recipient}</strong></span>
+                  <a href={`mailto:${msg.email}?subject=Re: [Sama Cause] ${msg.subject}`} className="btn btn-outline" style={{ padding: '0.2rem 0.6rem', fontSize: '0.7rem', textDecoration: 'none', minWidth: 'auto' }}>
+                    ✉️ Répondre par email
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* Render modals */}
       {renderDocPreview()}

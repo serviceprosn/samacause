@@ -3,13 +3,14 @@ import { useApp } from '../context/AppContext';
 import { MapSenegal } from '../components/MapSenegal';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
+import { supabase } from '../services/supabaseClient';
 
 interface HomeProps {
   onNavigate: (page: string, params?: any) => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, volunteerMissions, getKPIs } = useApp();
+  const { petitions, cagnottes, volunteerMissions, getKPIs, useSupabase } = useApp();
   const kpis = getKPIs();
   
   useSEO({
@@ -431,13 +432,32 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               </button>
             </div>
           ) : (
-            <form onSubmit={(e) => {
+            <form onSubmit={async (e) => {
               e.preventDefault();
               setFormLoading(true);
+              
+              if (useSupabase) {
+                try {
+                  const { error } = await supabase.from('contact_messages').insert([{
+                    name: contactForm.name,
+                    email: contactForm.email,
+                    phone: contactForm.phone,
+                    subject: contactForm.subject,
+                    message: contactForm.message,
+                    recipient: 'mouhamethsarr98@gmail.com'
+                  }]);
+                  if (error) {
+                    console.error("Erreur lors de l'enregistrement du message de contact dans Supabase :", error);
+                  }
+                } catch (err) {
+                  console.error("Échec d'envoi du formulaire de contact :", err);
+                }
+              }
+
               setTimeout(() => {
                 setFormLoading(false);
                 setFormSubmitted(true);
-              }, 1800);
+              }, 1200);
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
                 {/* Name field */}
