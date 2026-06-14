@@ -12,7 +12,7 @@ export const BadgeList: React.FC<BadgeListProps> = ({ unlockedBadgeIds }) => {
   return (
     <div className="grid-cols-2" style={{ gap: '1rem', marginTop: '1rem' }}>
       {badges.map((badge) => {
-        const isUnlocked = unlockedBadgeIds.includes(badge.id);
+        const isUnlocked = Array.isArray(unlockedBadgeIds) ? unlockedBadgeIds.includes(badge.id) : false;
 
         return (
           <div 

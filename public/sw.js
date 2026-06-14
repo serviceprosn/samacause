@@ -1,4 +1,4 @@
-const CACHE_NAME = 'samacause-cache-v2';
+const CACHE_NAME = 'samacause-cache-v4';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

@@ -24,10 +24,10 @@
             .then((reg) => {
               console.log('SW enregistré avec succès ! Scope:', reg.scope);
               
-              // Check for service worker updates every 15 minutes
+              // Check for service worker updates every 1 minute
               setInterval(() => {
                 reg.update();
-              }, 1000 * 60 * 15);
+              }, 1000 * 60 * 1);
 
               // Update detection
               reg.onupdatefound = () => {

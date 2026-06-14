@@ -3,6 +3,48 @@ import { useApp } from '../context/AppContext';
 import { BadgeList } from '../components/BadgeList';
 import { TrustScore } from '../components/TrustScore';
 
+// Helper to compress base64 images client-side
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image')) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(base64Str);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/jpeg', quality));
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
+
 interface ProfileProps {
   onNavigate?: (page: string, params?: any) => void;
   initialParams?: any;
@@ -117,31 +159,33 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           ctx.scale(-1, 1);
         }
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const base64 = canvas.toDataURL('image/jpeg');
-        if (cameraTarget === 'recto') setEditIdRecto(base64);
-        else if (cameraTarget === 'verso') setEditIdVerso(base64);
-        else if (cameraTarget === 'selfie') setEditSelfie(base64);
-        else if (cameraTarget === 'avatar') {
-          setEditAvatar(base64);
-          if (isDirectUpload && currentUser) {
-            updateProfile(
-              currentUser.name,
-              currentUser.phone,
-              base64,
-              currentUser.bio || '',
-              currentUser.address || '',
-              currentUser.country,
-              currentUser.region,
-              currentUser.idCardRecto,
-              currentUser.idCardVerso,
-              currentUser.selfie,
-              currentUser.verificationStatus,
-              currentUser.cniNumber,
-              currentUser.dob
-            );
-            addNotification('📸 Photo de profil mise à jour avec succès !');
+        const rawBase64 = canvas.toDataURL('image/jpeg');
+        compressImage(rawBase64).then((base64) => {
+          if (cameraTarget === 'recto') setEditIdRecto(base64);
+          else if (cameraTarget === 'verso') setEditIdVerso(base64);
+          else if (cameraTarget === 'selfie') setEditSelfie(base64);
+          else if (cameraTarget === 'avatar') {
+            setEditAvatar(base64);
+            if (isDirectUpload && currentUser) {
+              updateProfile(
+                currentUser.name,
+                currentUser.phone,
+                base64,
+                currentUser.bio || '',
+                currentUser.address || '',
+                currentUser.country,
+                currentUser.region,
+                currentUser.idCardRecto,
+                currentUser.idCardVerso,
+                currentUser.selfie,
+                currentUser.verificationStatus,
+                currentUser.cniNumber,
+                currentUser.dob
+              );
+              addNotification('📸 Photo de profil mise à jour avec succès !');
+            }
           }
-        }
+        });
         
         setCameraTarget(null);
         addNotification("📷 Capture photo réussie !");
@@ -699,8 +743,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               {/* Recto */}
               <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdRecto ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
                 <strong style={{ fontSize: '0.8rem', display: 'block' }}>🪪 Pièce d'identité (Recto)</strong>
-                {editIdRecto ? (
+                {editIdRecto && editIdRecto !== '[stored]' ? (
                   <div style={{ height: '90px', backgroundImage: `url(${editIdRecto})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+                ) : editIdRecto === '[stored]' ? (
+                  <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>✓</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
+                  </div>
                 ) : (
                   <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
                 )}
@@ -714,7 +763,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onloadend = () => setEditIdRecto(reader.result as string);
+                        reader.onloadend = () => {
+                          compressImage(reader.result as string).then(compressed => {
+                            setEditIdRecto(compressed);
+                          });
+                        };
                         reader.readAsDataURL(file);
                       }
                     }} />
@@ -725,8 +778,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               {/* Verso */}
               <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdVerso ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
                 <strong style={{ fontSize: '0.8rem', display: 'block' }}>🪪 Pièce d'identité (Verso)</strong>
-                {editIdVerso ? (
+                {editIdVerso && editIdVerso !== '[stored]' ? (
                   <div style={{ height: '90px', backgroundImage: `url(${editIdVerso})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+                ) : editIdVerso === '[stored]' ? (
+                  <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>✓</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
+                  </div>
                 ) : (
                   <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
                 )}
@@ -740,7 +798,11 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                       const file = e.target.files?.[0];
                       if (file) {
                         const reader = new FileReader();
-                        reader.onloadend = () => setEditIdVerso(reader.result as string);
+                        reader.onloadend = () => {
+                          compressImage(reader.result as string).then(compressed => {
+                            setEditIdVerso(compressed);
+                          });
+                        };
                         reader.readAsDataURL(file);
                       }
                     }} />
@@ -751,8 +813,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               {/* Selfie */}
               <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editSelfie ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
                 <strong style={{ fontSize: '0.8rem', display: 'block' }}>🤳 Selfie de contrôle</strong>
-                {editSelfie ? (
+                {editSelfie && editSelfie !== '[stored]' ? (
                   <div style={{ height: '90px', backgroundImage: `url(${editSelfie})`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+                ) : editSelfie === '[stored]' ? (
+                  <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                    <span style={{ fontSize: '1.25rem' }}>✓</span>
+                    <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
+                  </div>
                 ) : (
                   <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>👤</div>
                 )}
@@ -816,7 +883,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
           Réalisez des actions de mobilisation pour débloquer de nouveaux badges et augmenter votre indice de score de confiance.
         </p>
-        <BadgeList unlockedBadgeIds={currentUser.badges} />
+        <BadgeList unlockedBadgeIds={currentUser.badges || []} />
       </section>
 
       {/* MY CAMPAIGNS & Doléances */}
@@ -1243,28 +1310,29 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                     const file = e.target.files?.[0];
                     if (file) {
                       const reader = new FileReader();
-                      reader.onloadend = async () => {
-                        const base64 = reader.result as string;
-                        setEditAvatar(base64);
-                        setShowAvatarOptions(false);
-                        if (isDirectUpload && currentUser) {
-                          await updateProfile(
-                            currentUser.name,
-                            currentUser.phone,
-                            base64,
-                            currentUser.bio || '',
-                            currentUser.address || '',
-                            currentUser.country,
-                            currentUser.region,
-                            currentUser.idCardRecto,
-                            currentUser.idCardVerso,
-                            currentUser.selfie,
-                            currentUser.verificationStatus,
-                            currentUser.cniNumber,
-                            currentUser.dob
-                          );
-                          addNotification('📸 Photo de profil mise à jour avec succès !');
-                        }
+                      reader.onloadend = () => {
+                        compressImage(reader.result as string).then(async (compressed) => {
+                          setEditAvatar(compressed);
+                          setShowAvatarOptions(false);
+                          if (isDirectUpload && currentUser) {
+                            await updateProfile(
+                              currentUser.name,
+                              currentUser.phone,
+                              compressed,
+                              currentUser.bio || '',
+                              currentUser.address || '',
+                              currentUser.country,
+                              currentUser.region,
+                              currentUser.idCardRecto,
+                              currentUser.idCardVerso,
+                              currentUser.selfie,
+                              currentUser.verificationStatus,
+                              currentUser.cniNumber,
+                              currentUser.dob
+                            );
+                            addNotification('📸 Photo de profil mise à jour avec succès !');
+                          }
+                        });
                       };
                       reader.readAsDataURL(file);
                     }

@@ -123,7 +123,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
 
   useEffect(() => {
-    localStorage.setItem('sc_direct_messages', JSON.stringify(directMessages));
+    try {
+      localStorage.setItem('sc_direct_messages', JSON.stringify(directMessages));
+    } catch (e) {
+      console.error("Failed to save direct messages to storage:", e);
+    }
   }, [directMessages]);
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -556,47 +560,94 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const rememberMe = localStorage.getItem('sc_remember_me') !== 'false';
     if (currentUser) {
-      if (rememberMe) {
-        localStorage.setItem('sc_current_user', JSON.stringify(currentUser));
-        sessionStorage.removeItem('sc_current_user');
-      } else {
-        sessionStorage.setItem('sc_current_user', JSON.stringify(currentUser));
-        localStorage.removeItem('sc_current_user');
+      // Clean large image fields before serializing to prevent QuotaExceededError in localStorage
+      const cleanUser = {
+        ...currentUser,
+        idCardRecto: currentUser.idCardRecto && currentUser.idCardRecto.startsWith('data:') ? '[stored]' : currentUser.idCardRecto,
+        idCardVerso: currentUser.idCardVerso && currentUser.idCardVerso.startsWith('data:') ? '[stored]' : currentUser.idCardVerso,
+        selfie: currentUser.selfie && currentUser.selfie.startsWith('data:') ? '[stored]' : currentUser.selfie,
+      };
+
+      try {
+        if (rememberMe) {
+          localStorage.setItem('sc_current_user', JSON.stringify(cleanUser));
+          sessionStorage.removeItem('sc_current_user');
+        } else {
+          sessionStorage.setItem('sc_current_user', JSON.stringify(cleanUser));
+          localStorage.removeItem('sc_current_user');
+        }
+      } catch (e) {
+        console.error("Failed to save user to storage (quota exceeded or storage disabled):", e);
       }
     } else {
-      localStorage.removeItem('sc_current_user');
-      sessionStorage.removeItem('sc_current_user');
+      try {
+        localStorage.removeItem('sc_current_user');
+        sessionStorage.removeItem('sc_current_user');
+      } catch (e) {
+        console.error("Failed to remove user from storage:", e);
+      }
     }
   }, [currentUser]);
 
   useEffect(() => {
     if (!useSupabase) {
-      localStorage.setItem('sc_users_list', JSON.stringify(usersList));
+      try {
+        // Strip large images from users list for localStorage if any exist
+        const cleanUsersList = usersList.map(u => ({
+          ...u,
+          idCardRecto: u.idCardRecto && u.idCardRecto.startsWith('data:') ? '[stored]' : u.idCardRecto,
+          idCardVerso: u.idCardVerso && u.idCardVerso.startsWith('data:') ? '[stored]' : u.idCardVerso,
+          selfie: u.selfie && u.selfie.startsWith('data:') ? '[stored]' : u.selfie,
+        }));
+        localStorage.setItem('sc_users_list', JSON.stringify(cleanUsersList));
+      } catch (e) {
+        console.error("Failed to save users list to storage:", e);
+      }
     }
   }, [usersList, useSupabase]);
 
   useEffect(() => {
     if (!useSupabase) {
-      localStorage.setItem('sc_petitions', JSON.stringify(petitions));
+      try {
+        localStorage.setItem('sc_petitions', JSON.stringify(petitions));
+      } catch (e) {
+        console.error("Failed to save petitions to storage:", e);
+      }
     }
   }, [petitions, useSupabase]);
 
   useEffect(() => {
     if (!useSupabase) {
-      localStorage.setItem('sc_cagnottes', JSON.stringify(cagnottes));
+      try {
+        localStorage.setItem('sc_cagnottes', JSON.stringify(cagnottes));
+      } catch (e) {
+        console.error("Failed to save cagnottes to storage:", e);
+      }
     }
   }, [cagnottes, useSupabase]);
 
   useEffect(() => {
-    localStorage.setItem('sc_volunteer_missions', JSON.stringify(volunteerMissions));
+    try {
+      localStorage.setItem('sc_volunteer_missions', JSON.stringify(volunteerMissions));
+    } catch (e) {
+      console.error("Failed to save volunteer missions to storage:", e);
+    }
   }, [volunteerMissions]);
 
   useEffect(() => {
-    localStorage.setItem('sc_volunteer_applications', JSON.stringify(volunteerApplications));
+    try {
+      localStorage.setItem('sc_volunteer_applications', JSON.stringify(volunteerApplications));
+    } catch (e) {
+      console.error("Failed to save volunteer applications to storage:", e);
+    }
   }, [volunteerApplications]);
 
   useEffect(() => {
-    localStorage.setItem('sc_chat_history', JSON.stringify(chatHistory));
+    try {
+      localStorage.setItem('sc_chat_history', JSON.stringify(chatHistory));
+    } catch (e) {
+      console.error("Failed to save chat history to storage:", e);
+    }
   }, [chatHistory]);
 
   const toggleTheme = () => {
@@ -1521,9 +1572,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
 
       // Save password in mock database
-      const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
-      mockPasswords[cleanEmail] = pass;
-      localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
+      try {
+        const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
+        mockPasswords[cleanEmail] = pass;
+        localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
+      } catch (e) {
+        console.error("Failed to save mock passwords to storage:", e);
+      }
 
       setUsersList(prev => [...prev, newUser]);
       setCurrentUser(newUser);
@@ -1793,10 +1848,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // Cleanup local lists
       setUsersList(prev => prev.filter(u => u.id !== userId && (!u.email || u.email.toLowerCase() !== email.toLowerCase())));
       
-      const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
-      if (email) {
-        delete mockPasswords[email.toLowerCase()];
-        localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
+      try {
+        const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
+        if (email) {
+          delete mockPasswords[email.toLowerCase()];
+          localStorage.setItem('sc_mock_passwords', JSON.stringify(mockPasswords));
+        }
+      } catch (e) {
+        console.error("Failed to update mock passwords in storage:", e);
       }
 
       setCurrentUser(null);
