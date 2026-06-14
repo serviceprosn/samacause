@@ -112,7 +112,17 @@ const initialBadges: Badge[] = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [useSupabase, setUseSupabase] = useState(false);
+  const [useSupabase, setUseSupabase] = useState(() => {
+    const url = import.meta.env.VITE_SUPABASE_URL;
+    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    return !!(
+      url && 
+      url !== 'https://votre-projet.supabase.co' &&
+      anonKey && 
+      anonKey !== 'votre-cle-api-anon' && 
+      anonKey !== 'votre-cle-api-anon-ici'
+    );
+  });
   
   // Public Profile and Direct Message States
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
@@ -140,6 +150,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return saved ? JSON.parse(saved) : null;
     }
   });
+
+  // Synchronize currentUser changes to localStorage/sessionStorage for instant load on reload
+  useEffect(() => {
+    if (currentUser) {
+      const rememberMe = localStorage.getItem('sc_remember_me') !== 'false';
+      if (rememberMe) {
+        localStorage.setItem('sc_current_user', JSON.stringify(currentUser));
+        sessionStorage.removeItem('sc_current_user');
+      } else {
+        sessionStorage.setItem('sc_current_user', JSON.stringify(currentUser));
+        localStorage.removeItem('sc_current_user');
+      }
+    } else {
+      localStorage.removeItem('sc_current_user');
+      sessionStorage.removeItem('sc_current_user');
+    }
+  }, [currentUser]);
 
   const [usersList, setUsersList] = useState<User[]>(() => {
     const saved = localStorage.getItem('sc_users_list');
@@ -889,7 +916,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId,
       signaturesCount: 0,
       createdAt: new Date().toISOString().split('T')[0],
-      status: 'pending', // awaits admin approval
+      status: 'active', // starts active immediately for global visibility
       organizer: {
         id: currentUser.id,
         name: currentUser.name,
@@ -916,7 +943,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         location: newPet.location,
         date_limit: newPet.dateLimit,
         created_at: newPet.createdAt,
-        status: 'pending',
+        status: 'active',
         organizer: newPet.organizer,
         updates: [],
         signers: [],
@@ -946,7 +973,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       id: newId,
       amountCollected: 0,
       createdAt: new Date().toISOString().split('T')[0],
-      status: 'pending', // awaits admin approval
+      status: 'active', // starts active immediately for global visibility
       organizer: {
         id: currentUser.id,
         name: currentUser.name,
@@ -972,7 +999,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         amount_target: newCag.amountTarget,
         location: newCag.location,
         created_at: newCag.createdAt,
-        status: 'pending',
+        status: 'active',
         organizer: newCag.organizer,
         is_diaspora_targeted: newCag.isDiasporaTargeted,
         updates: [],
@@ -1129,14 +1156,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             location: location || p.location,
             coverImage: coverImage || p.coverImage,
             recipient: recipient || p.recipient,
-            status: 'pending',
+            status: 'active',
             viewedByAdmin: false,
             rejectionFeedback: undefined
           };
         }
         return p;
       }));
-      addNotification('Pétition mise à jour et soumise à nouveau !');
+      addNotification('Pétition mise à jour et réactivée !');
     } else {
       setCagnottes(prev => prev.map(c => {
         if (c.id === id) {
@@ -1150,14 +1177,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             isDiasporaTargeted: isDiasporaTargeted !== undefined ? isDiasporaTargeted : c.isDiasporaTargeted,
             documents: documents || c.documents,
             gallery: gallery || c.gallery,
-            status: 'pending',
+            status: 'active',
             viewedByAdmin: false,
             rejectionFeedback: undefined
           };
         }
         return c;
       }));
-      addNotification('Cagnotte mise à jour et soumise à nouveau !');
+      addNotification('Cagnotte mise à jour et réactivée !');
     }
 
     if (useSupabase) {
@@ -1167,7 +1194,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         description,
         location,
         cover_image: coverImage,
-        status: 'pending',
+        status: 'active',
         viewed_by_admin: false,
         rejection_feedback: null
       };

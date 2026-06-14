@@ -31,3 +31,5 @@ dist-ssr
 # Local scratch files
 scratch/
 findLines.js
+
+.vercel
