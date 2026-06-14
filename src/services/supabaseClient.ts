@@ -1,11 +1,15 @@
 import { createClient } from '@supabase/supabase-js';
 import { Petition, Cagnotte, User } from '../types';
 
-// 1. INITIALISATION DU CLIENT SUPABASE
-// Remplacez ces variables par les identifiants de votre projet Supabase
-// (généralement stockés dans des variables d'environnement .env.local)
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://votre-projet.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'votre-cle-api-anon';
+// 1. INITIALISATION DU CLIENT SUPABASE VIA VARIABLES D'ENVIRONNEMENT OU IDENTIFIANTS DE PRODUCTION EN DEFAUT
+const REAL_SUPABASE_URL = 'https://otdqdmihcadeusslgrsl.supabase.co';
+const REAL_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im90ZHFkbWloY2FkZXVzc2xncnNsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODA3ODU2MjksImV4cCI6MjA5NjM2MTYyOX0.-bTJg-LlIHE5mupk2O4dqnUzxR6lJgrMlspowEAzG3k';
+
+const rawUrl = import.meta.env.VITE_SUPABASE_URL;
+const rawAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+const supabaseUrl = (rawUrl && rawUrl !== 'https://votre-projet.supabase.co') ? rawUrl : REAL_SUPABASE_URL;
+const supabaseAnonKey = (rawAnonKey && rawAnonKey !== 'votre-cle-api-anon' && rawAnonKey !== 'votre-cle-api-anon-ici') ? rawAnonKey : REAL_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 

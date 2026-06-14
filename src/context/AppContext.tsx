@@ -112,17 +112,7 @@ const initialBadges: Badge[] = [
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [useSupabase, setUseSupabase] = useState(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    return !!(
-      url && 
-      url !== 'https://votre-projet.supabase.co' &&
-      anonKey && 
-      anonKey !== 'votre-cle-api-anon' && 
-      anonKey !== 'votre-cle-api-anon-ici'
-    );
-  });
+  const [useSupabase, setUseSupabase] = useState(true);
   
   // Public Profile and Direct Message States
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
@@ -322,19 +312,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // DETECT AND CONNECT SUPABASE
   useEffect(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const isConfigured = 
-      url && 
-      url !== 'https://votre-projet.supabase.co' &&
-      anonKey && 
-      anonKey !== 'votre-cle-api-anon' && 
-      anonKey !== 'votre-cle-api-anon-ici';
-    
-    setUseSupabase(!!isConfigured);
+    const isConfigured = true;
+    setUseSupabase(true);
     
     if (isConfigured) {
-      console.log('🔌 Connexion active à Supabase détectée !');
+      console.log('🔌 Connexion active à Supabase (base en ligne) !');
       
       const loadPetitions = async () => {
         const { data, error } = await supabase
@@ -459,14 +441,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Listen to Supabase Auth State changes for secure session recovery
   useEffect(() => {
-    const url = import.meta.env.VITE_SUPABASE_URL;
-    const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-    const isConfigured = 
-      url && 
-      url !== 'https://votre-projet.supabase.co' &&
-      anonKey && 
-      anonKey !== 'votre-cle-api-anon' && 
-      anonKey !== 'votre-cle-api-anon-ici';
+    const isConfigured = true;
 
     if (isConfigured) {
       const syncUserSession = async (session: any) => {
@@ -1394,17 +1369,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           password: pass
         });
         if (error) {
-          // Fallback to local citizen login check if Supabase login fails (e.g. for locally created mock users)
-          const localUser = usersList.find(u => u.email.toLowerCase() === email.toLowerCase());
-          if (localUser) {
-            const mockPasswords = JSON.parse(localStorage.getItem('sc_mock_passwords') || '{}');
-            const savedPass = mockPasswords[email.toLowerCase()];
-            if (!savedPass || savedPass === pass) {
-              setCurrentUser(localUser);
-              addNotification(`Bonjour, ${localUser.name} ! (Session locale de secours)`);
-              return true;
-            }
-          }
           addNotification(`❌ ${error.message}`);
           throw new Error(error.message);
         }
@@ -1674,11 +1638,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         });
         if (error) {
-          // If rate limit is hit, fall back to local signup
-          if (error.message.toLowerCase().includes('rate limit') || error.message.toLowerCase().includes('rate_limit')) {
-            console.warn("⚠️ Limite d'inscription Supabase atteinte. Basculement en mode secours local.");
-            return await signupLocalFallback();
-          }
           addNotification(`❌ ${error.message}`);
           throw new Error(error.message);
         }
@@ -1733,9 +1692,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return { success: false, needsConfirmation: false };
       } catch (err: any) {
         console.error(err);
-        if (err.message.toLowerCase().includes('rate limit') || err.message.toLowerCase().includes('rate_limit')) {
-          return await signupLocalFallback();
-        }
         addNotification(`❌ ${err.message || "Une erreur est survenue lors de l'inscription."}`);
         throw err;
       }
