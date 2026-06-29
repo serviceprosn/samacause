@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Logo } from '../components/Logo';
+import { useLanguage } from '../context/LanguageContext';
+import { Turnstile } from '../components/Turnstile';
 
 interface AuthProps {
   onSuccess: () => void;
 }
 
 export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
-  const { login, signup, setCurrentUser, usersList, addNotification, loginWithGoogle, useSupabase } = useApp();
+  const { login, signup, setCurrentUser, usersList, addNotification, loginWithGoogle } = useApp();
+  const { t } = useLanguage();
   
   const [mode, setMode] = useState<'login' | 'signup'>('login');
   
@@ -53,6 +56,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
   
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
 
   const handleModeSwitch = (newMode: 'login' | 'signup') => {
     setMode(newMode);
@@ -63,10 +67,15 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     setShowConfirmPassword(false);
     setCountry('Sénégal');
     setRegion('Dakar');
+    setTurnstileToken(null); // Reset Captcha token on switch
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!turnstileToken) {
+      setError("Veuillez valider le Captcha de sécurité.");
+      return;
+    }
     setError('');
     setLoading(true);
 
@@ -78,16 +87,16 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         if (success) {
           onSuccess();
         } else {
-          setError('Adresse e-mail ou mot de passe incorrect.');
+          setError(t('auth.error.incorrect'));
         }
       } else {
         if (password !== confirmPassword) {
-          setError('Les mots de passe ne correspondent pas.');
+          setError(t('auth.error.mismatch'));
           setLoading(false);
           return;
         }
         if (password.length < 6) {
-          setError('Le mot de passe doit faire au moins 6 caractères.');
+          setError(t('auth.error.min_length'));
           setLoading(false);
           return;
         }
@@ -95,7 +104,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         // 1. Email format check
         const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
         if (!emailRegex.test(email)) {
-          setError("Veuillez saisir une adresse e-mail valide.");
+          setError(t('auth.error.invalid_email'));
           setLoading(false);
           return;
         }
@@ -103,7 +112,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         // 2. Phone format check (clean spaces and hyphens first)
         const cleanPhone = phone.replace(/[\s-]/g, '');
         if (cleanPhone.length < 7) {
-          setError("Veuillez saisir un numéro de téléphone valide.");
+          setError(t('auth.error.invalid_phone'));
           setLoading(false);
           return;
         }
@@ -111,14 +120,14 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         // 3. Uniqueness checks on local usersList
         const emailExists = usersList.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
         if (emailExists) {
-          setError("Cette adresse e-mail est déjà associée à un compte.");
+          setError(t('auth.error.email_exists'));
           setLoading(false);
           return;
         }
 
         const phoneExists = usersList.some(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone);
         if (phoneExists) {
-          setError("Ce numéro de téléphone est déjà associé à un compte.");
+          setError(t('auth.error.phone_exists'));
           setLoading(false);
           return;
         }
@@ -132,11 +141,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             onSuccess();
           }
         } else {
-          setError("Inscription impossible. L'adresse e-mail ou le numéro de téléphone est déjà utilisé.");
+          setError(t('auth.error.signup_failed'));
         }
       }
     } catch (err: any) {
-      setError(err.message || 'Une erreur est survenue lors de l\'authentification.');
+      setError(err.message || t('auth.error.general'));
     } finally {
       setLoading(false);
     }
@@ -274,19 +283,19 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
     >
       <div className="auth-split-container">
         {/* Left Side: Professional visual image panel (hidden on mobile) */}
-        <div className="auth-image-panel" style={{ backgroundImage: 'url(/image_login.png)' }}>
+        <div className="auth-image-panel" style={{ backgroundImage: 'url(/image_login.jpg)' }}>
           <div className="auth-image-overlay" />
           <div className="auth-image-content">
             <h1 style={{ fontSize: '2.2rem', fontWeight: 800, lineHeight: 1.2, color: 'white', marginBottom: '1rem' }}>
-              Façonnez l'avenir du Sénégal 🇸🇳
+              {t('auth.hero.title')}
             </h1>
             <p style={{ fontSize: '0.95rem', opacity: 0.9, lineHeight: 1.5, marginBottom: '2rem' }}>
-              Rejoignez des milliers de citoyens et de membres de la diaspora. Signez des pétitions d'impact, financez des projets communautaires en toute transparence et engagez-vous sur le terrain.
+              {t('auth.hero.desc')}
             </p>
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>✍️ Pétitions</span>
-              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>💰 Cagnottes</span>
-              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>🛠️ Bénévolat</span>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('auth.hero.badge_petitions')}</span>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('auth.hero.badge_cagnottes')}</span>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(255,255,255,0.2)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('auth.hero.badge_benevolat')}</span>
             </div>
           </div>
         </div>
@@ -298,10 +307,10 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               <Logo size={45} style={{ marginBottom: '1.5rem' }} />
               <div style={{ fontSize: '3.5rem', marginBottom: '1rem', animation: 'float 2s infinite' }}>📧</div>
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-                Confirmation requise
+                {t('auth.confirm.title')}
               </h2>
               <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', lineHeight: 1.5, marginBottom: '1.5rem' }}>
-                Un e-mail de confirmation a été envoyé à l'adresse suivante :
+                {t('auth.confirm.desc')}
               </p>
               <div 
                 style={{ 
@@ -332,7 +341,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   marginBottom: '2rem'
                 }}
               >
-                💡 <strong>Étape suivante</strong> : Ouvrez votre messagerie (vérifiez aussi le dossier Courriers indésirables / Spams) et cliquez sur le lien d'activation reçu pour confirmer votre compte. Une fois activé, vous pourrez vous connecter immédiatement.
+                {t('auth.confirm.hint')}
               </div>
               <button 
                 type="button" 
@@ -344,7 +353,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   setError('');
                 }}
               >
-                Retourner à la connexion ➔
+                {t('auth.confirm.btn')}
               </button>
             </div>
           ) : (
@@ -353,12 +362,12 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             <div style={{ marginBottom: '1.5rem' }}>
               <Logo size={45} style={{ marginBottom: '0.5rem' }} />
               <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>
-                {mode === 'login' ? 'Connexion Citoyenne' : 'Inscription Citoyenne'}
+                {mode === 'login' ? t('auth.title_login') : t('auth.title_signup')}
               </h2>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginTop: '0.25rem' }}>
                 {mode === 'login' 
-                  ? 'Connectez-vous pour continuer.' 
-                  : 'Créez un compte pour participer.'}
+                  ? t('auth.sub_login') 
+                  : t('auth.sub_signup')}
               </p>
             </div>
 
@@ -383,7 +392,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               {mode === 'signup' && (
                 <>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Type de Compte</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.type_label')}</label>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.5rem', marginBottom: '0.5rem' }}>
                       <button
                         type="button"
@@ -392,7 +401,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                         onClick={() => setAccountType('citizen')}
                       >
                         <span style={{ fontSize: '1.2rem' }}>👤</span>
-                        <span>Citoyen</span>
+                        <span>{t('auth.type.citizen')}</span>
                       </button>
                       <button
                         type="button"
@@ -401,7 +410,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                         onClick={() => setAccountType('company')}
                       >
                         <span style={{ fontSize: '1.2rem' }}>🏢</span>
-                        <span>Entreprise</span>
+                        <span>{t('auth.type.company')}</span>
                       </button>
                       <button
                         type="button"
@@ -410,17 +419,17 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                         onClick={() => setAccountType('ngo')}
                       >
                         <span style={{ fontSize: '1.2rem' }}>🤝</span>
-                        <span>ONG</span>
+                        <span>{t('auth.type.ngo')}</span>
                       </button>
                     </div>
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Prénom & Nom</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.name_label')}</label>
                     <input
                       type="text"
                       required
-                      placeholder="Ex : Fatou Diop"
+                      placeholder={t('auth.placeholder.name')}
                       className="premium-card"
                       style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
                       value={name}
@@ -429,11 +438,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   </div>
 
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Téléphone Mobile</label>
+                    <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.phone_label')}</label>
                     <input
                       type="text"
                       required
-                      placeholder="Ex : +221 77 123 45 67"
+                      placeholder={t('auth.placeholder.phone')}
                       className="premium-card"
                       style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
                       value={phone}
@@ -443,7 +452,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
                   <div className="grid-cols-2" style={{ gap: '0.75rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Pays de résidence</label>
+                      <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.country_label')}</label>
                       <select
                         className="premium-card"
                         style={{ width: '100%', padding: '0.55rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
@@ -462,7 +471,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
                     {country === 'Sénégal' && (
                       <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Région d'impact</label>
+                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.region_label')}</label>
                         <select
                           className="premium-card"
                           style={{ width: '100%', padding: '0.55rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
@@ -491,11 +500,11 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               )}
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Adresse E-mail</label>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.email_label')}</label>
                 <input
                   type="email"
                   required
-                  placeholder="Ex : fatou@gmail.com"
+                  placeholder={t('auth.placeholder.email')}
                   className="premium-card"
                   style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
                   value={email}
@@ -504,7 +513,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Mot de passe</label>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.password_label')}</label>
                 <div style={{ position: 'relative' }}>
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -541,7 +550,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
 
               {mode === 'signup' && (
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Confirmer le mot de passe</label>
+                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('auth.confirm_password_label')}</label>
                   <div style={{ position: 'relative' }}>
                     <input
                       type={showConfirmPassword ? 'text' : 'password'}
@@ -586,24 +595,34 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   onChange={(e) => setRememberMe(e.target.checked)} 
                 />
                 <label htmlFor="rememberMeCheckbox" style={{ fontSize: '0.8rem', cursor: 'pointer', fontWeight: 600 }}>
-                  Se souvenir de moi
+                  {t('auth.remember_me')}
                 </label>
               </div>
+
+              {/* Cloudflare Turnstile Verification */}
+              <Turnstile 
+                onVerify={(token) => setTurnstileToken(token)} 
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => {
+                  setTurnstileToken(null);
+                  setError("Erreur de validation du Captcha.");
+                }}
+              />
 
               <button 
                 type="submit" 
                 className="btn btn-primary" 
                 style={{ width: '100%', padding: '0.75rem', marginTop: '0.4rem' }}
-                disabled={loading}
+                disabled={loading || !turnstileToken}
               >
                 {loading 
-                  ? 'Traitement en cours...' 
-                  : mode === 'login' ? 'Se connecter' : 'Créer mon compte'}
+                  ? t('auth.loading') 
+                  : mode === 'login' ? t('auth.btn_login') : t('auth.btn_signup')}
               </button>
             </form>
 
-            {/* Google Login button disabled for now */}
-            {false && (
+            {/* Google Login button */}
+            {true && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: '1rem 0' }}>
                   <div style={{ flex: 1, height: '1px', background: 'var(--border-light)' }} />
@@ -615,7 +634,18 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                   type="button" 
                   className="btn btn-outline" 
                   style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', background: 'white', color: '#444', borderColor: '#e2e8f0', marginBottom: '1rem' }}
-                  onClick={handleGoogleLoginClick}
+                  onClick={async () => {
+                    setLoading(true);
+                    setError('');
+                    try {
+                      await loginWithGoogle();
+                    } catch (err: any) {
+                      setError(err.message || "Erreur de connexion OAuth Google.");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  disabled={loading}
                 >
                   <svg width="18" height="18" viewBox="0 0 18 18" style={{ marginRight: '4px' }}>
                     <path fill="#4285F4" d="M17.64 9.2c0-.63-.06-1.25-.16-1.84H9v3.47h4.84c-.21 1.12-.84 2.07-1.8 2.71v2.24h2.91c1.7-1.56 2.69-3.86 2.69-6.58z"/>
@@ -623,7 +653,7 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
                     <path fill="#FBBC05" d="M3.97 10.75c-.18-.54-.28-1.12-.28-1.75s.1-1.21.28-1.75V4.95H.95C.34 6.16 0 7.54 0 9s.34 2.84.95 4.05l3.02-2.3z"/>
                     <path fill="#EA4335" d="M9 3.58c1.32 0 2.5.45 3.44 1.35L15 2.4C13.46.99 11.42 0 9 0 5.5 0 2.43 2.11.95 5.09l3.02 2.3c.7-2.12 2.69-3.7 5.03-3.7z"/>
                   </svg>
-                  Continuer avec Google
+                  {t('auth.btn_google')}
                 </button>
               </>
             )}
@@ -631,24 +661,24 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
             <div style={{ marginTop: '0.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1rem' }}>
               {mode === 'login' ? (
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-                  Pas encore de compte ?{' '}
+                  {t('auth.no_account')}{' '}
                   <button 
                     className="btn btn-ghost" 
                     style={{ display: 'inline', padding: 0, fontWeight: 'bold', color: 'var(--primary)', textDecoration: 'underline' }}
                     onClick={() => handleModeSwitch('signup')}
                   >
-                    S'inscrire
+                    {t('auth.signup_link')}
                   </button>
                 </p>
               ) : (
                 <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-                  Déjà inscrit ?{' '}
+                  {t('auth.has_account')}{' '}
                   <button 
                     className="btn btn-ghost" 
                     style={{ display: 'inline', padding: 0, fontWeight: 'bold', color: 'var(--primary)', textDecoration: 'underline' }}
                     onClick={() => handleModeSwitch('login')}
                   >
-                    Se connecter
+                    {t('auth.login_link')}
                   </button>
                 </p>
               )}

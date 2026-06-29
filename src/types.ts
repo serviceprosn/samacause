@@ -21,6 +21,8 @@ export interface User {
   accountType?: 'citizen' | 'company' | 'ngo';
   following?: string[];
   followers?: string[];
+  availableFunds: number;
+  kycRejectReason?: string;
 }
 
 export interface Update {
@@ -71,6 +73,9 @@ export interface Petition {
   boostLevel?: 'ndamel' | 'teranga' | 'lion' | null;
   viewedByAdmin?: boolean;
   rejectionFeedback?: string;
+  imageBefore?: string;
+  imageAfter?: string;
+  gallery?: string[];
 }
 
 export interface Cagnotte {
@@ -105,6 +110,8 @@ export interface Cagnotte {
   gallery?: string[];
   viewedByAdmin?: boolean;
   rejectionFeedback?: string;
+  imageBefore?: string;
+  imageAfter?: string;
 }
 
 export interface VolunteerMission {
@@ -125,6 +132,8 @@ export interface VolunteerMission {
   };
   createdAt: string;
   status: 'active' | 'completed';
+  imageBefore?: string;
+  imageAfter?: string;
 }
 
 export interface VolunteerApplication {
@@ -181,3 +190,99 @@ export interface DirectMessage {
   timestamp: string;
   read: boolean;
 }
+
+export interface TontineMember {
+  name: string;
+  avatar: string;
+  email: string;
+  phone: string;
+  verified: boolean;
+  reputation: 'excellent' | 'fiable' | 'nouveau' | 'surveillance' | 'sanctionne';
+  rate: number; // Taux de paiement (ex : 98)
+  hasPaidThisRound: boolean;
+  hasPendingReminder?: boolean;
+  penalties?: number;
+}
+
+export interface PaymentRecord {
+  id: string;
+  date: string;
+  amount: number;
+  payer: string;
+  beneficiary: string;
+  status: 'paid' | 'pending' | 'late';
+  transactionId: string;
+  method: string;
+  timestamp: string;
+  ipAddress: string;
+  proofHash: string;
+}
+
+export interface ActivityLog {
+  id: string;
+  timestamp: string;
+  type: 'creation' | 'adhesion' | 'paiement' | 'retrait' | 'sanction' | 'vote';
+  user: string;
+  details: string;
+}
+
+export interface VoteRequest {
+  id: string;
+  title: string;
+  description: string;
+  status: 'active' | 'passed' | 'rejected';
+  votesYes: string[];
+  votesNo: string[];
+  membersTotal: number;
+}
+
+export interface TontineChatMessage {
+  id: string;
+  sender: string;
+  text: string;
+  timestamp: string;
+}
+
+export interface Tontine {
+  id: string;
+  name: string;
+  description: string;
+  type: 'public' | 'private';
+  participantsMax: number;
+  joinedCount: number;
+  cotisation: number;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  startDate: string;
+  endDate: string;
+  orderType: 'random' | 'defined' | 'bid' | 'vote';
+  status: 'recruiting' | 'active' | 'completed';
+  organizer: {
+    name: string;
+    email: string;
+    avatar: string;
+    verified: boolean;
+  };
+  members: TontineMember[];
+  payments: PaymentRecord[];
+  activityLogs: ActivityLog[];
+  votes: VoteRequest[];
+  chat: TontineChatMessage[];
+  guaranteeFundActive: boolean;
+  guaranteeFundAmount: number; // Caution par membre
+  guaranteeFundTotal: number; // Pool collecté
+  coverImage?: string;
+  tontineType?: 'money' | 'product';
+  productImages?: string[];
+  accumulatedSavings?: number;
+}
+
+export interface WithdrawalRequest {
+  id: string;
+  userId: string;
+  amount: number;
+  method: string;
+  phone: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
+

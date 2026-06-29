@@ -6,7 +6,7 @@ CREATE TABLE IF NOT EXISTS public.contact_messages (
     phone TEXT,
     subject TEXT,
     message TEXT NOT NULL,
-    recipient TEXT DEFAULT 'mouhamethsarr98@gmail.com',
+    recipient TEXT DEFAULT 'admin@sunuyite.com',
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 

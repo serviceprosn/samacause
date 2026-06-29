@@ -93,6 +93,13 @@ input, textarea, select {
   color: var(--text-primary-light) !important;
 }
 
+/* Prevent auto-zooming on focus in iOS by enforcing minimum 16px font-size on mobile viewports */
+@media (max-width: 833.98px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+
 select option {
   background-color: var(--light-card) !important;
   color: var(--text-primary-light) !important;
@@ -293,7 +300,7 @@ input::placeholder, textarea::placeholder {
   .grid-cols-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .grid-cols-4 { grid-template-columns: 1fr; }
   .grid-cols-3 { grid-template-columns: 1fr; }
   .grid-cols-2 { grid-template-columns: 1fr; }
@@ -707,7 +714,7 @@ input::placeholder, textarea::placeholder {
   border-radius: 5px;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .carousel-container {
     height: 280px;
   }
@@ -723,7 +730,7 @@ input::placeholder, textarea::placeholder {
 /* --- Added for Responsive, Images Split Layout & Premium Animations --- */
 
 /* Stacking and Full-Screen Mobile Adaptation */
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .mobile-shell-frame {
     width: 100% !important;
     height: 100vh !important;
@@ -756,13 +763,13 @@ input::placeholder, textarea::placeholder {
 /* Responsive layouts grid wrappers */
 .responsive-grid-main-sidebar {
   display: grid;
-  grid-template-columns: 1.3fr 0.7fr;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 0.7fr);
   gap: 2rem;
 }
 
 @media (max-width: 992px) {
   .responsive-grid-main-sidebar {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
     gap: 1.5rem;
   }
 }
@@ -774,7 +781,7 @@ input::placeholder, textarea::placeholder {
   align-items: center;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .responsive-card-layout {
     grid-template-columns: 1fr;
     gap: 1rem;
@@ -825,13 +832,20 @@ input::placeholder, textarea::placeholder {
   z-index: 100;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .mobile-app-header {
     display: flex;
+    height: calc(56px + env(safe-area-inset-top, 0px)) !important;
+    padding-top: env(safe-area-inset-top, 0px) !important;
+  }
+  
+  .mobile-tab-bar {
+    height: calc(60px + env(safe-area-inset-bottom, 0px)) !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
   }
   
   .mobile-shell-content {
-    height: calc(100% - 116px) !important; /* height minus header (56px) and tab bar (60px) */
+    height: calc(100% - 116px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)) !important; /* height minus header (56px) and tab bar (60px) taking safe areas into account */
     padding: 1.25rem 1.25rem !important; /* Elegant 20px margins on all sides on mobile devices */
   }
 }
@@ -935,7 +949,7 @@ input::placeholder, textarea::placeholder {
   margin-bottom: 2rem;
 }
 
-@media (max-width: 768px) {
+@media (max-width: 833.98px) {
   .hero-section {
     padding: 2.5rem 1.25rem;
     margin-bottom: 2rem;
@@ -1078,3 +1092,57 @@ input::placeholder, textarea::placeholder {
     transform: translateX(0);
   }
 }
+
+/* --- Added for Responsive, Scroll and Overflow Safety --- */
+
+.mobile-shell-content {
+  overflow-x: hidden !important;
+}
+
+/* Custom premium scrollable horizontal tab container */
+.horizontal-scroll-tabs {
+  display: flex !important;
+  gap: 0.5rem !important;
+  overflow-x: auto !important;
+  white-space: nowrap !important;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none !important; /* Hide scrollbar for Firefox */
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1.5rem;
+  width: 100%;
+}
+
+.horizontal-scroll-tabs::-webkit-scrollbar {
+  display: none !important; /* Hide scrollbar for Chrome/Safari/Edge */
+}
+
+.horizontal-scroll-tabs .btn {
+  flex-shrink: 0 !important;
+}
+
+/* --- Added for Responsive Sidebar Cards & AI Chat Drawer --- */
+
+.sticky-sidebar-card {
+  position: sticky;
+  top: 2rem;
+}
+
+@media (max-width: 992px) {
+  .sticky-sidebar-card {
+    position: relative !important;
+    top: 0 !important;
+    margin-bottom: 1.5rem !important;
+  }
+}
+
+@media (max-width: 833.98px) {
+  .ai-assistant-drawer {
+    width: 100% !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    height: 100vh !important;
+    height: 100dvh !important;
+  }
+}
+

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { User, Petition, Cagnotte, VolunteerMission, VolunteerApplication, Badge, ChatMessage, AdminKPIs, Update, Expense, DirectMessage } from '../types';
+import { User, Petition, Cagnotte, VolunteerMission, VolunteerApplication, Badge, ChatMessage, AdminKPIs, Update, Expense, DirectMessage, Tontine, WithdrawalRequest, PaymentRecord, ActivityLog } from '../types';
 import { supabase } from '../services/supabaseClient';
 import { messaging } from '../services/firebaseClient';
 import { getToken } from 'firebase/messaging';
@@ -15,6 +15,8 @@ interface AppContextType {
   usersList: User[];
   petitions: Petition[];
   cagnottes: Cagnotte[];
+  tontines: Tontine[];
+  saveTontine: (tontine: Tontine) => Promise<boolean>;
   volunteerMissions: VolunteerMission[];
   volunteerApplications: VolunteerApplication[];
   badges: Badge[];
@@ -35,6 +37,14 @@ interface AppContextType {
   adminUpdateUser: (userId: string, updates: Partial<User>) => Promise<boolean>;
   followUser: (userId: string) => Promise<boolean>;
   unfollowUser: (userId: string) => Promise<boolean>;
+  
+  // Withdrawal Requests & Messages helpers
+  withdrawalRequests: WithdrawalRequest[];
+  submitWithdrawalRequest: (amount: number, method: string, phone: string) => Promise<boolean>;
+  submitTontinePayoutRequest: (userId: string, amount: number, tontineName: string, phone: string) => Promise<boolean>;
+  approveWithdrawalRequest: (id: string) => Promise<boolean>;
+  rejectWithdrawalRequest: (id: string) => Promise<boolean>;
+  markMessagesAsRead: (senderId: string) => Promise<void>;
 
   // Actions
   updateProfile: (
@@ -59,13 +69,14 @@ interface AppContextType {
   boostPetition: (id: string, boostLevel: 'ndamel' | 'teranga' | 'lion', amount: number, paymentMethod: string) => Promise<boolean>;
   donateToCagnotte: (id: string, amount: number, name: string, comment: string, isDiaspora: boolean, paymentMethod: string) => Promise<boolean>;
   applyToMission: (id: string, name: string, email: string, phone: string, message: string) => Promise<boolean>;
-  createPetition: (petition: Omit<Petition, 'id' | 'signaturesCount' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'signers'>) => string;
-  createCagnotte: (cagnotte: Omit<Cagnotte, 'id' | 'amountCollected' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'expenses' | 'donors'>) => string;
-  createVolunteerMission: (mission: Omit<VolunteerMission, 'id' | 'volunteersCount' | 'createdAt' | 'organizer' | 'status'>) => void;
+  createPetition: (petition: Omit<Petition, 'id' | 'signaturesCount' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'signers'>) => Promise<string>;
+  createCagnotte: (cagnotte: Omit<Cagnotte, 'id' | 'amountCollected' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'expenses' | 'donors'>) => Promise<string>;
+  createVolunteerMission: (mission: Omit<VolunteerMission, 'id' | 'volunteersCount' | 'createdAt' | 'organizer' | 'status'>) => Promise<string>;
   
   // Admin & Organizer actions
   approveCampaign: (id: string, type: 'petition' | 'cagnotte') => void;
   rejectCampaign: (id: string, type: 'petition' | 'cagnotte', feedback: string) => void;
+  deletePublication: (id: string, type: 'petition' | 'cagnotte' | 'volunteer_mission' | 'tontine') => Promise<boolean>;
   markCampaignAsViewed: (id: string, type: 'petition' | 'cagnotte') => void;
   resubmitCampaign: (
     id: string, 
@@ -82,6 +93,7 @@ interface AppContextType {
   ) => void;
   addCampaignUpdate: (id: string, type: 'petition' | 'cagnotte', title: string, content: string) => void;
   addCampaignExpense: (cagnotteId: string, desc: string, amount: number, category: string) => void;
+  updateCampaignAfterImage: (id: string, type: 'petition' | 'cagnotte' | 'volunteer', imageAfter: string) => Promise<boolean>;
   
   // IA actions
   chatHistory: ChatMessage[];
@@ -99,9 +111,13 @@ interface AppContextType {
   // PWA Install
   isInstallable: boolean;
   installApp: () => Promise<boolean>;
+  isDataLoaded: boolean;
+  loadPetitionDetails: (id: string) => Promise<void>;
+  loadCagnotteDetails: (id: string) => Promise<void>;
+  loadUserKycDocs: (userId: string) => Promise<void>;
 }
 
-const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'mouhamethsarr98@gmail.com';
+const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@sunuyite.com';
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
@@ -115,12 +131,18 @@ const initialBadges: Badge[] = [
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [useSupabase, setUseSupabase] = useState(true);
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
   
   // Public Profile and Direct Message States
   const [selectedPublicUserId, setSelectedPublicUserId] = useState<string | null>(null);
   const [activeChatUserId, setActiveChatUserId] = useState<string | null>(null);
   const [directMessages, setDirectMessages] = useState<DirectMessage[]>(() => {
     const saved = localStorage.getItem('sc_direct_messages');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalRequest[]>(() => {
+    const saved = localStorage.getItem('sc_withdrawal_requests');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -131,6 +153,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error("Failed to save direct messages to storage:", e);
     }
   }, [directMessages]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sc_withdrawal_requests', JSON.stringify(withdrawalRequests));
+    } catch (e) {
+      console.error("Failed to save withdrawal requests to storage:", e);
+    }
+  }, [withdrawalRequests]);
   
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     const rememberMe = localStorage.getItem('sc_remember_me') !== 'false';
@@ -143,22 +173,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   });
 
-  // Synchronize currentUser changes to localStorage/sessionStorage for instant load on reload
+  const currentUserRef = React.useRef(currentUser);
   useEffect(() => {
-    if (currentUser) {
-      const rememberMe = localStorage.getItem('sc_remember_me') !== 'false';
-      if (rememberMe) {
-        localStorage.setItem('sc_current_user', JSON.stringify(currentUser));
-        sessionStorage.removeItem('sc_current_user');
-      } else {
-        sessionStorage.setItem('sc_current_user', JSON.stringify(currentUser));
-        localStorage.removeItem('sc_current_user');
-      }
-    } else {
-      localStorage.removeItem('sc_current_user');
-      sessionStorage.removeItem('sc_current_user');
-    }
+    currentUserRef.current = currentUser;
   }, [currentUser]);
+
 
   const [usersList, setUsersList] = useState<User[]>(() => {
     const saved = localStorage.getItem('sc_users_list');
@@ -182,7 +201,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verificationStatus: 'verified',
         accountType: 'ngo',
         following: [],
-        followers: []
+        followers: [],
+        availableFunds: 0,
+        kycRejectReason: ''
       },
       {
         id: 'usr_ent_progres',
@@ -199,7 +220,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verificationStatus: 'verified',
         accountType: 'company',
         following: [],
-        followers: []
+        followers: [],
+        availableFunds: 0,
+        kycRejectReason: ''
       },
       {
         id: 'usr_cit_amady',
@@ -216,7 +239,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verificationStatus: 'verified',
         accountType: 'citizen',
         following: [],
-        followers: []
+        followers: [],
+        availableFunds: 0,
+        kycRejectReason: ''
       }
     ];
   });
@@ -228,6 +253,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [cagnottes, setCagnottes] = useState<Cagnotte[]>(() => {
     const saved = localStorage.getItem('sc_cagnottes');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [tontines, setTontines] = useState<Tontine[]>(() => {
+    const saved = localStorage.getItem('sc_tontines_list');
     return saved ? JSON.parse(saved) : [];
   });
 
@@ -248,49 +278,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [isMobileView, setIsMobileView] = useState(() => {
     if (typeof window !== 'undefined') {
-      return window.innerWidth <= 768;
+      return window.innerWidth < 834;
     }
     return false;
   });
   const [notifications, setNotifications] = useState<string[]>([]);
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
 
-  // PWA Install prompt state & listener
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [isInstallable, setIsInstallable] = useState(false);
-
-  useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      console.log('beforeinstallprompt event fired');
-      e.preventDefault();
-      setDeferredPrompt(e);
-      setIsInstallable(true);
-    };
-
-    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-
-    // If PWA is already installed and running in standalone
-    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (navigator as any).standalone;
-    if (isStandalone) {
-      setIsInstallable(false);
-    }
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt as any);
-    };
-  }, []);
-
+  // PWA Install prompt state & listener (Disabled)
+  const isInstallable = false;
   const installApp = async (): Promise<boolean> => {
-    if (!deferredPrompt) {
-      console.warn('No PWA install prompt available.');
-      return false;
-    }
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`User response to PWA install prompt: ${outcome}`);
-    setDeferredPrompt(null);
-    setIsInstallable(false);
-    return outcome === 'accepted';
+    return false;
   };
 
   // IA Chat state
@@ -312,6 +310,142 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
+  const syncUserSession = async (session: any) => {
+    if (session && session.user) {
+      try {
+        const { data: profile, error: selectError } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
+
+        if (selectError) {
+          // PGRST116 indicates that the profile doesn't exist yet, so we insert the fallback profile
+          if (selectError.code === 'PGRST116') {
+            console.warn("⚠️ Profil de session introuvable en base. Création d'un profil de secours...");
+            const u = session.user;
+            const isSessionAdmin = u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            const fallbackProfile = {
+              id: u.id,
+              name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Citoyen',
+              email: u.email || '',
+              phone: u.user_metadata?.phone || '',
+              role: isSessionAdmin ? 'admin' : (u.user_metadata?.role || 'citizen'),
+              verified: isSessionAdmin ? true : false,
+              trust_score: isSessionAdmin ? 100 : 50,
+              avatar: u.user_metadata?.avatar_url || u.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
+              country: u.user_metadata?.country || 'Sénégal',
+              region: u.user_metadata?.region || 'Dakar',
+              verification_status: isSessionAdmin ? 'verified' : 'none',
+              account_type: u.user_metadata?.account_type || 'citizen',
+              funds_available: 0,
+              kyc_reject_reason: ''
+            };
+
+            const { error: insertError } = await supabase.from('profiles').insert([fallbackProfile]);
+            if (insertError) {
+              console.error("Erreur lors de la création directe du profil de secours :", insertError);
+            }
+
+            const matchedUser: User = {
+              id: fallbackProfile.id,
+              name: fallbackProfile.name,
+              email: fallbackProfile.email,
+              phone: fallbackProfile.phone,
+              role: fallbackProfile.role as 'citizen' | 'organizer' | 'admin',
+              verified: fallbackProfile.verified,
+              avatar: fallbackProfile.avatar,
+              trustScore: fallbackProfile.trust_score,
+              badges: [],
+              country: fallbackProfile.country,
+              region: fallbackProfile.region,
+              verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected',
+              accountType: fallbackProfile.account_type as 'citizen' | 'company' | 'ngo',
+              following: [],
+              followers: [],
+              availableFunds: 0,
+              kycRejectReason: ''
+            };
+            setCurrentUser(matchedUser);
+          } else {
+            // A network or DB connection error occurred. DO NOT clear the currentUser session, keep what is cached.
+            console.error("❌ Erreur de connexion réseau lors de la récupération du profil Supabase :", selectError.message);
+          }
+          return;
+        }
+
+        let matchedUser: User;
+        if (profile) {
+          // Synchronisation automatique des métadonnées Google (avatar, nom) si le profil en base est par défaut ou vide
+          const u = session.user;
+          const googleAvatar = u.user_metadata?.avatar_url || u.user_metadata?.avatar;
+          const googleName = u.user_metadata?.full_name;
+          
+          let needsUpdate = false;
+          const updatedFields: any = {};
+          
+          const isDefaultAvatar = !profile.avatar || profile.avatar.startsWith('data:image/svg+xml') || profile.avatar.includes('PHN2ZyB4bWxucz');
+          if (isDefaultAvatar && googleAvatar && googleAvatar !== profile.avatar) {
+            updatedFields.avatar = googleAvatar;
+            needsUpdate = true;
+          }
+          
+          const isDefaultName = !profile.name || profile.name === profile.email?.split('@')[0] || profile.name === 'Citoyen';
+          if (isDefaultName && googleName && googleName !== profile.name) {
+            updatedFields.name = googleName;
+            needsUpdate = true;
+          }
+          
+          if (needsUpdate) {
+            console.log("🔄 Synchronisation du profil avec les données Google...", updatedFields);
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update(updatedFields)
+              .eq('id', profile.id);
+            if (updateError) {
+              console.error("❌ Erreur lors de la mise à jour des métadonnées Google :", updateError);
+            } else {
+              if (updatedFields.avatar) profile.avatar = updatedFields.avatar;
+              if (updatedFields.name) profile.name = updatedFields.name;
+            }
+          }
+          
+          matchedUser = {
+            id: profile.id,
+            name: profile.name,
+            email: profile.email,
+            phone: profile.phone || '',
+            role: (profile.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (profile.role || 'citizen'),
+            verified: profile.verified || false,
+            avatar: profile.avatar || '',
+            trustScore: profile.trust_score || 50,
+            badges: profile.badges || [],
+            bio: profile.bio,
+            address: profile.address,
+            country: profile.country,
+            region: profile.region,
+            idCardRecto: profile.id_card_recto,
+            idCardVerso: profile.id_card_verso,
+            selfie: profile.selfie,
+            verificationStatus: profile.verification_status || 'none',
+            cniNumber: profile.cni_number,
+            dob: profile.dob,
+            accountType: profile.account_type || 'citizen',
+            following: profile.following || [],
+            followers: profile.followers || [],
+            availableFunds: Number(profile.funds_available || 0),
+            kycRejectReason: profile.kyc_reject_reason || ''
+          };
+          setCurrentUser(matchedUser);
+        }
+      } catch (err) {
+        console.error("Erreur lors de la synchronisation de la session :", err);
+      }
+    } else {
+      setCurrentUser(null);
+    }
+  };
+
   // DETECT AND CONNECT SUPABASE
   useEffect(() => {
     const isConfigured = true;
@@ -323,10 +457,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const loadPetitions = async () => {
         const { data, error } = await supabase
           .from('petitions')
-          .select('*')
+          .select('id, title, description, cover_image, category, signatures_count, signatures_target, recipient, location, date_limit, created_at, status, organizer, updates, signers, boosted, boost_level, viewed_by_admin, rejection_feedback, image_before, image_after, gallery')
           .order('created_at', { ascending: false });
         if (!error && data) {
-          setPetitions(data.map((item: any) => ({
+          const mapped = data.map((item: any) => ({
             id: item.id,
             title: item.title,
             description: item.description,
@@ -345,18 +479,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             boosted: item.boosted,
             boostLevel: item.boost_level,
             viewedByAdmin: item.viewed_by_admin,
-            rejectionFeedback: item.rejection_feedback
-          })));
+            rejectionFeedback: item.rejection_feedback,
+            imageBefore: item.image_before || '',
+            imageAfter: item.image_after || '',
+            gallery: item.gallery || []
+          }));
+          setPetitions(mapped);
+          return mapped;
         }
+        return [];
       };
 
       const loadCagnottes = async () => {
         const { data, error } = await supabase
           .from('cagnottes')
-          .select('*')
+          .select('id, title, description, cover_image, category, amount_collected, amount_target, location, created_at, status, organizer, is_diaspora_targeted, updates, expenses, donors, documents, gallery, viewed_by_admin, rejection_feedback, image_before, image_after')
           .order('created_at', { ascending: false });
         if (!error && data) {
-          setCagnottes(data.map((item: any) => ({
+          const mapped = data.map((item: any) => ({
             id: item.id,
             title: item.title,
             description: item.description,
@@ -375,13 +515,125 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             documents: item.documents || [],
             gallery: item.gallery || [],
             viewedByAdmin: item.viewed_by_admin,
-            rejectionFeedback: item.rejection_feedback
+            rejectionFeedback: item.rejection_feedback,
+            imageBefore: item.image_before || '',
+            imageAfter: item.image_after || ''
+          }));
+          setCagnottes(mapped);
+          return mapped;
+        }
+        return [];
+      };
+
+      const loadTontines = async () => {
+        const { data, error } = await supabase
+          .from('tontines')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          setTontines(data.map((item: any) => ({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            type: item.type,
+            participantsMax: item.participants_max,
+            joinedCount: item.joined_count,
+            cotisation: Number(item.cotisation),
+            frequency: item.frequency,
+            startDate: item.start_date,
+            endDate: item.end_date,
+            orderType: item.order_type,
+            status: item.status,
+            organizer: item.organizer,
+            members: item.members || [],
+            payments: item.payments || [],
+            activityLogs: item.activity_logs || [],
+            votes: item.votes || [],
+            chat: item.chat || [],
+            guaranteeFundActive: item.guarantee_fund_active || false,
+            guaranteeFundAmount: item.guarantee_fund_amount || 0,
+            guaranteeFundTotal: item.guarantee_fund_total || 0,
+            accumulatedSavings: Number(item.accumulated_savings || 0),
+            coverImage: item.cover_image
           })));
+        } else if (error) {
+          console.warn("Table 'tontines' non configurée ou indisponible dans Supabase, utilisation du stockage local :", error.message);
+        }
+      };
+
+      const loadVolunteerMissions = async () => {
+        const { data, error } = await supabase
+          .from('volunteer_missions')
+          .select('id, title, description, cover_image, location, duration, needs, category, volunteers_target, volunteers_count, organizer, created_at, status, image_before, image_after')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          const mapped = data.map((item: any) => ({
+            id: item.id,
+            title: item.title,
+            description: item.description,
+            coverImage: item.cover_image,
+            location: item.location,
+            duration: item.duration,
+            needs: item.needs,
+            category: item.category,
+            volunteersTarget: Number(item.volunteers_target || 0),
+            volunteersCount: Number(item.volunteers_count || 0),
+            organizer: item.organizer,
+            createdAt: item.created_at,
+            status: item.status,
+            imageBefore: item.image_before || '',
+            imageAfter: item.image_after || ''
+          }));
+          setVolunteerMissions(mapped);
+          return mapped;
+        } else if (error) {
+          console.warn("Table 'volunteer_missions' non configurée dans Supabase, utilisation du stockage local :", error.message);
+        }
+        return [];
+      };
+
+      const loadVolunteerApplications = async () => {
+        const { data, error } = await supabase
+          .from('volunteer_applications')
+          .select('*');
+        if (!error && data) {
+          setVolunteerApplications(data.map((item: any) => ({
+            id: item.id,
+            missionId: item.mission_id,
+            userName: item.user_name,
+            userEmail: item.user_email,
+            userPhone: item.user_phone,
+            message: item.message,
+            appliedAt: item.applied_at,
+            status: item.status
+          })));
+        } else if (error) {
+          console.warn("Table 'volunteer_applications' non configurée dans Supabase, utilisation du stockage local :", error.message);
+        }
+      };
+
+      const loadDirectMessages = async () => {
+        const { data, error } = await supabase
+          .from('direct_messages')
+          .select('*');
+        if (!error && data) {
+          setDirectMessages(data.map((item: any) => ({
+            id: item.id,
+            senderId: item.sender_id,
+            receiverId: item.receiver_id,
+            text: item.text,
+            timestamp: item.timestamp,
+            read: item.read
+          })));
+        } else if (error) {
+          console.warn("Table 'direct_messages' non configurée dans Supabase, utilisation du stockage local :", error.message);
         }
       };
 
       const loadProfiles = async () => {
-        const { data, error } = await supabase.from('profiles').select('*');
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('id, name, email, phone, role, verified, avatar, trust_score, badges, bio, address, country, region, verification_status, cni_number, dob, account_type, following, followers, created_at, funds_available, kyc_reject_reason');
         if (!error && data) {
           setUsersList(data.map((p: any) => ({
             id: p.id,
@@ -397,46 +649,269 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             address: p.address,
             country: p.country,
             region: p.region,
-            idCardRecto: p.id_card_recto,
-            idCardVerso: p.id_card_verso,
-            selfie: p.selfie,
+            idCardRecto: '',
+            idCardVerso: '',
+            selfie: '',
             verificationStatus: p.verification_status || 'none',
             cniNumber: p.cni_number,
-            dob: p.dob
+            dob: p.dob,
+            following: p.following || [],
+            followers: p.followers || [],
+            availableFunds: Number(p.funds_available || 0),
+            kycRejectReason: p.kyc_reject_reason || ''
           })));
         }
       };
 
-      loadPetitions();
-      loadCagnottes();
-      loadProfiles();
+      const loadWithdrawalRequests = async () => {
+        const { data, error } = await supabase
+          .from('withdrawal_requests')
+          .select('*')
+          .order('created_at', { ascending: false });
+        if (!error && data) {
+          const mapped = data.map((item: any) => ({
+            id: item.id,
+            userId: item.user_id,
+            amount: Number(item.amount),
+            method: item.method,
+            phone: item.phone,
+            status: item.status,
+            createdAt: item.created_at
+          }));
+          setWithdrawalRequests(mapped);
+          return mapped;
+        }
+        return [];
+      };
+
+      // Load all data from Supabase - 100% blocking under the Splash Screen
+      const loadAllData = async () => {
+        try {
+          // 1. Recover auth session and sync user profile first
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            await syncUserSession(session);
+          }
+
+          // 2. Fetch ALL database tables in parallel
+          const [
+            petitionsList,
+            cagnottesList,
+            volunteerMissionsList,
+            _tontinesList,
+            _profilesList,
+            _applicationsList,
+            _messagesList,
+            _withdrawalsList
+          ] = await Promise.all([
+            loadPetitions(),
+            loadCagnottes(),
+            loadVolunteerMissions(),
+            loadTontines(),
+            loadProfiles(),
+            loadVolunteerApplications(),
+            loadDirectMessages(),
+            loadWithdrawalRequests()
+          ]);
+
+          // 3. Preload ALL active cover image assets to guarantee 0ms loading layout shifts
+          const urlsToPreload: string[] = [];
+          
+          if (Array.isArray(petitionsList)) {
+            petitionsList.filter(p => p.status === 'active').forEach(p => {
+              if (p.coverImage && !urlsToPreload.includes(p.coverImage)) {
+                urlsToPreload.push(p.coverImage);
+              }
+            });
+          }
+          if (Array.isArray(cagnottesList)) {
+            cagnottesList.filter(c => c.status === 'active').forEach(c => {
+              if (c.coverImage && !urlsToPreload.includes(c.coverImage)) {
+                urlsToPreload.push(c.coverImage);
+              }
+            });
+          }
+          if (Array.isArray(volunteerMissionsList)) {
+            volunteerMissionsList.filter(m => m.status === 'active').forEach(m => {
+              if (m.coverImage && !urlsToPreload.includes(m.coverImage)) {
+                urlsToPreload.push(m.coverImage);
+              }
+            });
+          }
+
+          if (urlsToPreload.length > 0) {
+            console.log(`🖼️ Pré-chargement absolu de ${urlsToPreload.length} images de couverture actives...`);
+            await Promise.all(
+              urlsToPreload.map(url => new Promise<void>((resolve) => {
+                if (!url || url.trim() === '' || url.startsWith('data:')) {
+                  resolve();
+                  return;
+                }
+                const timeout = setTimeout(() => {
+                  console.warn(`⏳ Image preloading timed out: ${url}`);
+                  resolve(); // Resolve to avoid blocking startup indefinitely
+                }, 6000);
+
+                const img = new Image();
+                img.src = url;
+                img.onload = () => {
+                  clearTimeout(timeout);
+                  resolve();
+                };
+                img.onerror = () => {
+                  clearTimeout(timeout);
+                  resolve();
+                };
+              }))
+            );
+            console.log('🖼️ Tous les visuels de couverture ont été téléchargés et mis en cache !');
+          }
+        } catch (err) {
+          console.error("Erreur de chargement initial Supabase :", err);
+        } finally {
+          // 4. Mark all data as loaded so Splash Screen disappears
+          setIsDataLoaded(true);
+          console.log('⚡ Splash screen libéré ! Toutes les données (y compris profils, tontines et messages) et images de couverture actives sont prêtes.');
+        }
+      };
+
+      loadAllData();
 
       // Realtime subscriptions
       const petitionsSub = supabase
         .channel('realtime:petitions')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'petitions' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'petitions' }, (payload: any) => {
           loadPetitions();
+          if (payload.eventType === 'INSERT') {
+            const newPet = payload.new;
+            const curUser = currentUserRef.current;
+            if (newPet && curUser) {
+              const organizerId = newPet.organizer?.id;
+              if (organizerId && curUser.following?.includes(organizerId)) {
+                triggerPushNotification(
+                  `📢 Nouvelle pétition de ${newPet.organizer.name}`,
+                  `Vient de publier : "${newPet.title}"`
+                );
+              }
+            }
+          }
         })
         .subscribe();
 
       const cagnottesSub = supabase
         .channel('realtime:cagnottes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'cagnottes' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cagnottes' }, (payload: any) => {
           loadCagnottes();
+          if (payload.eventType === 'INSERT') {
+            const newCag = payload.new;
+            const curUser = currentUserRef.current;
+            if (newCag && curUser) {
+              const organizerId = newCag.organizer?.id;
+              if (organizerId && curUser.following?.includes(organizerId)) {
+                triggerPushNotification(
+                  `🪙 Nouvelle cagnotte de ${newCag.organizer.name}`,
+                  `Vient de publier : "${newCag.title}"`
+                );
+              }
+            }
+          }
+        })
+        .subscribe();
+
+      const tontinesSub = supabase
+        .channel('realtime:tontines')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'tontines' }, () => {
+          loadTontines();
+        })
+        .subscribe();
+
+      const volunteerMissionsSub = supabase
+        .channel('realtime:volunteer_missions')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'volunteer_missions' }, (payload: any) => {
+          loadVolunteerMissions();
+          if (payload.eventType === 'INSERT') {
+            const newMis = payload.new;
+            const curUser = currentUserRef.current;
+            if (newMis && curUser) {
+              const organizerId = newMis.organizer?.id;
+              if (organizerId && curUser.following?.includes(organizerId)) {
+                triggerPushNotification(
+                  `🛠️ Nouvelle mission de ${newMis.organizer.name}`,
+                  `Vient de publier : "${newMis.title}"`
+                );
+              }
+            }
+          }
+        })
+        .subscribe();
+
+      const volunteerApplicationsSub = supabase
+        .channel('realtime:volunteer_applications')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'volunteer_applications' }, () => {
+          loadVolunteerApplications();
+        })
+        .subscribe();
+
+      const directMessagesSub = supabase
+        .channel('realtime:direct_messages')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
+          loadDirectMessages();
         })
         .subscribe();
 
       const profilesSub = supabase
         .channel('realtime:profiles')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
           loadProfiles();
+          if (payload.new) {
+            const p = payload.new;
+            setCurrentUser(prev => {
+              if (prev && p.id === prev.id) {
+                return {
+                  ...prev,
+                  name: p.name,
+                  email: p.email,
+                  phone: p.phone || '',
+                  role: p.role || 'citizen',
+                  verified: p.verified || false,
+                  avatar: p.avatar || '',
+                  trustScore: p.trust_score || 50,
+                  badges: p.badges || [],
+                  bio: p.bio,
+                  address: p.address,
+                  country: p.country,
+                  region: p.region,
+                  verificationStatus: p.verification_status || 'none',
+                  cniNumber: p.cni_number,
+                  dob: p.dob,
+                  following: p.following || [],
+                  followers: p.followers || [],
+                  availableFunds: Number(p.funds_available || 0),
+                  kycRejectReason: p.kyc_reject_reason || ''
+                };
+              }
+              return prev;
+            });
+          }
+        })
+        .subscribe();
+
+      const withdrawalRequestsSub = supabase
+        .channel('realtime:withdrawal_requests')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, () => {
+          loadWithdrawalRequests();
         })
         .subscribe();
 
       return () => {
         supabase.removeChannel(petitionsSub);
         supabase.removeChannel(cagnottesSub);
+        supabase.removeChannel(tontinesSub);
+        supabase.removeChannel(volunteerMissionsSub);
+        supabase.removeChannel(volunteerApplicationsSub);
+        supabase.removeChannel(directMessagesSub);
         supabase.removeChannel(profilesSub);
+        supabase.removeChannel(withdrawalRequestsSub);
       };
     }
   }, []);
@@ -446,89 +921,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const isConfigured = true;
 
     if (isConfigured) {
-      const syncUserSession = async (session: any) => {
-        if (session && session.user) {
-          try {
-            const { data: profile } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            let matchedUser: User;
-            if (profile) {
-              matchedUser = {
-                id: profile.id,
-                name: profile.name,
-                email: profile.email,
-                phone: profile.phone || '',
-                role: (profile.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (profile.role || 'citizen'),
-                verified: profile.verified || false,
-                avatar: profile.avatar || '',
-                trustScore: profile.trust_score || 50,
-                badges: profile.badges || [],
-                bio: profile.bio,
-                address: profile.address,
-                country: profile.country,
-                region: profile.region,
-                idCardRecto: profile.id_card_recto,
-                idCardVerso: profile.id_card_verso,
-                selfie: profile.selfie,
-                verificationStatus: profile.verification_status || 'none',
-                cniNumber: profile.cni_number,
-                dob: profile.dob,
-                following: profile.following || [],
-                followers: profile.followers || []
-              };
-            } else {
-              console.warn("⚠️ Profil de session introuvable. Création d'un profil de secours...");
-              const u = session.user;
-              const isSessionAdmin = u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
-              const fallbackProfile = {
-                id: u.id,
-                name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Citoyen',
-                email: u.email || '',
-                phone: u.user_metadata?.phone || '',
-                role: isSessionAdmin ? 'admin' : (u.user_metadata?.role || 'citizen'),
-                verified: isSessionAdmin ? true : false,
-                trust_score: isSessionAdmin ? 100 : 50,
-                avatar: u.user_metadata?.avatar_url || u.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
-                country: u.user_metadata?.country || 'Sénégal',
-                region: u.user_metadata?.region || 'Dakar',
-                verification_status: isSessionAdmin ? 'verified' : 'none'
-              };
-
-              const { error: insertError } = await supabase.from('profiles').insert([fallbackProfile]);
-              if (insertError) {
-                console.error("Erreur lors de la création directe du profil de secours :", insertError);
-              }
-
-              matchedUser = {
-                id: fallbackProfile.id,
-                name: fallbackProfile.name,
-                email: fallbackProfile.email,
-                phone: fallbackProfile.phone,
-                role: fallbackProfile.role as 'citizen' | 'organizer' | 'admin',
-                verified: fallbackProfile.verified,
-                avatar: fallbackProfile.avatar,
-                trustScore: fallbackProfile.trust_score,
-                badges: [],
-                country: fallbackProfile.country,
-                region: fallbackProfile.region,
-                verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected',
-                following: [],
-                followers: []
-              };
-            }
-            setCurrentUser(matchedUser);
-          } catch (err) {
-            console.error("Erreur lors de la synchronisation de la session :", err);
-          }
-        } else {
-          setCurrentUser(null);
-        }
-      };
-
       // Get initial session
       supabase.auth.getSession().then(({ data: { session } }) => {
         syncUserSession(session);
@@ -554,7 +946,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // Track resizing to automatically switch shell on mobile/tablet screens
   useEffect(() => {
     const handleResize = () => {
-      setIsMobileView(window.innerWidth <= 768);
+      setIsMobileView(window.innerWidth < 834);
     };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -594,41 +986,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, [currentUser]);
 
   useEffect(() => {
-    if (!useSupabase) {
-      try {
-        // Strip large images from users list for localStorage if any exist
-        const cleanUsersList = usersList.map(u => ({
-          ...u,
-          idCardRecto: u.idCardRecto && u.idCardRecto.startsWith('data:') ? '[stored]' : u.idCardRecto,
-          idCardVerso: u.idCardVerso && u.idCardVerso.startsWith('data:') ? '[stored]' : u.idCardVerso,
-          selfie: u.selfie && u.selfie.startsWith('data:') ? '[stored]' : u.selfie,
-        }));
-        localStorage.setItem('sc_users_list', JSON.stringify(cleanUsersList));
-      } catch (e) {
-        console.error("Failed to save users list to storage:", e);
-      }
+    try {
+      // Strip large images from users list for localStorage if any exist
+      const cleanUsersList = usersList.map(u => ({
+        ...u,
+        idCardRecto: u.idCardRecto && u.idCardRecto.startsWith('data:') ? '[stored]' : u.idCardRecto,
+        idCardVerso: u.idCardVerso && u.idCardVerso.startsWith('data:') ? '[stored]' : u.idCardVerso,
+        selfie: u.selfie && u.selfie.startsWith('data:') ? '[stored]' : u.selfie,
+      }));
+      localStorage.setItem('sc_users_list', JSON.stringify(cleanUsersList));
+    } catch (e) {
+      console.error("Failed to save users list to storage:", e);
     }
-  }, [usersList, useSupabase]);
+  }, [usersList]);
 
   useEffect(() => {
-    if (!useSupabase) {
-      try {
-        localStorage.setItem('sc_petitions', JSON.stringify(petitions));
-      } catch (e) {
-        console.error("Failed to save petitions to storage:", e);
-      }
+    try {
+      localStorage.setItem('sc_petitions', JSON.stringify(petitions));
+    } catch (e) {
+      console.error("Failed to save petitions to storage:", e);
     }
-  }, [petitions, useSupabase]);
+  }, [petitions]);
 
   useEffect(() => {
-    if (!useSupabase) {
-      try {
-        localStorage.setItem('sc_cagnottes', JSON.stringify(cagnottes));
-      } catch (e) {
-        console.error("Failed to save cagnottes to storage:", e);
-      }
+    try {
+      localStorage.setItem('sc_cagnottes', JSON.stringify(cagnottes));
+    } catch (e) {
+      console.error("Failed to save cagnottes to storage:", e);
     }
-  }, [cagnottes, useSupabase]);
+  }, [cagnottes]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('sc_tontines_list', JSON.stringify(tontines));
+    } catch (e) {
+      console.error("Failed to save tontines to storage:", e);
+    }
+  }, [tontines]);
 
   useEffect(() => {
     try {
@@ -706,6 +1100,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
+  const prevFollowersRef = React.useRef<string[]>([]);
+  useEffect(() => {
+    if (currentUser) {
+      const prevFollowers = prevFollowersRef.current;
+      const currentFollowers = currentUser.followers || [];
+      const newFollowers = currentFollowers.filter(id => !prevFollowers.includes(id));
+      if (prevFollowers.length > 0 && newFollowers.length > 0) {
+        newFollowers.forEach(followerId => {
+          const follower = usersList.find(u => u.id === followerId);
+          if (follower) {
+            triggerPushNotification("Nouvel abonné", `${follower.name} a commencé à vous suivre.`);
+          } else {
+            triggerPushNotification("Nouvel abonné", `Un utilisateur a commencé à vous suivre.`);
+          }
+        });
+      }
+      prevFollowersRef.current = currentFollowers;
+    } else {
+      prevFollowersRef.current = [];
+    }
+  }, [currentUser?.followers, usersList]);
+
   // OTP SIMULATION
   const sendOtpSms = (phone: string) => {
     const code = Math.floor(1000 + Math.random() * 9000).toString();
@@ -771,12 +1187,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const fcmToken = data.fcm_token;
+      
+      // Récupération sécurisée du jeton d'accès utilisateur pour l'API
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+      
+      const headers: any = {
+        'Content-Type': 'application/json'
+      };
+      if (accessToken) {
+        headers['Authorization'] = `Bearer ${accessToken}`;
+      }
+
       // Appel de la fonction serverless Vercel sécurisée
       const response = await fetch('/api/send-push', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers,
         body: JSON.stringify({
           token: fcmToken,
           title,
@@ -820,20 +1246,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     if (useSupabase) {
-      const pet = petitions.find(p => p.id === id);
-      if (pet) {
-        const alreadySigned = pet.signers.some(s => s.name.toLowerCase() === name.toLowerCase());
-        if (!alreadySigned) {
-          const newSigner = { name, date: new Date().toISOString().split('T')[0], badge: 'Citoyen' };
-          const updatedSigners = [newSigner, ...pet.signers];
-          
-          supabase.from('petitions').update({
-            signatures_count: pet.signaturesCount + 1,
-            signers: updatedSigners
-          }).eq('id', id).then(({ error }) => {
-            if (error) console.error("Error signing in Supabase: ", error);
-          });
+      try {
+        const { data: pet, error: fetchErr } = await supabase
+          .from('petitions')
+          .select('signatures_count, signers')
+          .eq('id', id)
+          .single();
+        
+        if (!fetchErr && pet) {
+          const currentSigners = pet.signers || [];
+          const alreadySigned = currentSigners.some((s: any) => s.name.toLowerCase() === name.toLowerCase());
+          if (!alreadySigned) {
+            const newSigner = { name, date: new Date().toISOString().split('T')[0], badge: 'Citoyen' };
+            const updatedSigners = [newSigner, ...currentSigners];
+            const newCount = Number(pet.signatures_count || 0) + 1;
+            
+            const { error: updateErr } = await supabase
+              .from('petitions')
+              .update({
+                signatures_count: newCount,
+                signers: updatedSigners
+              })
+              .eq('id', id);
+              
+            if (updateErr) {
+              console.error("Error signing in Supabase:", updateErr);
+            }
+          }
         }
+      } catch (err) {
+        console.error("Error signing in Supabase:", err);
       }
     }
 
@@ -896,17 +1338,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     if (useSupabase) {
-      const cag = cagnottes.find(c => c.id === id);
-      if (cag) {
-        const newDonor = { name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora };
-        const updatedDonors = [newDonor, ...cag.donors];
+      try {
+        const { data: cag, error: fetchErr } = await supabase
+          .from('cagnottes')
+          .select('amount_collected, donors')
+          .eq('id', id)
+          .single();
         
-        supabase.from('cagnottes').update({
-          amount_collected: cag.amountCollected + amount,
-          donors: updatedDonors
-        }).eq('id', id).then(({ error }) => {
-          if (error) console.error("Error donating in Supabase: ", error);
-        });
+        if (!fetchErr && cag) {
+          const currentDonors = cag.donors || [];
+          const newDonor = { name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora };
+          const updatedDonors = [newDonor, ...currentDonors];
+          const newAmount = Number(cag.amount_collected || 0) + amount;
+          
+          const { error: updateErr } = await supabase
+            .from('cagnottes')
+            .update({
+              amount_collected: newAmount,
+              donors: updatedDonors
+            })
+            .eq('id', id);
+            
+          if (updateErr) {
+            console.error("Error donating in Supabase:", updateErr);
+          }
+        }
+      } catch (err) {
+        console.error("Error donating in Supabase:", err);
       }
     }
 
@@ -952,6 +1410,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       return mis;
     }));
+
+    if (useSupabase) {
+      supabase.from('volunteer_applications').insert([{
+        id: newApp.id,
+        mission_id: newApp.missionId,
+        user_name: newApp.userName,
+        user_email: newApp.userEmail,
+        user_phone: newApp.userPhone,
+        message: newApp.message,
+        applied_at: newApp.appliedAt,
+        status: newApp.status
+      }]).then(({ error }) => {
+        if (error) console.error("Error creating volunteer application in Supabase:", error);
+      });
+
+      supabase.from('volunteer_missions').select('volunteers_count').eq('id', id).single().then(({ data, error }) => {
+        if (!error && data) {
+          const newCount = Number(data.volunteers_count || 0) + 1;
+          supabase.from('volunteer_missions')
+            .update({ volunteers_count: newCount })
+            .eq('id', id)
+            .then(({ error: updErr }) => {
+              if (updErr) console.error("Error updating volunteers_count in Supabase:", updErr);
+            });
+        }
+      });
+    }
+
     if (currentUser && name.toLowerCase() === currentUser.name.toLowerCase()) {
       if (!currentUser.badges.includes('batisseur')) {
         const updatedUser: User = { ...currentUser, badges: [...currentUser.badges, 'batisseur'] };
@@ -964,7 +1450,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const createPetition = (petitionData: Omit<Petition, 'id' | 'signaturesCount' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'signers'>): string => {
+  const createPetition = async (petitionData: Omit<Petition, 'id' | 'signaturesCount' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'signers'>): Promise<string> => {
     if (!currentUser) return '';
     const newId = `pet_${Math.random().toString(36).substr(2, 9)}`;
     const newPet: Petition = {
@@ -984,10 +1470,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       signers: []
     };
 
-    setPetitions(prev => [newPet, ...prev]);
-    
     if (useSupabase) {
-      supabase.from('petitions').insert([{
+      const { error } = await supabase.from('petitions').insert([{
         id: newId,
         title: newPet.title,
         description: newPet.description,
@@ -1004,11 +1488,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updates: [],
         signers: [],
         boosted: false,
-        viewed_by_admin: false
-      }]).then(({ error }) => {
-        if (error) console.error("Error creating petition in Supabase: ", error);
-      });
+        viewed_by_admin: false,
+        image_before: newPet.imageBefore || '',
+        image_after: newPet.imageAfter || '',
+        gallery: newPet.gallery || []
+      }]);
+      
+      if (error) {
+        console.error("Error creating petition in Supabase: ", error);
+        addNotification(`❌ Échec de la publication de la pétition : ${error.message}`);
+        return '';
+      }
     }
+
+    setPetitions(prev => [newPet, ...prev]);
+
+    // Notify followers
+    const followers = currentUser.followers || [];
+    followers.forEach((followerId: string) => {
+      sendPushToUser(
+        followerId,
+        `📢 Nouvelle pétition de ${currentUser.name}`,
+        `Vient de publier : "${newPet.title}"`
+      );
+    });
 
     // Unlock Leader badge
     if (!currentUser.badges.includes('leader')) {
@@ -1021,7 +1524,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newId;
   };
 
-  const createCagnotte = (cagnotteData: Omit<Cagnotte, 'id' | 'amountCollected' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'expenses' | 'donors'>): string => {
+  const createCagnotte = async (cagnotteData: Omit<Cagnotte, 'id' | 'amountCollected' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'expenses' | 'donors'>): Promise<string> => {
     if (!currentUser) return '';
     const newId = `cag_${Math.random().toString(36).substr(2, 9)}`;
     const newCag: Cagnotte = {
@@ -1042,10 +1545,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       donors: []
     };
 
-    setCagnottes(prev => [newCag, ...prev]);
-
     if (useSupabase) {
-      supabase.from('cagnottes').insert([{
+      const { error } = await supabase.from('cagnottes').insert([{
         id: newId,
         title: newCag.title,
         description: newCag.description,
@@ -1063,11 +1564,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         donors: [],
         documents: newCag.documents || [],
         gallery: newCag.gallery || [],
-        viewed_by_admin: false
-      }]).then(({ error }) => {
-        if (error) console.error("Error creating cagnotte in Supabase: ", error);
-      });
+        viewed_by_admin: false,
+        image_before: newCag.imageBefore || '',
+        image_after: newCag.imageAfter || ''
+      }]);
+      
+      if (error) {
+        console.error("Error creating cagnotte in Supabase: ", error);
+        addNotification(`❌ Échec de la création de la cagnotte : ${error.message}`);
+        return '';
+      }
     }
+
+    setCagnottes(prev => [newCag, ...prev]);
+
+    // Notify followers
+    const followers = currentUser.followers || [];
+    followers.forEach((followerId: string) => {
+      sendPushToUser(
+        followerId,
+        `🪙 Nouvelle cagnotte de ${currentUser.name}`,
+        `Vient de publier : "${newCag.title}"`
+      );
+    });
 
     // Unlock Leader badge
     if (!currentUser.badges.includes('leader')) {
@@ -1080,11 +1599,187 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return newId;
   };
 
-  const createVolunteerMission = (missionData: Omit<VolunteerMission, 'id' | 'volunteersCount' | 'createdAt' | 'organizer' | 'status'>) => {
-    if (!currentUser) return;
+  const saveTontine = async (tontine: Tontine): Promise<boolean> => {
+    // Update local state first for immediate UI responsiveness
+    setTontines(prev => {
+      const idx = prev.findIndex(t => t.id === tontine.id);
+      let updated;
+      if (idx > -1) {
+        updated = [...prev];
+        updated[idx] = tontine;
+      } else {
+        updated = [tontine, ...prev];
+      }
+      localStorage.setItem('sc_tontines_list', JSON.stringify(updated));
+      return updated;
+    });
+
+    if (useSupabase) {
+      try {
+        const dbTontine = {
+          id: tontine.id,
+          name: tontine.name,
+          description: tontine.description,
+          type: tontine.type,
+          participants_max: tontine.participantsMax,
+          joined_count: tontine.joinedCount,
+          cotisation: tontine.cotisation,
+          frequency: tontine.frequency,
+          start_date: tontine.startDate,
+          end_date: tontine.endDate,
+          order_type: tontine.orderType,
+          status: tontine.status,
+          organizer: tontine.organizer,
+          members: tontine.members,
+          payments: tontine.payments,
+          activity_logs: tontine.activityLogs,
+          votes: tontine.votes,
+          chat: tontine.chat,
+          guarantee_fund_active: tontine.guaranteeFundActive,
+          guarantee_fund_amount: tontine.guaranteeFundAmount,
+          guarantee_fund_total: tontine.guaranteeFundTotal,
+          accumulated_savings: tontine.accumulatedSavings || 0,
+          cover_image: tontine.coverImage || ''
+        };
+
+        const { error } = await supabase
+          .from('tontines')
+          .upsert([dbTontine]);
+        
+        if (error) {
+          console.error("Erreur lors de la sauvegarde de la tontine dans Supabase :", error);
+          return false;
+        }
+        return true;
+      } catch (err) {
+        console.error("Erreur de sauvegarde Supabase :", err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // Handle PayTech Payment success/cancel redirects on mount
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const paytechSuccess = params.get('paytech_success');
+    const paytechCancel = params.get('paytech_cancel');
+    const paytechRef = params.get('ref');
+
+    const cleanUrl = () => {
+      const url = new URL(window.location.href);
+      url.searchParams.delete('paytech_success');
+      url.searchParams.delete('paytech_cancel');
+      url.searchParams.delete('ref');
+      url.searchParams.delete('amount');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    };
+
+    if (paytechSuccess === 'true' && paytechRef) {
+      const pendingStr = localStorage.getItem('pending_payment');
+      if (pendingStr) {
+        try {
+          const pending = JSON.parse(pendingStr);
+          if (pending.refCommand === paytechRef) {
+            // Match found! Process payment based on type
+            if (pending.type === 'cagnotte') {
+              donateToCagnotte(
+                pending.cagnotteId,
+                pending.amount,
+                pending.donorName,
+                pending.comment,
+                pending.isDiaspora,
+                'PayTech'
+              ).then((ok) => {
+                if (ok) {
+                  addNotification(`🎉 Don de ${pending.amount.toLocaleString('fr-FR')} FCFA validé avec succès via PayTech !`);
+                }
+              });
+            } else if (pending.type === 'tontine') {
+              // Tontine payment confirmation
+              const targetTontine = tontines.find(t => t.id === pending.tontineId);
+              if (targetTontine) {
+                const now = new Date();
+                const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+                const mockIP = '197.35.' + Math.floor(10 + Math.random() * 200) + '.' + Math.floor(10 + Math.random() * 200);
+                const randomHash = Array.from({length: 64}, () => Math.floor(Math.random()*16).toString(16)).join('');
+
+                const newPay: PaymentRecord = {
+                  id: `pay_${Date.now()}`,
+                  date: now.toISOString().split('T')[0],
+                  amount: pending.amount,
+                  payer: pending.payerName || 'Membre',
+                  beneficiary: targetTontine.members[0]?.name || 'Organisateur',
+                  status: 'paid',
+                  transactionId: paytechRef,
+                  method: pending.selectedPaymentMethod.toUpperCase(),
+                  timestamp: timestampStr,
+                  ipAddress: mockIP,
+                  proofHash: randomHash
+                };
+
+                const newLog: ActivityLog = {
+                  id: `log_${Date.now()}`,
+                  timestamp: timestampStr,
+                  type: 'paiement',
+                  user: pending.payerName || 'Membre',
+                  details: pending.penalties && pending.penalties > 0
+                    ? `Cotisation de ${pending.amount.toLocaleString('fr-FR')} F (comprenant ${pending.penalties.toLocaleString('fr-FR')} F de pénalités de retard) validée via ${newPay.method} (PayTech). Réf: ${paytechRef}`
+                    : `Cotisation de ${pending.amount.toLocaleString('fr-FR')} F validée via ${newPay.method} (PayTech). Réf: ${paytechRef}`
+                };
+
+                const updatedMembers = targetTontine.members.map(m => {
+                  if (m.name?.toLowerCase() === (pending.payerName || '').toLowerCase()) {
+                    return { 
+                      ...m, 
+                      hasPaidThisRound: true, 
+                      rate: Math.min(100, m.rate + (pending.penalties ? 2 : 1)),
+                      penalties: 0,
+                      reputation: m.reputation === 'surveillance' ? 'fiable' as const : m.reputation
+                    };
+                  }
+                  return m;
+                });
+
+                const updatedTontine = {
+                  ...targetTontine,
+                  payments: [newPay, ...targetTontine.payments],
+                  activityLogs: [newLog, ...targetTontine.activityLogs],
+                  members: updatedMembers,
+                  accumulatedSavings: (targetTontine.accumulatedSavings || 0) + pending.amount
+                };
+
+                saveTontine(updatedTontine).then((ok) => {
+                  if (ok) {
+                    const payMsg = pending.penalties && pending.penalties > 0
+                      ? `💰 Cotisation et pénalités de ${pending.amount.toLocaleString('fr-FR')} FCFA validées avec succès via PayTech !`
+                      : `💰 Cotisation de ${pending.amount.toLocaleString('fr-FR')} FCFA validée avec succès via PayTech !`;
+                    addNotification(payMsg);
+                  }
+                });
+              }
+            }
+          }
+        } catch (e) {
+          console.error("Error parsing pending payment info:", e);
+        } finally {
+          localStorage.removeItem('pending_payment');
+          cleanUrl();
+        }
+      }
+    } else if (paytechCancel === 'true') {
+      addNotification("❌ Paiement annulé par l'utilisateur.");
+      localStorage.removeItem('pending_payment');
+      cleanUrl();
+    }
+  }, [tontines, useSupabase]);
+
+  const createVolunteerMission = async (missionData: Omit<VolunteerMission, 'id' | 'volunteersCount' | 'createdAt' | 'organizer' | 'status'>): Promise<string> => {
+    if (!currentUser) return '';
+    const newId = `vol_${Math.random().toString(36).substr(2, 9)}`;
     const newMis: VolunteerMission = {
       ...missionData,
-      id: `vol_${Math.random().toString(36).substr(2, 9)}`,
+      id: newId,
       volunteersCount: 0,
       createdAt: new Date().toISOString().split('T')[0],
       status: 'active',
@@ -1095,8 +1790,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     };
 
+    if (useSupabase) {
+      const { error } = await supabase.from('volunteer_missions').insert([{
+        id: newId,
+        title: newMis.title,
+        description: newMis.description,
+        cover_image: newMis.coverImage,
+        location: newMis.location,
+        duration: newMis.duration,
+        needs: newMis.needs,
+        category: newMis.category,
+        volunteers_target: newMis.volunteersTarget,
+        volunteers_count: 0,
+        organizer: newMis.organizer,
+        created_at: newMis.createdAt,
+        status: 'active',
+        image_before: newMis.imageBefore || '',
+        image_after: newMis.imageAfter || ''
+      }]);
+      
+      if (error) {
+        console.error("Error creating volunteer mission in Supabase:", error);
+        addNotification(`❌ Échec de la publication de la mission : ${error.message}`);
+        return '';
+      }
+    }
+
     setVolunteerMissions(prev => [newMis, ...prev]);
+
+    // Notify followers
+    const followers = currentUser.followers || [];
+    followers.forEach((followerId: string) => {
+      sendPushToUser(
+        followerId,
+        `🛠️ Nouvelle mission de ${currentUser.name}`,
+        `Vient de publier : "${newMis.title}"`
+      );
+    });
+
     addNotification('Mission bénévole publiée avec succès.');
+    return newId;
   };
 
   // ADMIN ACTIONS
@@ -1202,6 +1935,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const deletePublication = async (id: string, type: 'petition' | 'cagnotte' | 'volunteer_mission' | 'tontine'): Promise<boolean> => {
+    try {
+      if (useSupabase) {
+        if (type === 'petition') {
+          const { data, error } = await supabase.from('petitions').delete().eq('id', id).select();
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error("Permissions insuffisantes ou publication inexistante.");
+          }
+        } else if (type === 'cagnotte') {
+          const { data, error } = await supabase.from('cagnottes').delete().eq('id', id).select();
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error("Permissions insuffisantes ou publication inexistante.");
+          }
+        } else if (type === 'volunteer_mission') {
+          // Delete referencing volunteer applications first
+          await supabase.from('volunteer_applications').delete().eq('mission_id', id);
+          
+          const { data, error } = await supabase.from('volunteer_missions').delete().eq('id', id).select();
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error("Permissions insuffisantes ou publication inexistante.");
+          }
+        } else if (type === 'tontine') {
+          const { data, error } = await supabase.from('tontines').delete().eq('id', id).select();
+          if (error) throw error;
+          if (!data || data.length === 0) {
+            throw new Error("Permissions insuffisantes ou tontine inexistante.");
+          }
+        }
+      }
+
+      // Update local state
+      if (type === 'petition') {
+        setPetitions(prev => prev.filter(p => p.id !== id));
+      } else if (type === 'cagnotte') {
+        setCagnottes(prev => prev.filter(c => c.id !== id));
+      } else if (type === 'volunteer_mission') {
+        setVolunteerMissions(prev => prev.filter(m => m.id !== id));
+      } else if (type === 'tontine') {
+        setTontines(prev => prev.filter(t => t.id !== id));
+      }
+
+      addNotification('La publication a été supprimée avec succès.');
+      return true;
+    } catch (err: any) {
+      console.error(`Error deleting publication (${type}):`, err);
+      alert(`Erreur lors de la suppression de la publication : ${err.message}`);
+      return false;
+    }
+  };
+
   const resubmitCampaign = (
     id: string, 
     type: 'petition' | 'cagnotte', 
@@ -1303,15 +2089,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (useSupabase) {
       const tableName = type === 'petition' ? 'petitions' : 'cagnottes';
-      const campaign = type === 'petition' ? petitions.find(p => p.id === id) : cagnottes.find(c => c.id === id);
-      if (campaign) {
-        const updatedUpdates = [newUpdate, ...campaign.updates];
-        supabase.from(tableName).update({
-          updates: updatedUpdates
-        }).eq('id', id).then(({ error }) => {
-          if (error) console.error("Error adding update in Supabase: ", error);
-        });
-      }
+      supabase.from(tableName).select('updates').eq('id', id).single().then(({ data, error }) => {
+        if (!error && data) {
+          const currentUpdates = data.updates || [];
+          const updatedUpdates = [newUpdate, ...currentUpdates];
+          supabase.from(tableName).update({
+            updates: updatedUpdates
+          }).eq('id', id).then(({ error: updErr }) => {
+            if (updErr) console.error("Error adding update in Supabase: ", updErr);
+          });
+        }
+      });
     }
   };
 
@@ -1338,16 +2126,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     addNotification('Nouvelle dépense ajoutée au registre de transparence.');
 
     if (useSupabase) {
-      const cag = cagnottes.find(c => c.id === cagnotteId);
-      if (cag) {
-        const updatedExpenses = [newExpense, ...cag.expenses];
-        supabase.from('cagnottes').update({
-          expenses: updatedExpenses
-        }).eq('id', cagnotteId).then(({ error }) => {
-          if (error) console.error("Error adding expense in Supabase: ", error);
-        });
+      supabase.from('cagnottes').select('expenses').eq('id', cagnotteId).single().then(({ data, error }) => {
+        if (!error && data) {
+          const currentExpenses = data.expenses || [];
+          const updatedExpenses = [newExpense, ...currentExpenses];
+          supabase.from('cagnottes').update({
+            expenses: updatedExpenses
+          }).eq('id', cagnotteId).then(({ error: updErr }) => {
+            if (updErr) console.error("Error adding expense in Supabase: ", updErr);
+          });
+        }
+      });
+    }
+  };
+
+  const updateCampaignAfterImage = async (id: string, type: 'petition' | 'cagnotte' | 'volunteer', imageAfter: string): Promise<boolean> => {
+    if (type === 'petition') {
+      setPetitions(prev => prev.map(p => p.id === id ? { ...p, imageAfter } : p));
+      if (useSupabase) {
+        const { error } = await supabase.from('petitions').update({ image_after: imageAfter }).eq('id', id);
+        if (error) console.error("Error updating petition after image:", error);
+      }
+    } else if (type === 'cagnotte') {
+      setCagnottes(prev => prev.map(c => c.id === id ? { ...c, imageAfter } : c));
+      if (useSupabase) {
+        const { error } = await supabase.from('cagnottes').update({ image_after: imageAfter }).eq('id', id);
+        if (error) console.error("Error updating cagnotte after image:", error);
+      }
+    } else if (type === 'volunteer') {
+      setVolunteerMissions(prev => prev.map(m => m.id === id ? { ...m, imageAfter } : m));
+      if (useSupabase) {
+        const { error } = await supabase.from('volunteer_missions').update({ image_after: imageAfter }).eq('id', id);
+        if (error) console.error("Error updating mission after image:", error);
       }
     }
+    addNotification('Image après contribution mise à jour avec succès.');
+    return true;
   };
 
   // REAL SUPABASE GOOGLE LOGIN ACTION
@@ -1454,8 +2268,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // login action
   const login = async (email: string, pass: string): Promise<boolean> => {
-    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'mouhamethsarr98@gmail.com';
-    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'Malamine0163@';
+    const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@sunuyite.com';
+    const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || '';
 
     if (useSupabase) {
       try {
@@ -1496,8 +2310,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               verificationStatus: profile.verification_status || 'none',
               cniNumber: profile.cni_number,
               dob: profile.dob,
+              accountType: profile.account_type || 'citizen',
               following: profile.following || [],
-              followers: profile.followers || []
+              followers: profile.followers || [],
+              availableFunds: Number(profile.funds_available || 0),
+              kycRejectReason: profile.kyc_reject_reason || ''
             };
             setCurrentUser(matchedUser);
             addNotification(`Bonjour, ${matchedUser.name} !`);
@@ -1513,10 +2330,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               role: isSessionAdmin ? 'admin' : (data.user.user_metadata?.role || 'citizen'),
               verified: isSessionAdmin ? true : false,
               trust_score: isSessionAdmin ? 100 : 50,
-              avatar: data.user.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
+              avatar: data.user.user_metadata?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
               country: data.user.user_metadata?.country || 'Sénégal',
               region: data.user.user_metadata?.region || 'Dakar',
-              verification_status: isSessionAdmin ? 'verified' : 'none'
+              verification_status: isSessionAdmin ? 'verified' : 'none',
+              account_type: data.user.user_metadata?.account_type || 'citizen'
             };
             
             const { error: insertError } = await supabase.from('profiles').insert([fallbackProfile]);
@@ -1537,8 +2355,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               country: fallbackProfile.country,
               region: fallbackProfile.region,
               verificationStatus: fallbackProfile.verification_status as 'none' | 'pending' | 'verified' | 'rejected',
+              accountType: fallbackProfile.account_type as 'citizen' | 'company' | 'ngo',
               following: [],
-              followers: []
+              followers: [],
+              availableFunds: 0,
+              kycRejectReason: ''
             };
             setCurrentUser(matchedUser);
             addNotification(`Bonjour, ${matchedUser.name} (profil initialisé) !`);
@@ -1562,6 +2383,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         phone: '+221 70 111 22 33',
         avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80',
         badges: ['leader', 'bienfaiteur', 'citoyen'],
+        availableFunds: existingAdmin?.availableFunds || 0,
+        kycRejectReason: existingAdmin?.kycRejectReason || '',
         ...existingAdmin, // preserves modified properties (phone, address, dob, CNI, verificationStatus, selfie, etc.)
         role: 'admin',    // enforces admin role
         verified: true,   // enforces verified status
@@ -1675,7 +2498,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         region,
         accountType,
         following: [],
-        followers: []
+        followers: [],
+        availableFunds: 0,
+        kycRejectReason: ''
       };
 
       // Save password in mock database
@@ -1719,6 +2544,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           email: cleanEmail,
           password: pass,
           options: {
+            emailRedirectTo: window.location.origin,
             data: {
               full_name: name,
               phone: phone,
@@ -1771,7 +2597,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             region,
             accountType,
             following: [],
-            followers: []
+            followers: [],
+            availableFunds: 0,
+            kycRejectReason: ''
           };
           
           if (data.session) {
@@ -2055,8 +2883,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     score += Math.min(20, organizedCount * 10);
     
     // Tontines joined/created
-    const savedTontines = JSON.parse(localStorage.getItem('sc_tontines_list') || '[]');
-    const tontinesCount = savedTontines.filter((t: any) => 
+    const tontinesCount = tontines.filter((t: any) => 
       t.members && t.members.some((m: any) => {
         const mName = typeof m === 'string' ? m : m?.name;
         const mEmail = typeof m === 'string' ? '' : m?.email;
@@ -2113,27 +2940,59 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setDirectMessages(prev => [...prev, newMsg]);
 
+    if (useSupabase) {
+      supabase.from('direct_messages').insert([{
+        id: newMsg.id,
+        sender_id: newMsg.senderId,
+        receiver_id: newMsg.receiverId,
+        text: newMsg.text,
+        timestamp: newMsg.timestamp,
+        read: newMsg.read
+      }]).then(({ error }) => {
+        if (error) console.error("Error creating direct message in Supabase:", error);
+      });
+    }
+
     // Déclenchement de la notification push FCM au destinataire
     sendPushToUser(receiverId, `💬 Message de ${currentUser.name}`, text);
 
-    // Simulate auto-reply from other user to make it interactive and feel alive!
-    setTimeout(() => {
-      const receiver = usersList.find(u => u.id === receiverId);
-      const receiverName = receiver ? receiver.name : "Citoyen";
-      const autoReplyText = `Merci pour votre message ! Je soutiens pleinement vos initiatives citoyennes. Discutons-en au prochain rassemblement Sunu Yité !`;
-      
-      const replyMsg: DirectMessage = {
-        id: `msg_${Date.now() + 1}`,
-        senderId: receiverId,
-        receiverId: currentUser.id,
-        text: autoReplyText,
-        timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
-        read: false
-      };
-      
-      setDirectMessages(prev => [...prev, replyMsg]);
-      triggerPushNotification(`💬 Message de ${receiverName}`, autoReplyText);
-    }, 3000);
+    // Simulate auto-reply ONLY if the receiver is an administrator
+    const receiver = usersList.find(u => u.id === receiverId);
+    const isReceiverAdmin = receiver?.role === 'admin' || 
+                           receiver?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+    if (isReceiverAdmin) {
+      setTimeout(() => {
+        const receiverName = receiver ? receiver.name : "Administrateur";
+        const autoReplyText = `Merci pour votre message ! Notre équipe administrative a bien reçu votre message. Dès que nous serons disponibles, nous vous répondrons.`;
+        
+        const replyMsg: DirectMessage = {
+          id: `msg_${Date.now() + 1}`,
+          senderId: receiverId,
+          receiverId: currentUser.id,
+          text: autoReplyText,
+          timestamp: new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }),
+          read: false
+        };
+        
+        setDirectMessages(prev => [...prev, replyMsg]);
+
+        if (useSupabase) {
+          supabase.from('direct_messages').insert([{
+            id: replyMsg.id,
+            sender_id: replyMsg.senderId,
+            receiver_id: replyMsg.receiverId,
+            text: replyMsg.text,
+            timestamp: replyMsg.timestamp,
+            read: replyMsg.read
+          }]).then(({ error }) => {
+            if (error) console.error("Error creating reply message in Supabase:", error);
+          });
+        }
+
+        triggerPushNotification(`💬 Message de ${receiverName}`, autoReplyText);
+      }, 3000);
+    }
   };
 
   const adminUpdateUser = async (userId: string, updates: Partial<User>): Promise<boolean> => {
@@ -2171,6 +3030,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.verified !== undefined) supabaseUpdates.verified = updates.verified;
       if (updates.trustScore !== undefined) supabaseUpdates.trust_score = updates.trustScore;
       if (updates.verificationStatus !== undefined) supabaseUpdates.verification_status = updates.verificationStatus;
+      if (updates.availableFunds !== undefined) supabaseUpdates.funds_available = updates.availableFunds;
+      if (updates.kycRejectReason !== undefined) supabaseUpdates.kyc_reject_reason = updates.kycRejectReason;
 
       const { error } = await supabase
         .from('profiles')
@@ -2216,6 +3077,42 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     addNotification(`✨ Vous suivez maintenant cet utilisateur !`);
 
+    if (useSupabase) {
+      try {
+        // Enregistrer dans Supabase pour l'utilisateur actuel
+        const { error: err1 } = await supabase
+          .from('profiles')
+          .update({ following: updatedFollowing })
+          .eq('id', currentUser.id);
+
+        if (err1) console.error("Error updating following list in Supabase:", err1);
+
+        // Récupérer les abonnés actuels de la cible pour éviter les écrasements
+        const { data: targetProfile, error: fetchErr } = await supabase
+          .from('profiles')
+          .select('followers')
+          .eq('id', userId)
+          .single();
+
+        if (!fetchErr && targetProfile) {
+          const currentTargetFollowers = targetProfile.followers || [];
+          if (!currentTargetFollowers.includes(currentUser.id)) {
+            const finalFollowers = [...currentTargetFollowers, currentUser.id];
+            const { error: err2 } = await supabase
+              .from('profiles')
+              .update({ followers: finalFollowers })
+              .eq('id', userId);
+            if (err2) console.error("Error updating followers list in Supabase:", err2);
+          }
+        }
+      } catch (err) {
+        console.error("Error persisting follow in Supabase:", err);
+      }
+    }
+
+    // Envoi de la notification push FCM réelle à l'utilisateur cible
+    sendPushToUser(userId, "Nouvel abonné", `${currentUser.name} a commencé à vous suivre.`);
+
     setTimeout(() => {
       const targetUser = usersList.find(u => u.id === userId);
       if (targetUser) {
@@ -2225,16 +3122,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
     }, 1000);
-
-    setTimeout(() => {
-      const targetUser = usersList.find(u => u.id === userId);
-      if (targetUser) {
-        triggerPushNotification(
-          `📢 Publication de ${targetUser.name}`,
-          `Vient de publier la campagne solidaire : "Reforestation de la forêt classée de Mbao"`
-        );
-      }
-    }, 6000);
 
     return true;
   };
@@ -2256,7 +3143,369 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }));
 
     addNotification(`🚫 Vous ne suivez plus cet utilisateur.`);
+
+    if (useSupabase) {
+      try {
+        const { error: err1 } = await supabase
+          .from('profiles')
+          .update({ following: updatedFollowing })
+          .eq('id', currentUser.id);
+
+        if (err1) console.error("Error updating following list in Supabase:", err1);
+
+        const { data: targetProfile, error: fetchErr } = await supabase
+          .from('profiles')
+          .select('followers')
+          .eq('id', userId)
+          .single();
+
+        if (!fetchErr && targetProfile) {
+          const currentTargetFollowers = targetProfile.followers || [];
+          const finalFollowers = currentTargetFollowers.filter((id: string) => id !== currentUser.id);
+          const { error: err2 } = await supabase
+            .from('profiles')
+            .update({ followers: finalFollowers })
+            .eq('id', userId);
+          if (err2) console.error("Error updating followers list in Supabase:", err2);
+        }
+      } catch (err) {
+        console.error("Error persisting unfollow in Supabase:", err);
+      }
+    }
+
     return true;
+  };
+
+  const loadPetitionDetails = async (id: string) => {
+    if (!useSupabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('petitions')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (!error && data) {
+        const mapped = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          coverImage: data.cover_image,
+          category: data.category,
+          signaturesCount: data.signatures_count,
+          signaturesTarget: data.signatures_target,
+          recipient: data.recipient,
+          location: data.location,
+          dateLimit: data.date_limit,
+          createdAt: data.created_at,
+          status: data.status,
+          organizer: data.organizer,
+          updates: data.updates || [],
+          signers: data.signers || [],
+          boosted: data.boosted,
+          boostLevel: data.boost_level,
+          viewedByAdmin: data.viewed_by_admin,
+          rejectionFeedback: data.rejection_feedback,
+          imageBefore: data.image_before || '',
+          imageAfter: data.image_after || '',
+          gallery: data.gallery || []
+        };
+        setPetitions(prev => prev.map(p => p.id === id ? mapped : p));
+      }
+    } catch (err) {
+      console.error("Error loading petition details:", err);
+    }
+  };
+
+  const loadCagnotteDetails = async (id: string) => {
+    if (!useSupabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('cagnottes')
+        .select('*')
+        .eq('id', id)
+        .single();
+      
+      if (!error && data) {
+        const mapped = {
+          id: data.id,
+          title: data.title,
+          description: data.description,
+          coverImage: data.cover_image,
+          category: data.category,
+          amountCollected: Number(data.amount_collected || 0),
+          amountTarget: Number(data.amount_target || 0),
+          location: data.location,
+          createdAt: data.created_at,
+          status: data.status,
+          organizer: data.organizer,
+          isDiasporaTargeted: data.is_diaspora_targeted,
+          updates: data.updates || [],
+          expenses: data.expenses || [],
+          donors: data.donors || [],
+          documents: data.documents || [],
+          gallery: data.gallery || [],
+          viewedByAdmin: data.viewed_by_admin,
+          rejectionFeedback: data.rejection_feedback,
+          imageBefore: data.image_before || '',
+          imageAfter: data.image_after || ''
+        };
+        setCagnottes(prev => prev.map(c => c.id === id ? mapped : c));
+      }
+    } catch (err) {
+      console.error("Error loading cagnotte details:", err);
+    }
+  };
+
+  const loadUserKycDocs = async (userId: string) => {
+    if (!useSupabase) return;
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id_card_recto, id_card_verso, selfie')
+        .eq('id', userId)
+        .single();
+      
+      if (!error && data) {
+        setUsersList(prev => prev.map(u => u.id === userId ? {
+          ...u,
+          idCardRecto: data.id_card_recto || '',
+          idCardVerso: data.id_card_verso || '',
+          selfie: data.selfie || ''
+        } : u));
+      }
+    } catch (err) {
+      console.error("Error loading user KYC documents:", err);
+    }
+  };
+
+  const playChimeSound = () => {
+    try {
+      const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioContext) return;
+      const ctx = new AudioContext();
+      
+      const now = ctx.currentTime;
+      
+      // High pitch E6 (~1318Hz)
+      const osc1 = ctx.createOscillator();
+      const gain1 = ctx.createGain();
+      osc1.type = 'sine';
+      osc1.frequency.setValueAtTime(1318.51, now);
+      gain1.gain.setValueAtTime(0.08, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      osc1.connect(gain1);
+      gain1.connect(ctx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.35);
+      
+      // High pitch A6 (~1760Hz) starting shortly after
+      const osc2 = ctx.createOscillator();
+      const gain2 = ctx.createGain();
+      osc2.type = 'sine';
+      osc2.frequency.setValueAtTime(1760.00, now + 0.12);
+      gain2.gain.setValueAtTime(0.1, now + 0.12);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.52);
+      osc2.connect(gain2);
+      gain2.connect(ctx.destination);
+      osc2.start(now + 0.12);
+      osc2.stop(now + 0.55);
+    } catch (e) {
+      console.warn("AudioContext playback blocked or failed:", e);
+    }
+  };
+
+  // Trigger sound chime when a new message is received for the current user
+  const prevMessagesCountRef = React.useRef(directMessages.length);
+  useEffect(() => {
+    if (currentUser && directMessages.length > prevMessagesCountRef.current) {
+      const newMessages = directMessages.slice(prevMessagesCountRef.current);
+      const hasReceivedNewMessage = newMessages.some(m => m.receiverId === currentUser.id);
+      if (hasReceivedNewMessage) {
+        playChimeSound();
+      }
+    }
+    prevMessagesCountRef.current = directMessages.length;
+  }, [directMessages, currentUser?.id]);
+
+  const submitWithdrawalRequest = async (amount: number, method: string, phone: string): Promise<boolean> => {
+    if (!currentUser) {
+      addNotification("⚠️ Connectez-vous d'abord pour faire une demande.");
+      return false;
+    }
+    if (amount > currentUser.availableFunds) {
+      addNotification("❌ Solde insuffisant pour cette demande de retrait.");
+      return false;
+    }
+    
+    const newRequest: WithdrawalRequest = {
+      id: `wth_${Math.random().toString(36).substr(2, 9)}`,
+      userId: currentUser.id,
+      amount,
+      method,
+      phone,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    const newFunds = currentUser.availableFunds - amount;
+    const updatedUser = { ...currentUser, availableFunds: newFunds };
+    setCurrentUser(updatedUser);
+    setUsersList(prev => prev.map(u => u.id === currentUser.id ? updatedUser : u));
+    setWithdrawalRequests(prev => [newRequest, ...prev]);
+    
+    if (useSupabase) {
+      try {
+        const { error: insertErr } = await supabase.from('withdrawal_requests').insert([{
+          id: newRequest.id,
+          user_id: newRequest.userId,
+          amount: newRequest.amount,
+          method: newRequest.method,
+          phone: newRequest.phone,
+          status: newRequest.status,
+          created_at: newRequest.createdAt
+        }]);
+        if (insertErr) throw insertErr;
+        
+        const { error: profileErr } = await supabase.from('profiles').update({
+          funds_available: newFunds
+        }).eq('id', currentUser.id);
+        if (profileErr) throw profileErr;
+        
+      } catch (err: any) {
+        console.error("Error submitting withdrawal request:", err);
+        addNotification(`❌ Échec de la demande de retrait : ${err.message}`);
+        return false;
+      }
+    }
+    addNotification("Demande de retrait soumise ! En attente de validation.");
+    return true;
+  };
+
+  const submitTontinePayoutRequest = async (
+    userId: string,
+    amount: number,
+    tontineName: string,
+    phone: string
+  ): Promise<boolean> => {
+    const newRequest: WithdrawalRequest = {
+      id: `wth_tontine_${Date.now()}`,
+      userId,
+      amount,
+      method: `Wave (Tontine : ${tontineName})`,
+      phone,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    
+    setWithdrawalRequests(prev => [newRequest, ...prev]);
+    
+    if (useSupabase) {
+      try {
+        const { error: insertErr } = await supabase.from('withdrawal_requests').insert([{
+          id: newRequest.id,
+          user_id: newRequest.userId,
+          amount: newRequest.amount,
+          method: newRequest.method,
+          phone: newRequest.phone,
+          status: newRequest.status,
+          created_at: newRequest.createdAt
+        }]);
+        if (insertErr) throw insertErr;
+      } catch (err: any) {
+        console.error("Error submitting tontine payout request:", err);
+        addNotification(`❌ Échec de l'enregistrement du payout : ${err.message}`);
+        return false;
+      }
+    }
+    addNotification("🏆 Payout de tontine soumis pour validation administrative !");
+    return true;
+  };
+
+  const approveWithdrawalRequest = async (id: string): Promise<boolean> => {
+    setWithdrawalRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'approved' } : req));
+    
+    if (useSupabase) {
+      try {
+        const { error } = await supabase.from('withdrawal_requests').update({
+          status: 'approved'
+        }).eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error("Error approving withdrawal:", err);
+        addNotification(`❌ Échec de l'approbation : ${err.message}`);
+        return false;
+      }
+    }
+    addNotification("Demande de retrait approuvée avec succès.");
+    return true;
+  };
+
+  const rejectWithdrawalRequest = async (id: string): Promise<boolean> => {
+    const request = withdrawalRequests.find(r => r.id === id);
+    if (!request) return false;
+    
+    setWithdrawalRequests(prev => prev.map(req => req.id === id ? { ...req, status: 'rejected' } : req));
+    
+    const targetUser = usersList.find(u => u.id === request.userId);
+    const isTontinePayout = request.method.includes('Tontine');
+
+    if (targetUser && !isTontinePayout) {
+      const newFunds = (targetUser.availableFunds || 0) + request.amount;
+      const updatedUser = { ...targetUser, availableFunds: newFunds };
+      setUsersList(prev => prev.map(u => u.id === request.userId ? updatedUser : u));
+      if (currentUser && currentUser.id === request.userId) {
+        setCurrentUser(updatedUser);
+      }
+      
+      if (useSupabase) {
+        try {
+          const { error: profileErr } = await supabase.from('profiles').update({
+            funds_available: newFunds
+          }).eq('id', request.userId);
+          if (profileErr) throw profileErr;
+        } catch (err) {
+          console.error("Error refunding user in Supabase:", err);
+        }
+      }
+    }
+    
+    if (useSupabase) {
+      try {
+        const { error } = await supabase.from('withdrawal_requests').update({
+          status: 'rejected'
+        }).eq('id', id);
+        if (error) throw error;
+      } catch (err: any) {
+        console.error("Error rejecting withdrawal:", err);
+        addNotification(`❌ Échec du rejet : ${err.message}`);
+        return false;
+      }
+    }
+    addNotification(isTontinePayout ? "Demande de reversement de tontine rejetée." : "Demande de retrait rejetée et fonds remboursés.");
+    return true;
+  };
+
+  const markMessagesAsRead = async (senderId: string): Promise<void> => {
+    if (!currentUser) return;
+    
+    setDirectMessages(prev => prev.map(msg => 
+      (msg.senderId === senderId && msg.receiverId === currentUser.id) ? { ...msg, read: true } : msg
+    ));
+    
+    if (useSupabase) {
+      try {
+        const { error } = await supabase
+          .from('direct_messages')
+          .update({ read: true })
+          .eq('sender_id', senderId)
+          .eq('receiver_id', currentUser.id)
+          .eq('read', false);
+        if (error) throw error;
+      } catch (err) {
+        console.error("Error marking messages as read in Supabase:", err);
+      }
+    }
   };
 
   return (
@@ -2282,6 +3531,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unfollowUser,
       petitions,
       cagnottes,
+      tontines,
+      saveTontine,
       volunteerMissions,
       volunteerApplications,
       badges: initialBadges,
@@ -2291,6 +3542,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsMobileView,
       notifications,
       addNotification,
+      withdrawalRequests,
+      submitWithdrawalRequest,
+      submitTontinePayoutRequest,
+      approveWithdrawalRequest,
+      rejectWithdrawalRequest,
+      markMessagesAsRead,
       
       isProfileComplete,
       isBasicProfileComplete,
@@ -2310,9 +3567,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       approveCampaign,
       rejectCampaign,
       markCampaignAsViewed,
+      deletePublication,
       resubmitCampaign,
       addCampaignUpdate,
       addCampaignExpense,
+      updateCampaignAfterImage,
       
       // IA
       chatHistory,
@@ -2325,7 +3584,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // PWA
       isInstallable,
       installApp,
-
+      isDataLoaded,
+      loadPetitionDetails,
+      loadCagnotteDetails,
+      loadUserKycDocs,
+ 
       // OTP
       activeOtpCode,
       sendOtpSms,

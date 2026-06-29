@@ -5,14 +5,15 @@ import { MapSenegal } from '../components/MapSenegal';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
 import { supabase } from '../services/supabaseClient';
+import { Turnstile } from '../components/Turnstile';
 
 interface HomeProps {
   onNavigate: (page: string, params?: any) => void;
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, volunteerMissions, getKPIs, useSupabase } = useApp();
-  const { t } = useLanguage();
+  const { petitions, cagnottes, getKPIs, useSupabase } = useApp();
+  const { language, t } = useLanguage();
   const kpis = getKPIs();
   
   useSEO({
@@ -23,6 +24,8 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
 
   const [formSubmitted, setFormSubmitted] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [contactForm, setContactForm] = useState({
     name: '',
     email: '',
@@ -42,10 +45,10 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     const items: { image: string; title: string; desc: string; type: string; id?: string }[] = [];
 
     // Add active cagnottes
-    activeCagnottes.slice(0, 2).forEach(c => {
+    activeCagnottes.slice(0, 3).forEach(c => {
       items.push({
-        image: c.coverImage || '/pub.png',
-        title: `Cagnotte : ${c.title}`,
+        image: c.coverImage || '',
+        title: `${t('home.cause.cagnotte')} : ${c.title}`,
         desc: c.description.slice(0, 150) + (c.description.length > 150 ? '...' : ''),
         type: 'cagnotte',
         id: c.id
@@ -53,33 +56,28 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     });
 
     // Add active petitions
-    activePetitions.slice(0, 2).forEach(p => {
+    activePetitions.slice(0, 3).forEach(p => {
       items.push({
-        image: p.coverImage || '/pub1.png',
-        title: `Pétition : ${p.title}`,
+        image: p.coverImage || '',
+        title: `${t('home.cause.petition')} : ${p.title}`,
         desc: p.description.slice(0, 150) + (p.description.length > 150 ? '...' : ''),
         type: 'petition',
         id: p.id
       });
     });
 
-    // Default engagement links
-    items.push({
-      image: '/pub2.png',
-      title: 'Diaspora Solidaire : Parrainez un projet communal',
-      desc: 'Offrez un avenir meilleur à votre commune d\'origine en parrainant des projets de reboisement et d\'éclairage par Stripe.',
-      type: 'diaspora'
-    });
-
-    items.push({
-      image: '/image_login.png',
-      title: 'Engagement Bénévolat : Rejoignez l\'action sur le terrain',
-      desc: 'Inscrivez-vous à nos caravanes de sensibilisation sanitaire et nos week-ends d\'action de reboisement de la Grande Muraille Verte.',
-      type: 'benevolat'
-    });
+    // Fallback slide if no launched campaigns are available
+    if (items.length === 0) {
+      items.push({
+        image: '',
+        title: 'Sunu Yité : Ensemble pour l\'impact citoyen',
+        desc: 'Lancez une cagnotte solidaire transparente ou signez une pétition citoyenne aujourd\'hui pour initier le changement.',
+        type: 'explore'
+      });
+    }
 
     return items;
-  }, [activeCagnottes, activePetitions]);
+  }, [activeCagnottes, activePetitions, t]);
 
   // Auto-play carousel
   React.useEffect(() => {
@@ -100,8 +98,6 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     setCarouselIndex((prev) => (prev + 1) % carouselItems.length);
   };
 
-  // Combine petitions and cagnottes for popular list
-
   return (
     <div className="animate-fade-in" style={{ paddingBottom: '4rem' }}>
       {/* Hero Section */}
@@ -119,7 +115,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               letterSpacing: '1px'
             }}
           >
-            🇸🇳 Mobilisation Citoyenne au Sénégal
+            {language === 'wo' ? '🇸🇳 Mbooloo Citoyen ci Senegal' : language === 'en' ? '🇸🇳 Citizen Mobilization in Senegal' : '🇸🇳 Mobilisation Citoyenne au Sénégal'}
           </span>
           <h1 className="hero-title">
             {t('home.welcome')}
@@ -147,25 +143,41 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
         </div>
       </section>
 
-
-
       {/* Premium Sliding Campaign Carousel */}
       <section className="carousel-container animate-fade-in delay-1">
         {carouselItems.map((item, idx) => (
           <div 
             key={idx}
             className={`carousel-slide ${idx === carouselIndex ? 'active' : ''}`}
-            style={{ backgroundImage: `url(${item.image})` }}
+            style={
+              item.image && item.image.trim() !== '' && !item.image.startsWith('/pub') && item.image !== '/logo.png'
+                ? { backgroundImage: `url("${item.image}")` }
+                : { 
+                    background: item.type === 'petition'
+                      ? 'linear-gradient(135deg, #1e3c72 0%, #2a5298 100%)' // Deep professional blue
+                      : item.type === 'cagnotte'
+                      ? 'linear-gradient(135deg, #00853f 0%, #005327 100%)' // Rich emerald green
+                      : 'linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%)' // Slate tech theme
+                  }
+            }
           >
             <div className="carousel-overlay">
               <h3 className="carousel-title">{item.title}</h3>
               <p className="carousel-desc">{item.desc}</p>
               <button 
                 className="btn btn-primary"
-                onClick={() => onNavigate('explore')}
+                onClick={() => {
+                  if (item.type === 'cagnotte' && item.id) {
+                    onNavigate('cagnottes', { id: item.id });
+                  } else if (item.type === 'petition' && item.id) {
+                    onNavigate('petitions', { id: item.id });
+                  } else {
+                    onNavigate('explore');
+                  }
+                }}
                 style={{ padding: '0.5rem 1.25rem', fontSize: '0.85rem' }}
               >
-                Rejoindre la cause ➔
+                {t('home.carousel.join')}
               </button>
             </div>
           </div>
@@ -196,7 +208,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* Dynamic Statistics Grid */}
       <section style={{ marginBottom: '4rem' }}>
         <h2 style={{ textAlign: 'center', fontSize: '1.8rem', fontWeight: 800, marginBottom: '2rem' }}>
-          La force du collectif en chiffres
+          {t('home.stats_title')}
         </h2>
         <div className="grid-cols-4">
           <div className="premium-card hover-scale animate-fade-in delay-1" style={{ textAlign: 'center' }}>
@@ -228,7 +240,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             <h3 style={{ fontSize: '1.8rem', fontWeight: 800, color: 'var(--primary)', marginTop: '0.5rem' }}>
               {kpis.successRate}%
             </h3>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>Taux de Réussite</p>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)' }}>{t('home.stats.success_rate')}</p>
           </div>
         </div>
       </section>
@@ -237,20 +249,20 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       <section className="responsive-grid-main-sidebar" style={{ marginBottom: '4rem' }}>
         <div>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            Impact Territorial
+            {t('home.sub.territorial')}
           </h2>
           <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-            Visualisez les causes actives et les fonds mobilisés dans chaque département et région du Sénégal.
+            {t('home.desc.territorial')}
           </p>
           <MapSenegal />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
           <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>
-            Causes Populaires
+            {t('home.sub.popular')}
           </h2>
           <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
-            Soutenez les mobilisations citoyennes les plus actives du moment.
+            {t('home.desc.popular')}
           </p>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -266,14 +278,14 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 >
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.7rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      ✍️ PÉTITION
+                      ✍️ {t('home.cause.petition')}
                     </span>
                     <TrustScore score={p.organizer.trustScore} />
                   </div>
                   <h4 style={{ fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.5rem' }}>{p.title}</h4>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-                    <span>{p.signaturesCount.toLocaleString('fr-FR')} signatures</span>
-                    <span>Objectif : {p.signaturesTarget.toLocaleString('fr-FR')}</span>
+                    <span>{p.signaturesCount.toLocaleString('fr-FR')} {t('home.cause.signatures')}</span>
+                    <span>{t('home.cause.target')} {p.signaturesTarget.toLocaleString('fr-FR')}</span>
                   </div>
                   <div style={{ width: '100%', height: '6px', background: 'var(--border-light)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: 'var(--primary)', borderRadius: '3px' }} />
@@ -294,14 +306,14 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 >
                   <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span style={{ fontSize: '0.7rem', background: 'rgba(252,209,22,0.15)', color: 'var(--secondary-dark)', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                      💰 CAGNOTTE
+                      💰 {t('home.cause.cagnotte')}
                     </span>
                     <TrustScore score={c.organizer.trustScore} />
                   </div>
                   <h4 style={{ fontWeight: 800, fontSize: '1.05rem', marginBottom: '0.5rem' }}>{c.title}</h4>
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.25rem' }}>
-                    <span>{c.amountCollected.toLocaleString('fr-FR')} F récoltés</span>
-                    <span>Cible : {c.amountTarget.toLocaleString('fr-FR')} F</span>
+                    <span>{c.amountCollected.toLocaleString('fr-FR')} F {t('home.cause.collected')}</span>
+                    <span>{t('home.cause.target_amount')} {c.amountTarget.toLocaleString('fr-FR')} F</span>
                   </div>
                   <div style={{ width: '100%', height: '6px', background: 'var(--border-light)', borderRadius: '3px', overflow: 'hidden' }}>
                     <div style={{ width: `${pct}%`, height: '100%', background: 'var(--secondary)', borderRadius: '3px' }} />
@@ -316,7 +328,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
             style={{ width: '100%', marginTop: '0.5rem' }}
             onClick={() => onNavigate('explore')}
           >
-            Découvrir toutes les causes ➔
+            {t('home.cause.view_all')}
           </button>
         </div>
       </section>
@@ -324,39 +336,39 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* Module Presentation */}
       <section style={{ marginBottom: '4rem' }}>
         <h2 style={{ textAlign: 'center', fontSize: '1.8rem', fontWeight: 800, marginBottom: '2.5rem' }}>
-          Une boîte à outils complète pour l'impact social
+          {t('home.tools_title')}
         </h2>
         <div className="grid-cols-3">
           <div className="premium-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <span style={{ fontSize: '2.5rem' }}>✍️</span>
-            <h3 style={{ fontWeight: 800 }}>Pétitions Citoyennes</h3>
+            <h3 style={{ fontWeight: 800 }}>{t('home.tools.petitions_title')}</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-              Proposez des changements législatifs, des arrêtés locaux ou dénoncez des injustices. Collectez des signatures validées par OTP SMS pour asseoir votre légitimité auprès des décideurs.
+              {t('home.tools.petitions_desc')}
             </p>
             <button className="btn btn-ghost" style={{ paddingLeft: 0, justifyContent: 'flex-start' }} onClick={() => onNavigate('petitions')}>
-              Lancer une pétition ➔
+              {t('home.tools.petitions_cta')}
             </button>
           </div>
 
           <div className="premium-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <span style={{ fontSize: '2.5rem' }}>💰</span>
-            <h3 style={{ fontWeight: 800 }}>Cagnottes Transparentes</h3>
+            <h3 style={{ fontWeight: 800 }}>{t('home.tools.cagnottes_title')}</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-              Financez des forages, des réhabilitations d'écoles, ou des secours d'urgence. Bénéficiez du suivi des dépenses en temps réel et de factures téléchargeables pour garantir une transparence totale.
+              {t('home.tools.cagnottes_desc')}
             </p>
             <button className="btn btn-ghost" style={{ paddingLeft: 0, justifyContent: 'flex-start' }} onClick={() => onNavigate('cagnottes')}>
-              Créer une cagnotte ➔
+              {t('home.tools.cagnottes_cta')}
             </button>
           </div>
 
           <div className="premium-card" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
             <span style={{ fontSize: '2.5rem' }}>🌍</span>
-            <h3 style={{ fontWeight: 800 }}>Diaspora & Bénévolat</h3>
+            <h3 style={{ fontWeight: 800 }}>{t('home.tools.diaspora_title')}</h3>
             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-              Permettez aux Sénégalais de l'étranger de parrainer leur village natal par Stripe, et offrez aux citoyens locaux de s'engager physiquement dans des missions de reboisement ou de soutien scolaire.
+              {t('home.tools.diaspora_desc')}
             </p>
             <button className="btn btn-ghost" style={{ paddingLeft: 0, justifyContent: 'flex-start' }} onClick={() => onNavigate('benevolat')}>
-              Trouver une mission ➔
+              {t('home.tools.diaspora_cta')}
             </button>
           </div>
         </div>
@@ -365,23 +377,23 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
       {/* Testimonials */}
       <section className="testimonials-section">
         <h2 style={{ textAlign: 'center', fontSize: '1.8rem', fontWeight: 800, marginBottom: '2rem' }}>
-          Ils font bouger le Sénégal
+          {t('home.testimonials_title')}
         </h2>
         <div className="grid-cols-2" style={{ gap: '2rem' }}>
           <div style={{ borderLeft: '3px solid var(--primary)', paddingLeft: '1.5rem' }}>
             <p style={{ fontStyle: 'italic', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-              "Grâce à Sunu Yité, nous avons collecté 4,5 millions FCFA en 12 jours pour équiper le forage solaire de Barkedji. L'onglet Transparence nous a permis de publier chaque facture d'achat de tuyaux, rassurant ainsi nos donateurs de la diaspora."
+              {t('home.testimonials.t1')}
             </p>
-            <strong>Amady Ndiaye</strong>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Président de l'association Horizon Louga</div>
+            <strong>{t('home.testimonials.t1_author')}</strong>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>{t('home.testimonials.t1_role')}</div>
           </div>
 
           <div style={{ borderLeft: '3px solid var(--secondary)', paddingLeft: '1.5rem' }}>
             <p style={{ fontStyle: 'italic', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: 1.5, marginBottom: '1rem' }}>
-              "J'habite à Lyon et je cherchais un moyen fiable d'aider l'école de mon village. Avec la cagnotte Sunu Yité et le score de confiance vérifié, j'ai fait un don par carte bancaire. J'ai pu suivre l'avancée des travaux photo par photo."
+              {t('home.testimonials.t2')}
             </p>
-            <strong>Moussa Diagne</strong>
-            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Membre de la Diaspora (France)</div>
+            <strong>{t('home.testimonials.t2_author')}</strong>
+            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>{language === 'wo' ? 'Bitim reew (France)' : language === 'en' ? 'Diaspora Member (France)' : 'Membre de la Diaspora (France)'}</div>
           </div>
         </div>
       </section>
@@ -401,13 +413,13 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               letterSpacing: '1px'
             }}
           >
-            📬 Nous Contacter
+            {t('home.contact.header')}
           </span>
           <h2 style={{ fontSize: '2rem', fontWeight: 800, marginTop: '0.75rem', marginBottom: '0.5rem' }}>
-            Une question ou une suggestion ?
+            {t('home.contact.subtitle')}
           </h2>
           <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem' }}>
-            Notre équipe citoyenne Sunu Yité est à votre disposition pour vous accompagner dans vos mobilisations.
+            {t('home.contact.desc')}
           </p>
         </div>
 
@@ -418,10 +430,10 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 ✈️
               </div>
               <h3 style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)', marginBottom: '0.75rem' }}>
-                Message envoyé avec succès !
+                {t('home.contact.success')}
               </h3>
               <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', maxWidth: '450px', margin: '0 auto 1.5rem' }}>
-                Merci d'avoir contacté Sunu Yité. Notre équipe de modération et d'entraide citoyenne vous répondra sous 24 heures.
+                {t('home.contact.success_desc')}
               </p>
               <button 
                 className="btn btn-primary"
@@ -430,42 +442,92 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                   setContactForm({ name: '', email: '', phone: '', subject: 'Général', message: '' });
                 }}
               >
-                Envoyer un autre message
+                {t('home.contact.button_another')}
               </button>
             </div>
           ) : (
             <form onSubmit={async (e) => {
               e.preventDefault();
+              if (!turnstileToken) {
+                setFormError("Veuillez valider le Captcha de sécurité.");
+                return;
+              }
               setFormLoading(true);
+              setFormError(null);
               
+              let success = true;
               if (useSupabase) {
                 try {
-                  const { error } = await supabase.from('contact_messages').insert([{
+                  const { error: err } = await supabase.from('contact_messages').insert([{
                     name: contactForm.name,
                     email: contactForm.email,
                     phone: contactForm.phone,
                     subject: contactForm.subject,
                     message: contactForm.message,
-                    recipient: 'mouhamethsarr98@gmail.com'
+                    recipient: 'admin@sunuyite.com'
                   }]);
-                  if (error) {
-                    console.error("Erreur lors de l'enregistrement du message de contact dans Supabase :", error);
+                  if (err) {
+                    console.error("Erreur lors de l'enregistrement du message de contact dans Supabase :", err);
+                    setFormError(t('home.contact.error'));
+                    success = false;
                   }
                 } catch (err) {
                   console.error("Échec d'envoi du formulaire de contact :", err);
+                  setFormError(t('home.contact.error'));
+                  success = false;
+                }
+              } else {
+                try {
+                  const mockMsgs = JSON.parse(localStorage.getItem('sc_mock_contact_messages') || '[]');
+                  mockMsgs.push({
+                    id: Math.random().toString(36).substring(2),
+                    name: contactForm.name,
+                    email: contactForm.email,
+                    phone: contactForm.phone,
+                    subject: contactForm.subject,
+                    message: contactForm.message,
+                    recipient: 'admin@sunuyite.com',
+                    created_at: new Date().toISOString()
+                  });
+                  localStorage.setItem('sc_mock_contact_messages', JSON.stringify(mockMsgs));
+                } catch (err) {
+                  console.error("Erreur de sauvegarde locale du message :", err);
                 }
               }
 
-              setTimeout(() => {
-                setFormLoading(false);
+              if (success) {
+                try {
+                  const mailRes = await fetch('/api/send-email', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      name: contactForm.name,
+                      email: contactForm.email,
+                      phone: contactForm.phone,
+                      subject: contactForm.subject,
+                      message: contactForm.message,
+                      turnstileToken
+                    })
+                  });
+                  if (!mailRes.ok) {
+                    const mailErrData = await mailRes.json();
+                    console.warn("L'envoi de l'e-mail a retourné une erreur (hors DB) :", mailErrData);
+                  }
+                } catch (mailErr) {
+                  console.error("Échec d'appel de l'API d'envoi d'e-mail (hors DB) :", mailErr);
+                }
+              }
+
+              setFormLoading(false);
+              if (success) {
                 setFormSubmitted(true);
-              }, 1200);
+              }
             }} style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
               <div className="grid-cols-2" style={{ gap: '1.5rem' }}>
                 {/* Name field */}
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
-                    Prénom & Nom
+                    {t('home.contact.name_label')}
                   </label>
                   <input
                     type="text"
@@ -489,7 +551,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 {/* Email field */}
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
-                    Adresse E-mail
+                    {t('home.contact.email_label')}
                   </label>
                   <input
                     type="email"
@@ -515,7 +577,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 {/* Phone field */}
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
-                    Téléphone (Optionnel)
+                    {t('home.contact.phone_label')}
                   </label>
                   <input
                     type="tel"
@@ -538,7 +600,7 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 {/* Subject Selector */}
                 <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                   <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
-                    Sujet de votre message
+                    {t('home.contact.subject_label')}
                   </label>
                   <select
                     style={{
@@ -555,12 +617,12 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                     value={contactForm.subject}
                     onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
                   >
-                    <option value="Général">Question Générale</option>
-                    <option value="Pétition">Aide sur les Pétitions ✍️</option>
-                    <option value="Cagnotte">Suivi ou Création de Cagnotte 💰</option>
-                    <option value="Tontine">Cercles d'épargne (Tontines) 🪙</option>
-                    <option value="Partenariat">Projet Diaspora / Partenariat 🌍</option>
-                    <option value="Technique">Problème Technique 🛠️</option>
+                    <option value="Général">{t('home.contact.subject.general')}</option>
+                    <option value="Pétition">{t('home.contact.subject.petition')}</option>
+                    <option value="Cagnotte">{t('home.contact.subject.cagnotte')}</option>
+                    <option value="Tontine">{t('home.contact.subject.tontine')}</option>
+                    <option value="Partenariat">{t('home.contact.subject.partnership')}</option>
+                    <option value="Technique">{t('home.contact.subject.technical')}</option>
                   </select>
                 </div>
               </div>
@@ -568,12 +630,12 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
               {/* Message field */}
               <div style={{ position: 'relative', display: 'flex', flexDirection: 'column' }}>
                 <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem', color: 'var(--text-secondary-light)' }}>
-                  Votre Message
+                  {t('home.contact.message_label')}
                 </label>
                 <textarea
                   required
                   rows={5}
-                  placeholder="Décrivez votre demande en détail..."
+                  placeholder={t('home.contact.message_placeholder')}
                   style={{
                     width: '100%',
                     padding: '0.75rem',
@@ -590,11 +652,40 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 />
               </div>
 
+              {formError && (
+                <div style={{
+                  padding: '0.75rem 1.25rem',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  border: '1.5px solid var(--danger)',
+                  color: 'var(--danger)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.85rem',
+                  fontWeight: 'bold',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.5rem',
+                  marginTop: '0.5rem'
+                }}>
+                  <span>⚠️</span>
+                  <span>{formError}</span>
+                </div>
+              )}
+
+              {/* Cloudflare Turnstile Verification */}
+              <Turnstile 
+                onVerify={(token) => setTurnstileToken(token)} 
+                onExpire={() => setTurnstileToken(null)}
+                onError={() => {
+                  setTurnstileToken(null);
+                  setFormError("Erreur de validation du Captcha.");
+                }}
+              />
+
               {/* Submit button with loading spinner */}
               <button 
                 type="submit" 
                 className="btn"
-                disabled={formLoading}
+                disabled={formLoading || !turnstileToken}
                 style={{
                   padding: '0.85rem 1.5rem',
                   fontSize: '0.95rem',
@@ -616,11 +707,11 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
                 {formLoading ? (
                   <>
                     <div className="btn-spinner" />
-                    <span>Envoi en cours...</span>
+                    <span>{t('home.contact.sending')}</span>
                   </>
                 ) : (
                   <>
-                    <span>Envoyer le Message ✉️</span>
+                    <span>{t('home.contact.send_btn')}</span>
                   </>
                 )}
               </button>

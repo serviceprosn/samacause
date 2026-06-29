@@ -1,9 +1,53 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Cagnotte } from '../types';
+import { uploadBase64ToStorage } from '../services/supabaseClient';
 import { TrustScore } from '../components/TrustScore';
 import { PaymentModal } from '../components/PaymentModal';
 import { useSEO } from '../hooks/useSEO';
+import { useLanguage } from '../context/LanguageContext';
+
+// Helper to compress base64 images client-side
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image')) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
 
 interface CagnottesProps {
   initialCagnotteId?: string;
@@ -25,14 +69,20 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
     resubmitCampaign,
     isProfileComplete,
     setSelectedPublicUserId,
-    usersList
+    usersList,
+    updateCampaignAfterImage,
+    loadCagnotteDetails
   } = useApp();
+  const { t } = useLanguage();
 
   // Auto-fill from AI Assistant
   React.useEffect(() => {
     if (aiAppliedData && aiAppliedData.title) {
       setTitle(aiAppliedData.title);
       setDescription(aiAppliedData.description);
+      if (aiAppliedData.amountTarget) {
+        setAmountTarget(Number(aiAppliedData.amountTarget) || 1000000);
+      }
       setActiveView('create');
       if (setAiAppliedData) {
         setAiAppliedData(null);
@@ -50,10 +100,10 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   );
 
   React.useEffect(() => {
-    if (currentUser && initialCagnotteId && initialAction === 'donate') {
+    if (initialCagnotteId && initialAction === 'donate') {
       setShowPayModal(true);
     }
-  }, [currentUser, initialCagnotteId, initialAction]);
+  }, [initialCagnotteId, initialAction]);
 
   // Search & Filter state
   const [search, setSearch] = useState('');
@@ -69,6 +119,8 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   const [coverImage, setCoverImage] = useState('https://images.unsplash.com/photo-1488521787991-ed7bbaae773c?w=800&auto=format&fit=crop&q=80');
   const [documents, setDocuments] = useState<string[]>([]);
   const [gallery, setGallery] = useState<string[]>([]);
+  const [imageBefore, setImageBefore] = useState('');
+  const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
 
   // Detail Sub-tabs
   const [detailTab, setDetailTab] = useState<'story' | 'transparency' | 'donors' | 'updates'>('story');
@@ -76,6 +128,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   // Payment Modal Trigger
   const [showPayModal, setShowPayModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showKycBlocker, setShowKycBlocker] = useState(false);
 
   // Invoice view simulation
   const [viewInvoice, setViewInvoice] = useState<any | null>(null);
@@ -90,21 +143,27 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   const [expenseAmount, setExpenseAmount] = useState(0);
   const [expenseCat, setExpenseCat] = useState('Matériaux');
 
+  React.useEffect(() => {
+    if (activeView === 'detail' && selectedCagnotteId) {
+      loadCagnotteDetails(selectedCagnotteId);
+    }
+  }, [activeView, selectedCagnotteId]);
+
   // Find active cagnotte
   const currentCagnotte = cagnottes.find(c => c.id === selectedCagnotteId);
 
   // Dynamic SEO management
   const seoTitle = activeView === 'detail' && currentCagnotte 
-    ? `Cagnotte : ${currentCagnotte.title}` 
+    ? `${t('home.cause.cagnotte')} : ${currentCagnotte.title}` 
     : activeView === 'create' 
-      ? 'Créer une cagnotte' 
-      : 'Cagnottes Solidaires';
+      ? t('cagnotte.detail.new_campaign') 
+      : t('cagnotte.title');
   
   const seoDesc = activeView === 'detail' && currentCagnotte 
     ? currentCagnotte.description.slice(0, 160) + (currentCagnotte.description.length > 160 ? '...' : '')
     : activeView === 'create'
-      ? 'Créez votre cagnotte de financement participatif sur Sunu Yité pour financer vos projets solidaires et communautaires au Sénégal.'
-      : 'Découvrez et contribuez aux cagnottes solidaires en cours pour le développement communautaire au Sénégal.';
+      ? t('cagnotte.subtitle')
+      : t('cagnotte.subtitle');
 
   const seoImage = activeView === 'detail' && currentCagnotte ? currentCagnotte.coverImage : undefined;
 
@@ -147,9 +206,9 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
     return matchesSearch && matchesCat && isActive;
   });
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = createCagnotte({
+    const newId = await createCagnotte({
       title,
       description,
       amountTarget,
@@ -158,21 +217,21 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
       isDiasporaTargeted,
       coverImage,
       documents,
-      gallery
+      gallery,
+      imageBefore
     });
-    // Reset
-    setTitle('');
-    setDescription('');
-    setAmountTarget(1000000);
-    setLocation('');
-    setIsDiasporaTargeted(false);
-    setDocuments([]);
-    setGallery([]);
     if (newId) {
+      // Reset
+      setTitle('');
+      setDescription('');
+      setAmountTarget(1000000);
+      setLocation('');
+      setIsDiasporaTargeted(false);
+      setDocuments([]);
+      setGallery([]);
+      setImageBefore('');
       setSelectedCagnotteId(newId);
       setActiveView('tracking');
-    } else {
-      setActiveView('list');
     }
   };
 
@@ -197,20 +256,20 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   };
 
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
-      {/* HEADER SECTION */}
+    <>
+      <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
+        {/* HEADER SECTION */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Cagnottes Solidaires</h1>
-          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem' }}>Financez participativement des projets de développement locaux.</p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>{t('cagnotte.title')}</h1>
+          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem' }}>{t('cagnotte.subtitle')}</p>
         </div>
         <div>
           {activeView === 'list' && (
             <button className="btn btn-primary" onClick={() => {
               if (currentUser) {
-                if (!isProfileComplete(currentUser)) {
-                  addNotification("🔒 Profil incomplet. Renseignez vos informations d'identification pour la sécurité.");
-                  onNavigate('profile', { requireCompletion: true });
+                if (currentUser.verificationStatus !== 'verified') {
+                  setShowKycBlocker(true);
                 } else {
                   setActiveView('create');
                 }
@@ -237,7 +296,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
             <input
               type="text"
               className="premium-card"
-              placeholder="Rechercher une cagnotte, une ville..."
+              placeholder={t('cagnotte.search_placeholder')}
               style={{ flex: 1, padding: '0.75rem 1rem', background: 'var(--light-card)' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -268,7 +327,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
           {/* CAGNOTTES FEED */}
           {filteredCagnottes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--light-card)', borderRadius: 'var(--radius-md)' }}>
-              <p style={{ fontWeight: 600 }}>Aucune cagnotte active trouvée.</p>
+              <p style={{ fontWeight: 600 }}>{t('cagnotte.no_results')}</p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginTop: '0.25rem' }}>
                 Lancez une cagnotte pour le développement de votre village ou quartier !
               </p>
@@ -283,7 +342,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                       style={{ 
                         height: '180px', 
                         borderRadius: 'var(--radius-md)', 
-                        backgroundImage: `url(${cag.coverImage})`, 
+                        backgroundImage: `url("${cag.coverImage}")`, 
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         marginBottom: '1rem',
@@ -319,7 +378,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                       <div style={{ marginTop: '1rem' }}>
                         {/* Progress Bar */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', marginBottom: '0.25rem' }}>
-                          <span><strong>{cag.amountCollected.toLocaleString('fr-FR')} F</strong> récoltés</span>
+                          <span><strong>{cag.amountCollected.toLocaleString('fr-FR')} F</strong> {t('cagnotte.collected')}</span>
                           <span style={{ color: 'var(--text-secondary-light)' }}>Cible : {cag.amountTarget.toLocaleString('fr-FR')} F</span>
                         </div>
                         <div style={{ width: '100%', height: '8px', background: 'var(--border-light)', borderRadius: '4px', overflow: 'hidden', marginBottom: '0.75rem' }}>
@@ -348,6 +407,16 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
         </div>
       )}
 
+      {/* 2. DETAIL VIEW (LOADING PLACEHOLDER) */}
+      {activeView === 'detail' && !currentCagnotte && (
+        <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+          <span style={{ fontSize: '2.5rem', display: 'inline-block' }} className="animate-pulse">⏳</span>
+          <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary-light)', fontWeight: 600 }}>
+            Chargement des détails de la cagnotte...
+          </p>
+        </div>
+      )}
+
       {/* 2. DETAIL VIEW */}
       {activeView === 'detail' && currentCagnotte && (
         <div className="responsive-grid-main-sidebar">
@@ -357,7 +426,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
               style={{ 
                 height: '320px', 
                 borderRadius: 'var(--radius-lg)', 
-                backgroundImage: `url(${currentCagnotte.coverImage})`, 
+                backgroundImage: `url("${currentCagnotte.coverImage}")`, 
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 marginBottom: '1.5rem',
@@ -373,7 +442,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
             </div>
 
             {/* TAB SELECTOR */}
-            <div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
+            <div className="horizontal-scroll-tabs">
               <button 
                 className="btn btn-ghost" 
                 style={{ 
@@ -439,18 +508,159 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                 </div>
                 <h2 style={{ fontSize: '1.75rem', fontWeight: 800, marginBottom: '0.75rem' }}>{currentCagnotte.title}</h2>
                 <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
-                  Soutien local à : <strong>{currentCagnotte.location}</strong> | Catégorie : <strong>{currentCagnotte.category}</strong>
+                  {t('profile.location')} : <strong>{currentCagnotte.location}</strong> | {t('cagnotte.detail.category')} : <strong>{currentCagnotte.category}</strong>
                 </p>
 
                 <div className="premium-card" style={{ marginBottom: '2rem', lineHeight: 1.6 }}>
                   <p style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{currentCagnotte.description}</p>
                 </div>
+
+                {/* Before / After Comparison */}
+                {(currentCagnotte.imageBefore || currentCagnotte.imageAfter || (currentUser && currentUser.id === currentCagnotte.organizer.id)) && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <span>📸 Évolution de la cause : Avant / Après</span>
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: currentCagnotte.imageBefore && (currentCagnotte.imageAfter || (currentUser && currentUser.id === currentCagnotte.organizer.id)) ? '1fr 1fr' : '1fr', gap: '1rem' }}>
+                      {currentCagnotte.imageBefore && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('cagnotte.detail.initial_state')}</span>
+                          <div 
+                            onClick={() => setSelectedLightboxImage(currentCagnotte.imageBefore || null)}
+                            style={{ 
+                              height: '180px', 
+                              borderRadius: 'var(--radius-md)', 
+                              backgroundImage: `url(${currentCagnotte.imageBefore})`, 
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              border: '1px solid var(--border-light)',
+                              cursor: 'pointer',
+                              transition: 'var(--transition-smooth)'
+                            }}
+                            className="hover-scale"
+                          />
+                        </div>
+                      )}
+                      
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)', textTransform: 'uppercase' }}>{t('cagnotte.detail.resolved_state')}</span>
+                        {currentCagnotte.imageAfter ? (
+                          <div 
+                            onClick={() => setSelectedLightboxImage(currentCagnotte.imageAfter || null)}
+                            style={{ 
+                              height: '180px', 
+                              borderRadius: 'var(--radius-md)', 
+                              backgroundImage: `url("${currentCagnotte.imageAfter}")`, 
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              border: '1.5px solid var(--primary)',
+                              cursor: 'pointer',
+                              transition: 'var(--transition-smooth)'
+                            }}
+                            className="hover-scale"
+                          />
+                        ) : (
+                          currentUser && currentUser.id === currentCagnotte.organizer.id ? (
+                            <div 
+                              style={{ 
+                                height: '180px', 
+                                borderRadius: 'var(--radius-md)', 
+                                border: '2.5px dashed var(--primary)',
+                                background: 'rgba(0,133,63,0.02)',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '0.4rem',
+                                cursor: 'pointer'
+                              }}
+                              onClick={() => document.getElementById('cagnotte-after-upload-detail')?.click()}
+                            >
+                              <span style={{ fontSize: '1.5rem' }}>📷</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 'bold', color: 'var(--primary)' }}>{t('cagnotte.detail.add_final_pic')}</span>
+                              <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)' }}>{t('cagnotte.detail.show_final_result')}</span>
+                              <input
+                                id="cagnotte-after-upload-detail"
+                                type="file"
+                                accept="image/*"
+                                style={{ display: 'none' }}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) {
+                                    if (file.size > 1 * 1024 * 1024) {
+                                      alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                                      return;
+                                    }
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                      compressImage(reader.result as string).then(compressed => {
+                                        uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => {
+                                          updateCampaignAfterImage(currentCagnotte.id, 'cagnotte', storageUrl);
+                                        });
+                                      });
+                                    };
+                                    reader.readAsDataURL(file);
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div 
+                              style={{ 
+                                height: '180px', 
+                                borderRadius: 'var(--radius-md)', 
+                                border: '1px dashed var(--border-light)',
+                                background: 'var(--light)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                color: 'var(--text-secondary-light)',
+                                fontSize: '0.8rem',
+                                fontStyle: 'italic'
+                              }}
+                            >
+                              En attente des travaux...
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Public Project Gallery */}
+                {currentCagnotte.gallery && currentCagnotte.gallery.length > 0 && (
+                  <div style={{ marginBottom: '2rem' }}>
+                    <h3 style={{ fontSize: '1.15rem', fontWeight: 800, marginBottom: '0.75rem' }}>
+                      🖼️ Galerie du Projet ({currentCagnotte.gallery.length}/5)
+                    </h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '0.5rem' }}>
+                      {currentCagnotte.gallery.map((img, idx) => (
+                        <div 
+                          key={idx}
+                          onClick={() => setSelectedLightboxImage(img)}
+                          style={{ 
+                            aspectRatio: '1', 
+                            borderRadius: 'var(--radius-md)', 
+                            backgroundImage: `url("${img}")`, 
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: '1px solid var(--border-light)',
+                            cursor: 'pointer',
+                            transition: 'var(--transition-smooth)'
+                          }}
+                          className="hover-scale"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             {detailTab === 'transparency' && (
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>📋 Registre des Dépenses</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>{t('cagnotte.detail.expenses_ledger')}</h3>
                 <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem', marginBottom: '1.5rem' }}>
                   Chaque franc collecté fait l'objet d'un justificatif comptable téléchargeable soumis à vérification.
                 </p>
@@ -471,7 +681,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                           <input 
                             type="text" 
                             required 
-                            placeholder="Description (ex: Achat ciment)" 
+                            placeholder={t('cagnotte.detail.expense_desc_placeholder')} 
                             className="premium-card"
                             style={{ padding: '0.5rem', background: 'white' }}
                             value={expenseDesc}
@@ -480,7 +690,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                           <input 
                             type="number" 
                             required 
-                            placeholder="Montant (FCFA)" 
+                            placeholder={t('cagnotte.detail.expense_amount_placeholder')} 
                             className="premium-card"
                             style={{ padding: '0.5rem', background: 'white' }}
                             value={expenseAmount || ''}
@@ -494,7 +704,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                             value={expenseCat}
                             onChange={(e) => setExpenseCat(e.target.value)}
                           >
-                            <option value="Matériaux">Matériaux & Outillage</option>
+                            <option value="Matériaux">{t('cagnotte.detail.cat_materials')}</option>
                             <option value="Prestation technique">Prestation technique</option>
                             <option value="Frais logistiques">Frais logistiques</option>
                             <option value="Rémunération">Main d'œuvre</option>
@@ -522,7 +732,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                         <tr style={{ borderBottom: '1.5px solid var(--border-light)', background: 'var(--light)' }}>
                           <th style={{ padding: '0.75rem 1rem' }}>Date</th>
                           <th style={{ padding: '0.75rem 1rem' }}>Description</th>
-                          <th style={{ padding: '0.75rem 1rem' }}>Catégorie</th>
+                          <th style={{ padding: '0.75rem 1rem' }}>{t('cagnotte.detail.category')}</th>
                           <th style={{ padding: '0.75rem 1rem' }}>Montant</th>
                           <th style={{ padding: '0.75rem 1rem', textAlign: 'right' }}>Justificatif</th>
                         </tr>
@@ -553,24 +763,24 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                 )}
 
                 {/* Transparency Timeline */}
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>📍 Étapes du projet</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>{t('cagnotte.detail.project_steps')}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', position: 'relative', borderLeft: '2px solid var(--primary)', marginLeft: '1rem', paddingLeft: '1.5rem' }}>
                   <div style={{ position: 'relative' }}>
                     <div style={{ position: 'absolute', left: '-2.15rem', top: '0.15rem', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)' }} />
                     <strong style={{ fontSize: '0.9rem' }}>Collecte en cours ({Math.round((currentCagnotte.amountCollected / currentCagnotte.amountTarget)*100)}%)</strong>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>Activité financière en temps réel.</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{t('cagnotte.detail.financial_activity')}</p>
                   </div>
                   {currentCagnotte.expenses.length > 0 && (
                     <div style={{ position: 'relative' }}>
                       <div style={{ position: 'absolute', left: '-2.15rem', top: '0.15rem', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--primary)' }} />
                       <strong style={{ fontSize: '0.9rem' }}>Paiement prestataires de travaux</strong>
-                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>Acompte réglé et étude technique validée.</p>
+                      <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{t('cagnotte.detail.downpayment_paid')}</p>
                     </div>
                   )}
                   <div style={{ position: 'relative', opacity: 0.5 }}>
                     <div style={{ position: 'absolute', left: '-2.15rem', top: '0.15rem', width: '12px', height: '12px', borderRadius: '50%', background: 'var(--text-secondary-light)' }} />
                     <strong style={{ fontSize: '0.9rem' }}>Début des Travaux / Livraison</strong>
-                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>En attente de la libération totale du budget ciblé.</p>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{t('cagnotte.detail.waiting_funds')}</p>
                   </div>
                 </div>
               </div>
@@ -578,7 +788,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
 
             {detailTab === 'donors' && (
               <div>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>❤️ Liste des Donateurs Récents</h3>
+                <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>{t('cagnotte.detail.recent_donors')}</h3>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                   {currentCagnotte.donors.length === 0 ? (
                     <p style={{ color: 'var(--text-secondary-light)', fontStyle: 'italic', fontSize: '0.85rem' }}>
@@ -696,8 +906,8 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
 
           {/* Right Action Sidebar */}
           <div>
-            <div className="premium-card" style={{ position: 'sticky', top: '2rem', border: '1.5px solid var(--secondary)', background: 'var(--light-card)' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.75rem' }}>Soutenir le Projet</h3>
+            <div className="premium-card sticky-sidebar-card" style={{ border: '1.5px solid var(--secondary)', background: 'var(--light-card)' }}>
+              <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.75rem' }}>{t('cagnotte.detail.support_project')}</h3>
               
               <div style={{ marginBottom: '1.25rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
@@ -732,7 +942,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                     width: '40px', 
                     height: '40px', 
                     borderRadius: '50%', 
-                    backgroundImage: `url(${currentCagnotte.organizer.avatar})`, 
+                    backgroundImage: `url("${currentCagnotte.organizer.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`, 
                     backgroundSize: 'cover',
                     backgroundPosition: 'center' 
                   }} 
@@ -744,11 +954,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
               </div>
 
               <button className="btn btn-primary" style={{ width: '100%', padding: '0.85rem' }} onClick={() => {
-                if (currentUser) {
-                  setShowPayModal(true);
-                } else {
-                  onNavigate('auth', { redirectPage: 'cagnottes', redirectId: currentCagnotte.id, triggerAction: 'donate' });
-                }
+                setShowPayModal(true);
               }}>
                 ❤️ Faire un don solidaire
               </button>
@@ -780,12 +986,12 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
           <div style={{ background: 'rgba(252,209,22,0.06)', border: '1px dashed var(--secondary-dark)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <span style={{ fontSize: '1.5rem' }}>🤖</span>
             <div style={{ fontSize: '0.8rem' }}>
-              <strong>L'IA est là pour vous !</strong> Ouvrez l'<strong>Assistant IA</strong> dans la barre supérieure pour générer les titres, descriptions et affiches pour votre cagnotte.
+              {t('petition.detail.need_ai_help')}
             </div>
           </div>
 
           <form onSubmit={handleCreateSubmit} className="premium-card">
-            <h3 style={{ fontWeight: 800, marginBottom: '1.25rem' }}>Nouvelle Cagnotte Solidaire</h3>
+            <h3 style={{ fontWeight: 800, marginBottom: '1.25rem' }}>{t('cagnotte.detail.new_campaign')}</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
@@ -803,7 +1009,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
 
               <div className="grid-cols-2">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Catégorie de projet</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('cagnotte.detail.category')}</label>
                   <select
                     className="premium-card"
                     style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-md)' }}
@@ -819,7 +1025,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                   </select>
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Région d'impact au Sénégal</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.region_label')}</label>
                   <select
                     className="premium-card"
                     style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-md)' }}
@@ -876,9 +1082,15 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          if (file.size > 1 * 1024 * 1024) {
+                            alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                            return;
+                          }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                            setCoverImage(reader.result as string);
+                            compressImage(reader.result as string).then(compressed => {
+                              uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => setCoverImage(storageUrl));
+                            });
                           };
                           reader.readAsDataURL(file);
                         }
@@ -890,7 +1102,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                           width: '60px',
                           height: '40px',
                           borderRadius: '6px',
-                          backgroundImage: `url(${coverImage})`,
+                          backgroundImage: `url("${coverImage}")`,
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                           border: '1px solid var(--border-light)',
@@ -899,6 +1111,56 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                       />
                     )}
                   </div>
+                </div>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Image actuelle / État de départ (Avant) - optionnel</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                  <button
+                    type="button"
+                    className="btn btn-outline"
+                    onClick={() => document.getElementById('cagnotte-before-upload')?.click()}
+                    style={{ padding: '0.55rem 1rem', fontSize: '0.8rem', width: '100%' }}
+                  >
+                    📁 Choisir l'image Avant...
+                  </button>
+                  <input
+                    id="cagnotte-before-upload"
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 1 * 1024 * 1024) {
+                          alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          compressImage(reader.result as string).then(compressed => {
+                            uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => setImageBefore(storageUrl));
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
+                  />
+                  {imageBefore && (
+                    <div 
+                      style={{
+                        width: '60px',
+                        height: '40px',
+                        borderRadius: '6px',
+                        backgroundImage: `url("${imageBefore}")`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        border: '1px solid var(--border-light)',
+                        flexShrink: 0
+                      }}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -982,7 +1244,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                           width: '60px', 
                           height: '60px', 
                           borderRadius: '6px', 
-                          backgroundImage: `url(${img})`, 
+                          backgroundImage: `url("${img}")`, 
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                           border: '1px solid var(--border-light)',
@@ -1035,9 +1297,15 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          if (file.size > 1 * 1024 * 1024) {
+                            alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                            return;
+                          }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                            setGallery(prev => [...prev, reader.result as string]);
+                            compressImage(reader.result as string).then(compressed => {
+                              uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => setGallery(prev => [...prev, storageUrl]));
+                            });
                           };
                           reader.readAsDataURL(file);
                         }
@@ -1064,7 +1332,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                 <textarea
                   required
                   rows={6}
-                  placeholder="Expliquez en détail le besoin, les devis prévus, et comment l'argent sera dépensé..."
+                  placeholder={t('cagnotte.detail.project_desc_placeholder')}
                   className="premium-card"
                   style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', resize: 'none' }}
                   value={description}
@@ -1208,7 +1476,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                   ✓
                 </div>
                 <div>
-                  <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1rem' }}>Étape 1 : Soumission réussie</h4>
+                  <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1rem' }}>{t('petition.form.success_step1')}</h4>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: '0.25rem 0 0 0' }}>
                     Votre projet de cagnotte a été soumis et enregistré le {currentCagnotte.createdAt}.
                   </p>
@@ -1295,7 +1563,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
               <div className="animate-slide-up" style={{ background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', padding: '1.5rem', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', textAlign: 'center' }}>
                 <span style={{ fontSize: '2.5rem' }}>🎉</span>
                 <div>
-                  <strong style={{ display: 'block', fontSize: '1.1rem', color: 'var(--primary)' }}>Cagnotte active et visible en ligne !</strong>
+                  <strong style={{ display: 'block', fontSize: '1.1rem', color: 'var(--primary)' }}>{t('cagnotte.detail.online_visible')}</strong>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: '0.25rem 0 0 0' }}>
                     Votre projet a été approuvé. Partagez le lien avec vos proches et la diaspora pour collecter des fonds.
                   </p>
@@ -1420,9 +1688,15 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
+                                if (file.size > 1 * 1024 * 1024) {
+                                  alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                                  return;
+                                }
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  setEditCoverImage(reader.result as string);
+                                  compressImage(reader.result as string).then(compressed => {
+                                     uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => setEditCoverImage(storageUrl));
+                                  });
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -1434,7 +1708,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                                 width: '50px',
                                 height: '35px',
                                 borderRadius: '4px',
-                                backgroundImage: `url(${editCoverImage})`,
+                                backgroundImage: `url("${editCoverImage}")`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 border: '1px solid var(--border-light)',
@@ -1532,7 +1806,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                                 width: '50px', 
                                 height: '50px', 
                                 borderRadius: '4px', 
-                                backgroundImage: `url(${img})`, 
+                                backgroundImage: `url("${img}")`, 
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 border: '1px solid var(--border-light)',
@@ -1583,9 +1857,15 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
+                                if (file.size > 1 * 1024 * 1024) {
+                                  alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                                  return;
+                                }
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  setEditGallery(prev => [...prev, reader.result as string]);
+                                  compressImage(reader.result as string).then(compressed => {
+                                     uploadBase64ToStorage(compressed, 'cagnottes').then(storageUrl => setEditGallery(prev => [...prev, storageUrl]));
+                                  });
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -1618,6 +1898,8 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
         )}
         </div>
       )}
+
+      </div>
 
       {/* PAYMENT INTEGRATION */}
       {showPayModal && currentCagnotte && (
@@ -1657,7 +1939,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '2px solid #333', paddingBottom: '0.5rem', marginBottom: '1.5rem' }}>
               <div>
-                <strong style={{ fontSize: '1.2rem' }}>FACTURE JUSTIFICATIVE</strong>
+                <strong style={{ fontSize: '1.2rem' }}>{t('cagnotte.detail.invoice_justificative')}</strong>
                 <div>Référence : {viewInvoice.id.toUpperCase()}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
@@ -1667,7 +1949,7 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
-              <div><strong>Campagne liée :</strong> {viewInvoice.title}</div>
+              <div><strong>{t('cagnotte.detail.related_campaign')}</strong> {viewInvoice.title}</div>
               <div><strong>Prestataire :</strong> Sahel Distribution / Fournisseur local</div>
             </div>
 
@@ -1713,117 +1995,257 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
       )}
 
       {/* SHARE MODAL */}
-      {showShareModal && currentCagnotte && (
+      {showShareModal && currentCagnotte && (() => {
+        const directLink = `${window.location.origin}/cause?cagnotte=${currentCagnotte.id}`;
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+          >
+            <div 
+              className="glass animate-fade-in" 
+              style={{
+                width: '100%',
+                maxWidth: '420px',
+                background: 'var(--light-card)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.5rem',
+                boxShadow: 'var(--shadow-lg)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>📢 {t('cagnotte.detail.share').replace('📢 ', '')}</h3>
+                <button className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} onClick={() => setShowShareModal(false)}>
+                  ✕
+                </button>
+              </div>
+
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem' }}>
+                Chaque don, chaque partage rapproche ce projet de sa réalisation. Partagez cette cagnotte solidaire !
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <a 
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `*🤝 Soutenez ce projet solidaire sur Sunu Yité :* ${currentCagnotte.title}\n\n📍 Région : ${currentCagnotte.location}\n\n👉 Faites un don via Wave/OM ou partagez le lien pour nous aider : ${directLink}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn hover-scale"
+                  style={{ 
+                    width: '100%', 
+                    background: '#25D366', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.5rem', 
+                    textDecoration: 'none',
+                    padding: '0.65rem'
+                  }}
+                >
+                  💚 Partager sur WhatsApp
+                </a>
+
+                <a 
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                    directLink
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn hover-scale"
+                  style={{ 
+                    width: '100%', 
+                    background: '#1877F2', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.5rem', 
+                    textDecoration: 'none',
+                    padding: '0.65rem'
+                  }}
+                >
+                  💙 Partager sur Facebook
+                </a>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Lien direct :</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    readOnly 
+                    className="premium-card" 
+                    style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
+                    value={directLink}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(directLink);
+                      addNotification("📋 Lien copié dans le presse-papier !");
+                    }}
+                  >
+                    Copier
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {selectedLightboxImage && (
         <div 
           style={{
             position: 'fixed',
             top: 0,
             left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 1100,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.95)',
+            zIndex: 99999,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            padding: '1rem'
+            padding: '2rem'
           }}
+          onClick={() => setSelectedLightboxImage(null)}
         >
-          <div 
-            className="glass animate-fade-in" 
-            style={{
-              width: '100%',
-              maxWidth: '420px',
-              background: 'var(--light-card)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1.5rem',
-              boxShadow: 'var(--shadow-lg)'
+          <button 
+            style={{ 
+              position: 'absolute', 
+              top: '20px', 
+              right: '20px', 
+              background: 'rgba(255,255,255,0.2)', 
+              border: 'none', 
+              color: 'white', 
+              fontSize: '1.5rem', 
+              padding: '0.4rem 0.8rem', 
+              borderRadius: '50%', 
+              cursor: 'pointer' 
             }}
+            onClick={() => setSelectedLightboxImage(null)}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>📢 Partager cette cagnotte</h3>
-              <button className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} onClick={() => setShowShareModal(false)}>
-                ✕
-              </button>
-            </div>
+            ✕
+          </button>
+          <img 
+            src={selectedLightboxImage} 
+            alt="Agrandissement" 
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '2px solid white' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem' }}>
-              Chaque don, chaque partage rapproche ce projet de sa réalisation. Partagez cette cagnotte solidaire !
-            </p>
+      {/* KYC Blocker Modal */}
+      {(() => {
+        if (!showKycBlocker) return null;
+        const status = currentUser?.verificationStatus || 'none';
+        const rejectReason = currentUser?.kycRejectReason || '';
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem'
+            }}
+            onClick={() => setShowKycBlocker(false)}
+          >
+            <div 
+              className="glass animate-fade-in"
+              style={{
+                maxWidth: '500px',
+                width: '100%',
+                background: 'var(--light-card)',
+                borderRadius: 'var(--radius-md)',
+                padding: '2rem',
+                border: '1px solid var(--border-light)',
+                boxShadow: 'var(--shadow-lg)',
+                textAlign: 'center'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>🪪</span>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--primary)' }}>
+                Vérification d'identité requise (KYC)
+              </h3>
+              
+              {status === 'pending' ? (
+                <p style={{ color: 'var(--text-primary-light)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Votre dossier de vérification d'identité est actuellement en cours de modération. Nos administrateurs l'analysent sous 24h. Vous recevrez une notification dès sa validation.
+                </p>
+              ) : status === 'rejected' ? (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <p style={{ color: 'var(--danger)', fontSize: '0.95rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                    Votre dossier KYC a été rejeté par les administrateurs.
+                  </p>
+                  {rejectReason && (
+                    <div style={{ background: 'rgba(239,68,68,0.05)', border: '1px dashed var(--danger)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', color: 'var(--danger)', marginBottom: '1rem' }}>
+                      <strong>Motif du rejet :</strong> {rejectReason}
+                    </div>
+                  )}
+                  <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
+                    Veuillez mettre à jour vos pièces d'identité et votre selfie dans votre espace profil.
+                  </p>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-primary-light)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Pour garantir la sécurité et la transparence de notre plateforme citoyenne, vous devez faire certifier votre compte (KYC) en transmettant votre pièce d'identité avant de pouvoir organiser une cagnotte.
+                </p>
+              )}
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              <a 
-                href={`https://wa.me/?text=${encodeURIComponent(
-                  `*🤝 Soutenez ce projet solidaire sur Sunu Yité :* ${currentCagnotte.title}\n\n📍 Région : ${currentCagnotte.location}\n\n👉 Faites un don via Wave/OM ou partagez le lien pour nous aider : https://sunuyite.sn/cagnottes/${currentCagnotte.id}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn hover-scale"
-                style={{ 
-                  width: '100%', 
-                  background: '#25D366', 
-                  color: 'white', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '0.5rem', 
-                  textDecoration: 'none',
-                  padding: '0.65rem'
-                }}
-              >
-                💚 Partager sur WhatsApp
-              </a>
-
-              <a 
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                  `https://sunuyite.sn/cagnottes/${currentCagnotte.id}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn hover-scale"
-                style={{ 
-                  width: '100%', 
-                  background: '#1877F2', 
-                  color: 'white', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '0.5rem', 
-                  textDecoration: 'none',
-                  padding: '0.65rem'
-                }}
-              >
-                💙 Partager sur Facebook
-              </a>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Lien direct :</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  readOnly 
-                  className="premium-card" 
-                  style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
-                  value={`https://sunuyite.sn/cagnottes/${currentCagnotte.id}`}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
                 <button 
-                  className="btn btn-primary" 
-                  style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(`https://sunuyite.sn/cagnottes/${currentCagnotte.id}`);
-                    addNotification("📋 Lien copié dans le presse-papier !");
-                  }}
+                  type="button" 
+                  className="btn btn-outline" 
+                  style={{ padding: '0.5rem 1.5rem' }}
+                  onClick={() => setShowKycBlocker(false)}
                 >
-                  Copier
+                  Fermer
                 </button>
+                {status !== 'pending' && (
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    onClick={() => {
+                      setShowKycBlocker(false);
+                      onNavigate('profile', { requireCompletion: true, target: 'kyc' });
+                    }}
+                  >
+                    Passer le KYC 🪪
+                  </button>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        );
+      })()}
+    </>
   );
 };

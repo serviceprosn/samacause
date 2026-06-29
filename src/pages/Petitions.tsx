@@ -1,8 +1,52 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { Petition } from '../types';
+import { uploadBase64ToStorage } from '../services/supabaseClient';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
+import { useLanguage } from '../context/LanguageContext';
+
+// Helper to compress base64 images client-side
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image')) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
+
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
+
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
 
 interface PetitionsProps {
   initialPetitionId?: string;
@@ -26,10 +70,14 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
     activeOtpCode,
     addNotification,
     resubmitCampaign,
-    isProfileComplete,
+    isBasicProfileComplete,
     setSelectedPublicUserId,
-    usersList
+    usersList,
+    updateCampaignAfterImage,
+    loadPetitionDetails,
+    isMobileView
   } = useApp();
+  const { t } = useLanguage();
 
   // Auto-fill from AI Assistant
   React.useEffect(() => {
@@ -66,6 +114,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
   const [location, setLocation] = useState('Dakar');
   const [dateLimit, setDateLimit] = useState('');
   const [coverImage, setCoverImage] = useState('https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=800&auto=format&fit=crop&q=80');
+  const [selectedLightboxImage, setSelectedLightboxImage] = useState<string | null>(null);
 
   // Signature Form State
   const [showSignModal, setShowSignModal] = useState(false);
@@ -102,34 +151,40 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
   }, [currentUser]);
 
   React.useEffect(() => {
-    if (currentUser && initialPetitionId && initialAction === 'sign') {
+    if (initialPetitionId && initialAction === 'sign') {
       setShowSignModal(true);
     }
-    if (currentUser && initialPetitionId && initialAction === 'boost') {
+    if (initialPetitionId && initialAction === 'boost') {
       setShowBoostModal(true);
     }
-  }, [currentUser, initialPetitionId, initialAction]);
+  }, [initialPetitionId, initialAction]);
 
   // Update post Form State
   const [showUpdateForm, setShowUpdateForm] = useState(false);
   const [updateTitle, setUpdateTitle] = useState('');
   const [updateContent, setUpdateContent] = useState('');
 
+  React.useEffect(() => {
+    if (activeView === 'detail' && selectedPetitionId) {
+      loadPetitionDetails(selectedPetitionId);
+    }
+  }, [activeView, selectedPetitionId]);
+
   // Find active petition
   const currentPetition = petitions.find(p => p.id === selectedPetitionId);
 
   // Dynamic SEO management
   const seoTitle = activeView === 'detail' && currentPetition 
-    ? `Pétition : ${currentPetition.title}` 
+    ? `${t('home.cause.petition')} : ${currentPetition.title}` 
     : activeView === 'create' 
-      ? 'Lancer une pétition' 
-      : 'Pétitions Citoyennes';
+      ? t('petition.meta_title_create') 
+      : t('petition.meta_title_list');
   
   const seoDesc = activeView === 'detail' && currentPetition 
     ? currentPetition.description.slice(0, 160) + (currentPetition.description.length > 160 ? '...' : '')
     : activeView === 'create'
-      ? 'Lancez votre pétition citoyenne sur Sunu Yité et mobilisez la communauté pour le changement au Sénégal.'
-      : 'Découvrez et signez les pétitions citoyennes en cours au Sénégal pour faire entendre votre voix.';
+      ? t('petition.meta_desc_create')
+      : t('petition.meta_desc_list');
 
   const seoImage = activeView === 'detail' && currentPetition ? currentPetition.coverImage : undefined;
 
@@ -137,7 +192,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
     title: seoTitle,
     description: seoDesc,
     ogImage: seoImage,
-    keywords: 'Sénégal, pétition, doléance, changement, citoyen, signature, impact, cause'
+    keywords: t('petition.meta_keywords')
   });
 
   // States for petition correction
@@ -147,8 +202,10 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
   const [editLocation, setEditLocation] = useState('Dakar');
   const [editSignaturesTarget, setEditSignaturesTarget] = useState(1000);
   const [editCoverImage, setEditCoverImage] = useState('');
+  const [isEditingActive, setIsEditingActive] = useState(false);
 
   React.useEffect(() => {
+    setIsEditingActive(false);
     if (currentPetition && currentPetition.status === 'rejected') {
       setEditTitle(currentPetition.title);
       setEditDescription(currentPetition.description);
@@ -174,9 +231,9 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
       return bBoost - aBoost;
     });
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newId = createPetition({
+    const newId = await createPetition({
       title,
       description,
       recipient,
@@ -186,24 +243,22 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
       dateLimit,
       coverImage
     });
-    // Reset
-    setTitle('');
-    setDescription('');
-    setRecipient('');
-    setLocation('');
-    setDateLimit('');
     if (newId) {
+      // Reset
+      setTitle('');
+      setDescription('');
+      setRecipient('');
+      setLocation('');
+      setDateLimit('');
       setSelectedPetitionId(newId);
       setActiveView('tracking');
-    } else {
-      setActiveView('list');
     }
   };
 
   const handleSignSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!signPhone) {
-      alert('Veuillez entrer un numéro de téléphone');
+      alert(t('petition.error.phone_required'));
       return;
     }
     // Simulate SMS dispatch
@@ -221,7 +276,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
       setOtpStep('form');
       setOtpCode('');
     } else {
-      alert("Code OTP incorrect. Veuillez réessayer.");
+      alert(t('petition.error.otp_incorrect'));
     }
   };
 
@@ -244,21 +299,433 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
     }
   };
 
+  const renderEditForm = () => {
+    if (!currentPetition) return null;
+    return (
+      <form 
+        onSubmit={(e) => {
+          e.preventDefault();
+          resubmitCampaign(
+            currentPetition.id, 
+            'petition', 
+            editTitle, 
+            editDescription, 
+            editSignaturesTarget,
+            editLocation,
+            editCoverImage,
+            editRecipient
+          );
+          setIsEditingActive(false);
+        }}
+        className="premium-card animate-fade-in" 
+        style={{ background: 'var(--light-card)', padding: '1.5rem', border: '1px solid var(--border-light)', marginBottom: '2rem' }}
+      >
+        <h3 style={{ fontSize: '1.2rem', fontWeight: 800, marginBottom: '1.25rem' }}>✏️ Modifier les détails de la pétition</h3>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Titre de la pétition</label>
+            <input 
+              type="text" 
+              required 
+              className="premium-card" 
+              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+              value={editTitle}
+              onChange={(e) => setEditTitle(e.target.value)}
+            />
+          </div>
+
+          <div className="grid-cols-2" style={{ gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Destinataire administratif</label>
+              <input 
+                type="text" 
+                required 
+                className="premium-card" 
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editRecipient}
+                onChange={(e) => setEditRecipient(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Région d'impact</label>
+              <select
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-md)' }}
+                value={editLocation}
+                onChange={(e) => setEditLocation(e.target.value)}
+              >
+                <option value="Dakar">Dakar</option>
+                <option value="Thiès">Thiès</option>
+                <option value="Saint-Louis">Saint-Louis</option>
+                <option value="Louga">Louga</option>
+                <option value="Diourbel">Diourbel</option>
+                <option value="Fatick">Fatick</option>
+                <option value="Kaolack">Kaolack</option>
+                <option value="Kaffrine">Kaffrine</option>
+                <option value="Matam">Matam</option>
+                <option value="Tambacounda">Tambacounda</option>
+                <option value="Kédougou">Kédougou</option>
+                <option value="Kolda">Kolda</option>
+                <option value="Sédhiou">Sédhiou</option>
+                <option value="Ziguinchor">Ziguinchor</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid-cols-2" style={{ gap: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Objectif de signatures</label>
+              <input 
+                type="number" 
+                required 
+                min={100}
+                className="premium-card" 
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editSignaturesTarget}
+                onChange={(e) => setEditSignaturesTarget(parseInt(e.target.value, 10))}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Image de couverture</label>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => document.getElementById('petition-edit-active-cover-upload')?.click()}
+                  style={{ padding: '0.55rem 1rem', fontSize: '0.8rem', flex: 1 }}
+                >
+                  📁 Choisir...
+                </button>
+                <input
+                  id="petition-edit-active-cover-upload"
+                  type="file"
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 1 * 1024 * 1024) {
+                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        compressImage(reader.result as string).then(compressed => {
+                           uploadBase64ToStorage(compressed, 'petitions').then(storageUrl => setEditCoverImage(storageUrl));
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                {editCoverImage && (
+                  <div 
+                    style={{
+                      width: '60px',
+                      height: '40px',
+                      borderRadius: '6px',
+                      backgroundImage: `url("${editCoverImage}")`,
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      border: '1px solid var(--border-light)',
+                      flexShrink: 0
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Description & Lettre d'arguments</label>
+            <textarea
+              required
+              rows={6}
+              className="premium-card"
+              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', resize: 'none' }}
+              value={editDescription}
+              onChange={(e) => setEditDescription(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.75rem', marginTop: '0.5rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ flex: 1 }} 
+              onClick={() => setIsEditingActive(false)}
+            >
+              Annuler
+            </button>
+            <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>
+              💾 Enregistrer les modifications
+            </button>
+          </div>
+        </div>
+      </form>
+    );
+  };
+
+  const renderGrievanceLetter = () => {
+    if (!currentPetition) return null;
+    return (
+      <div className="premium-card" style={{ marginBottom: '2rem', lineHeight: 1.6 }}>
+        <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.75rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+          Lettre de doléances
+        </h3>
+        <p style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{currentPetition.description}</p>
+      </div>
+    );
+  };
+
+  const renderRecentSigners = () => {
+    if (!currentPetition) return null;
+    return (
+      <div style={{ marginBottom: '2rem' }}>
+        <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>✍️ Signataires Récents ({currentPetition.signers.length})</h3>
+        <div 
+          className="premium-card" 
+          style={{ 
+            maxHeight: '220px', 
+            overflowY: 'auto', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            gap: '0.6rem' 
+          }}
+        >
+          {currentPetition.signers.length === 0 ? (
+            <p style={{ color: 'var(--text-secondary-light)', fontStyle: 'italic', fontSize: '0.85rem' }}>
+              Soyez le premier citoyen à signer cette pétition !
+            </p>
+          ) : (
+            currentPetition.signers.map((sig, idx) => {
+              const signerMatch = usersList.find(u => u.name && sig.name && u.name.toLowerCase() === sig.name.toLowerCase());
+              return (
+                <div 
+                  key={idx} 
+                  style={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center', 
+                    fontSize: '0.85rem', 
+                    borderBottom: '1px solid var(--border-light)',
+                    paddingBottom: '0.4rem' 
+                  }}
+                >
+                  <div 
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '0.5rem',
+                      cursor: signerMatch ? 'pointer' : 'default'
+                    }}
+                    onClick={() => {
+                      if (signerMatch) {
+                        setSelectedPublicUserId(signerMatch.id);
+                      }
+                    }}
+                    title={signerMatch ? "Voir le profil de ce citoyen" : undefined}
+                  >
+                    <span>👤</span>
+                    <strong style={{ color: signerMatch ? 'var(--primary)' : 'inherit', textDecoration: signerMatch ? 'underline' : 'none' }}>
+                      {sig.name}
+                    </strong>
+                    {sig.badge && (
+                      <span style={{ fontSize: '0.65rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.1rem 0.3rem', borderRadius: '4px', fontWeight: 'bold' }}>
+                        {sig.badge}
+                      </span>
+                    )}
+                  </div>
+                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{sig.date}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderProjectUpdates = () => {
+    if (!currentPetition) return null;
+    return (
+      <div style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>📢 Actualités du Projet ({currentPetition.updates.length})</h3>
+          {currentUser && currentUser.id === currentPetition.organizer.id && (
+            <button 
+              className="btn btn-outline" 
+              style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
+              onClick={() => setShowUpdateForm(!showUpdateForm)}
+            >
+              {showUpdateForm ? 'Annuler' : 'Publier une actualité'}
+            </button>
+          )}
+        </div>
+
+        {showUpdateForm && (
+          <form onSubmit={handlePostUpdateSubmit} className="premium-card" style={{ marginBottom: '1.5rem', background: 'var(--light)' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <input 
+                type="text" 
+                required 
+                className="premium-card" 
+                placeholder="Titre de l'actualité" 
+                style={{ padding: '0.5rem 0.75rem', background: 'white' }}
+                value={updateTitle}
+                onChange={(e) => setUpdateTitle(e.target.value)}
+              />
+              <textarea 
+                required 
+                rows={3} 
+                className="premium-card" 
+                placeholder="Contenu..." 
+                style={{ padding: '0.5rem 0.75rem', background: 'white', resize: 'none' }}
+                value={updateContent}
+                onChange={(e) => setUpdateContent(e.target.value)}
+              />
+              <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', padding: '0.45rem 1rem', fontSize: '0.8rem' }}>
+                Publier
+              </button>
+            </div>
+          </form>
+        )}
+
+        {currentPetition.updates.length === 0 ? (
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', fontStyle: 'italic' }}>
+            Aucune mise à jour publiée pour le moment.
+          </p>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {currentPetition.updates.map((upd) => (
+              <div key={upd.id} className="premium-card" style={{ background: 'var(--light)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary-light)', marginBottom: '0.35rem' }}>
+                  <span>Par <strong>{upd.author}</strong></span>
+                  <span>{upd.date}</span>
+                </div>
+                <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{upd.title}</h4>
+                <p style={{ fontSize: '0.85rem', lineHeight: 1.4 }}>{upd.content}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderActionSidebarCard = () => {
+    if (!currentPetition) return null;
+    return (
+      <div className="premium-card sticky-sidebar-card" style={{ border: '1.5px solid var(--primary)', background: 'var(--light-card)', marginBottom: '2rem' }}>
+        <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.75rem' }}>{t('petition.detail.signer_title')}</h3>
+        
+        <div style={{ marginBottom: '1.25rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
+            <strong>{currentPetition.signaturesCount.toLocaleString('fr-FR')} signatures</strong>
+            <span style={{ color: 'var(--text-secondary-light)' }}>Cible : {currentPetition.signaturesTarget}</span>
+          </div>
+          <div style={{ width: '100%', height: '10px', background: 'var(--border-light)', borderRadius: '5px', overflow: 'hidden', marginBottom: '0.5rem' }}>
+            <div style={{ width: `${Math.min(100, Math.round((currentPetition.signaturesCount / currentPetition.signaturesTarget) * 100))}%`, height: '100%', background: 'var(--primary)', borderRadius: '5px' }} />
+          </div>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
+            Progression : <strong>{Math.round((currentPetition.signaturesCount / currentPetition.signaturesTarget) * 100)}%</strong> de l'objectif
+          </span>
+        </div>
+
+        {/* Organizer widget */}
+        <div 
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '0.75rem', 
+            borderTop: '1px solid var(--border-light)', 
+            borderBottom: '1px solid var(--border-light)', 
+            padding: '0.75rem 0',
+            marginBottom: '1.25rem',
+            cursor: 'pointer'
+          }}
+          onClick={() => setSelectedPublicUserId(currentPetition.organizer.id)}
+          title="Voir le profil de l'organisateur"
+        >
+          <div 
+            style={{ 
+              width: '40px', 
+              height: '40px', 
+              borderRadius: '50%', 
+              backgroundImage: `url("${currentPetition.organizer.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`, 
+              backgroundSize: 'cover',
+              backgroundPosition: 'center' 
+            }} 
+          />
+          <div>
+            <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{t('petition.detail.launched_by')}</div>
+            <strong style={{ fontSize: '0.85rem' }}>{currentPetition.organizer.name}</strong>
+          </div>
+        </div>
+
+        <button className="btn btn-primary" style={{ width: '100%', padding: '0.85rem' }} onClick={() => {
+          setShowSignModal(true);
+        }}>
+          ✍️ {t('petition.detail.signer_btn').replace('✍️ ', '')}
+        </button>
+
+        <button 
+          className="btn btn-outline" 
+          style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} 
+          onClick={() => setShowShareModal(true)}
+        >
+          📢 Partager la cause
+        </button>
+
+        <button 
+          className="btn btn-secondary" 
+          style={{ 
+            width: '100%', 
+            padding: '0.85rem', 
+            marginTop: '0.5rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            gap: '0.5rem',
+            background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
+            color: '#111',
+            border: 'none',
+            fontWeight: 'bold'
+          }} 
+          onClick={() => {
+            setShowBoostModal(true);
+            setBoostStep('package');
+          }}
+        >
+          🚀 Booster cette cause
+        </button>
+
+        <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
+          <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+            🔒 Signature sécurisée par vérification OTP mobile SMS.
+          </span>
+        </div>
+      </div>
+    );
+  };
+
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
-      {/* HEADER SECTION */}
+    <>
+      <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
+        {/* HEADER SECTION */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Pétitions Citoyennes</h1>
-          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem' }}>Faites entendre votre voix et lancez des alertes.</p>
+          <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>{t('petition.title')}</h1>
+          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem' }}>{t('petition.subtitle')}</p>
         </div>
         <div>
           {activeView === 'list' && (
             <button className="btn btn-primary" onClick={() => {
               if (currentUser) {
-                if (!isProfileComplete(currentUser)) {
-                  addNotification("🔒 Profil incomplet. Renseignez vos informations d'identification pour la sécurité.");
-                  onNavigate('profile', { requireCompletion: true });
+                if (!isBasicProfileComplete(currentUser)) {
+                  addNotification(t('petition.profile_incomplete'));
+                  onNavigate('profile', { requireCompletion: true, target: 'basic' });
                 } else {
                   setActiveView('create');
                 }
@@ -266,13 +733,35 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                 onNavigate('auth', { redirectPage: 'petitions', redirectView: 'create' });
               }
             }}>
-              ✍️ Lancer une pétition
+              ✍️ {t('petition.meta_title_create').split(' | ')[0]}
             </button>
           )}
           {activeView !== 'list' && (
-            <button className="btn btn-outline" onClick={() => { setActiveView('list'); setSelectedPetitionId(null); }}>
-              🗂️ Revenir au flux
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              {activeView === 'detail' && currentUser && currentPetition && currentUser.id === currentPetition.organizer.id && (
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={() => {
+                    if (isEditingActive) {
+                      setIsEditingActive(false);
+                    } else {
+                      setEditTitle(currentPetition.title);
+                      setEditDescription(currentPetition.description);
+                      setEditRecipient(currentPetition.recipient);
+                      setEditLocation(currentPetition.location);
+                      setEditSignaturesTarget(currentPetition.signaturesTarget);
+                      setEditCoverImage(currentPetition.coverImage);
+                      setIsEditingActive(true);
+                    }
+                  }}
+                >
+                  {isEditingActive ? '✕ Annuler' : '✏️ Modifier la pétition'}
+                </button>
+              )}
+              <button className="btn btn-outline" onClick={() => { setActiveView('list'); setSelectedPetitionId(null); setIsEditingActive(false); }}>
+                🗂️ Revenir au flux
+              </button>
+            </div>
           )}
         </div>
       </div>
@@ -285,7 +774,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
             <input
               type="text"
               className="premium-card"
-              placeholder="Rechercher une pétition, un destinataire..."
+              placeholder={t('petition.search_placeholder')}
               style={{ flex: 1, padding: '0.75rem 1rem', background: 'var(--light-card)' }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -316,7 +805,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
           {/* PETITIONS FEED */}
           {filteredPetitions.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3rem', background: 'var(--light-card)', borderRadius: 'var(--radius-md)' }}>
-              <p style={{ fontWeight: 600 }}>Aucune pétition trouvée.</p>
+              <p style={{ fontWeight: 600 }}>{t('petition.no_results')}</p>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginTop: '0.25rem' }}>
                 Soyez le premier à lancer une pétition citoyenne pour cette catégorie !
               </p>
@@ -337,7 +826,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                       style={{ 
                         height: '160px', 
                         borderRadius: 'var(--radius-md)', 
-                        backgroundImage: `url(${pet.coverImage})`, 
+                        backgroundImage: `url("${pet.coverImage}")`, 
                         backgroundSize: 'cover',
                         backgroundPosition: 'center'
                       }} 
@@ -413,290 +902,151 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
         </div>
       )}
 
+      {/* 2. DETAIL VIEW (LOADING PLACEHOLDER) */}
+      {activeView === 'detail' && !currentPetition && (
+        <div style={{ textAlign: 'center', padding: '5rem 2rem' }}>
+          <span style={{ fontSize: '2.5rem', display: 'inline-block' }} className="animate-pulse">⏳</span>
+          <p style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary-light)', fontWeight: 600 }}>
+            Chargement des détails de la pétition...
+          </p>
+        </div>
+      )}
+
       {/* 2. DETAIL VIEW */}
       {activeView === 'detail' && currentPetition && (
         <div className="responsive-grid-main-sidebar">
-          {/* Main Content */}
-          <div>
-            <div 
-              style={{ 
-                height: '320px', 
-                borderRadius: 'var(--radius-lg)', 
-                backgroundImage: `url(${currentPetition.coverImage})`, 
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                marginBottom: '1.5rem',
-                border: '1px solid var(--border-light)'
-              }} 
-            />
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ fontSize: '0.8rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.25rem 0.6rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
-                  ✍️ Pétition
-                </span>
-                {currentPetition.boosted && (
-                  <span 
-                    style={{ 
-                      fontSize: '0.8rem', 
-                      background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', 
-                      color: '#111', 
-                      padding: '0.25rem 0.6rem', 
-                      borderRadius: '4px', 
-                      fontWeight: 'extrabold', 
-                      textTransform: 'uppercase',
-                      boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
-                    }}
-                  >
-                    🚀 Cause Boostée ({currentPetition.boostLevel === 'lion' ? 'National' : currentPetition.boostLevel === 'teranga' ? 'Prioritaire' : 'Régional'})
-                  </span>
-                )}
-              </div>
-              <TrustScore score={currentPetition.organizer.trustScore} />
-            </div>
-
-            <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>{currentPetition.title}</h2>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
-              Destinataire administratif : <strong style={{ color: 'var(--text-primary-light)' }}>{currentPetition.recipient}</strong> | Localisation : <strong>{currentPetition.location}</strong>
-            </p>
-
-            {/* Description Tabbed Area */}
-            <div className="premium-card" style={{ marginBottom: '2rem', lineHeight: 1.6 }}>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, marginBottom: '0.75rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
-                Lettre de doléances
-              </h3>
-              <p style={{ whiteSpace: 'pre-wrap', fontSize: '0.95rem' }}>{currentPetition.description}</p>
-            </div>
-
-            {/* Timeline updates */}
-            <div style={{ marginBottom: '2rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                <h3 style={{ fontSize: '1.25rem', fontWeight: 800 }}>📢 Actualités du Projet ({currentPetition.updates.length})</h3>
-                {currentUser && currentUser.id === currentPetition.organizer.id && (
-                  <button 
-                    className="btn btn-outline" 
-                    style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem' }}
-                    onClick={() => setShowUpdateForm(!showUpdateForm)}
-                  >
-                    {showUpdateForm ? 'Annuler' : 'Publier une actualité'}
-                  </button>
-                )}
-              </div>
-
-              {showUpdateForm && (
-                <form onSubmit={handlePostUpdateSubmit} className="premium-card" style={{ marginBottom: '1.5rem', background: 'var(--light)' }}>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-                    <input 
-                      type="text" 
-                      required 
-                      className="premium-card" 
-                      placeholder="Titre de l'actualité" 
-                      style={{ padding: '0.5rem 0.75rem', background: 'white' }}
-                      value={updateTitle}
-                      onChange={(e) => setUpdateTitle(e.target.value)}
-                    />
-                    <textarea 
-                      required 
-                      rows={3} 
-                      className="premium-card" 
-                      placeholder="Contenu..." 
-                      style={{ padding: '0.5rem 0.75rem', background: 'white', resize: 'none' }}
-                      value={updateContent}
-                      onChange={(e) => setUpdateContent(e.target.value)}
-                    />
-                    <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', padding: '0.45rem 1rem', fontSize: '0.8rem' }}>
-                      Publier
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {currentPetition.updates.length === 0 ? (
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', fontStyle: 'italic' }}>
-                  Aucune mise à jour publiée pour le moment.
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                  {currentPetition.updates.map((upd) => (
-                    <div key={upd.id} className="premium-card" style={{ background: 'var(--light)' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text-secondary-light)', marginBottom: '0.35rem' }}>
-                        <span>Par <strong>{upd.author}</strong></span>
-                        <span>{upd.date}</span>
-                      </div>
-                      <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{upd.title}</h4>
-                      <p style={{ fontSize: '0.85rem', lineHeight: 1.4 }}>{upd.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Signers list */}
+          {isMobileView ? (
+            // Mobile layout
             <div>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1rem' }}>✍️ Signataires Récents ({currentPetition.signers.length})</h3>
-              <div 
-                className="premium-card" 
-                style={{ 
-                  maxHeight: '220px', 
-                  overflowY: 'auto', 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  gap: '0.6rem' 
-                }}
-              >
-                {currentPetition.signers.length === 0 ? (
-                  <p style={{ color: 'var(--text-secondary-light)', fontStyle: 'italic', fontSize: '0.85rem' }}>
-                    Soyez le premier citoyen à signer cette pétition !
-                  </p>
-                ) : (
-                  currentPetition.signers.map((sig, idx) => {
-                    const signerMatch = usersList.find(u => u.name && sig.name && u.name.toLowerCase() === sig.name.toLowerCase());
-                    return (
-                      <div 
-                        key={idx} 
-                        style={{ 
-                          display: 'flex', 
-                          justifyContent: 'space-between', 
-                          alignItems: 'center', 
-                          fontSize: '0.85rem', 
-                          borderBottom: '1px solid var(--border-light)',
-                          paddingBottom: '0.4rem' 
-                        }}
-                      >
-                        <div 
+              {isEditingActive ? (
+                renderEditForm()
+              ) : (
+                <>
+                  <div 
+                    style={{ 
+                      height: '240px', 
+                      borderRadius: 'var(--radius-lg)', 
+                      backgroundImage: `url("${currentPetition.coverImage}")`, 
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      marginBottom: '1.5rem',
+                      border: '1px solid var(--border-light)'
+                    }} 
+                  />
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.8rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.25rem 0.6rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                        ✍️ Pétition
+                      </span>
+                      {currentPetition.boosted && (
+                        <span 
                           style={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: '0.5rem',
-                            cursor: signerMatch ? 'pointer' : 'default'
+                            fontSize: '0.8rem', 
+                            background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', 
+                            color: '#111', 
+                            padding: '0.25rem 0.6rem', 
+                            borderRadius: '4px', 
+                            fontWeight: 'extrabold', 
+                            textTransform: 'uppercase',
+                            boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
                           }}
-                          onClick={() => {
-                            if (signerMatch) {
-                              setSelectedPublicUserId(signerMatch.id);
-                            }
-                          }}
-                          title={signerMatch ? "Voir le profil de ce citoyen" : undefined}
                         >
-                          <span>👤</span>
-                          <strong style={{ color: signerMatch ? 'var(--primary)' : 'inherit', textDecoration: signerMatch ? 'underline' : 'none' }}>
-                            {sig.name}
-                          </strong>
-                          {sig.badge && (
-                            <span style={{ fontSize: '0.65rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.1rem 0.3rem', borderRadius: '4px', fontWeight: 'bold' }}>
-                              {sig.badge}
-                            </span>
-                          )}
-                        </div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{sig.date}</span>
+                          🚀 Cause Boostée ({currentPetition.boostLevel === 'lion' ? 'National' : currentPetition.boostLevel === 'teranga' ? 'Prioritaire' : 'Régional'})
+                        </span>
+                      )}
+                    </div>
+                    <TrustScore score={currentPetition.organizer.trustScore} />
+                  </div>
+
+                  <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '0.5rem' }}>{currentPetition.title}</h2>
+                  <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
+                    {t('petition.form.recipient')} : <strong style={{ color: 'var(--text-primary-light)' }}>{currentPetition.recipient}</strong> | {t('profile.location')} : <strong>{currentPetition.location}</strong>
+                  </p>
+
+                  {/* 1. "Signer la pétition" Section on Mobile */}
+                  {renderActionSidebarCard()}
+
+                  {/* 2. "Lettre de doléances" Section on Mobile */}
+                  {renderGrievanceLetter()}
+
+                  {/* 3. "Signataires Récents" Section on Mobile */}
+                  {renderRecentSigners()}
+
+                  {/* 4. "Actualités du Projet" Section on Mobile */}
+                  {renderProjectUpdates()}
+                </>
+              )}
+            </div>
+          ) : (
+            // Desktop layout (two columns)
+            <>
+              {/* Left Column (Main Content) */}
+              <div>
+                {isEditingActive ? (
+                  renderEditForm()
+                ) : (
+                  <>
+                    <div 
+                      style={{ 
+                        height: '320px', 
+                        borderRadius: 'var(--radius-lg)', 
+                        backgroundImage: `url("${currentPetition.coverImage}")`, 
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        marginBottom: '1.5rem',
+                        border: '1px solid var(--border-light)'
+                      }} 
+                    />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', padding: '0.25rem 0.6rem', borderRadius: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>
+                          ✍️ Pétition
+                        </span>
+                        {currentPetition.boosted && (
+                          <span 
+                            style={{ 
+                              fontSize: '0.8rem', 
+                              background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)', 
+                              color: '#111', 
+                              padding: '0.25rem 0.6rem', 
+                              borderRadius: '4px', 
+                              fontWeight: 'extrabold', 
+                              textTransform: 'uppercase',
+                              boxShadow: '0 0 10px rgba(255, 215, 0, 0.5)'
+                            }}
+                          >
+                            🚀 Cause Boostée ({currentPetition.boostLevel === 'lion' ? 'National' : currentPetition.boostLevel === 'teranga' ? 'Prioritaire' : 'Régional'})
+                          </span>
+                        )}
                       </div>
-                    );
-                  })
+                      <TrustScore score={currentPetition.organizer.trustScore} />
+                    </div>
+
+                    <h2 style={{ fontSize: '1.8rem', fontWeight: 800, marginBottom: '0.5rem' }}>{currentPetition.title}</h2>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
+                      {t('petition.form.recipient')} : <strong style={{ color: 'var(--text-primary-light)' }}>{currentPetition.recipient}</strong> | {t('profile.location')} : <strong>{currentPetition.location}</strong>
+                    </p>
+
+                    {/* Lettre de doléances */}
+                    {renderGrievanceLetter()}
+
+                    {/* Actualités du Projet */}
+                    {renderProjectUpdates()}
+
+                    {/* Signataires Récents */}
+                    {renderRecentSigners()}
+                  </>
                 )}
               </div>
-            </div>
-          </div>
 
-          {/* Right Action Sidebar */}
-          <div>
-            <div className="premium-card" style={{ position: 'sticky', top: '2rem', border: '1.5px solid var(--primary)', background: 'var(--light-card)' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.75rem' }}>Signer la pétition</h3>
-              
-              <div style={{ marginBottom: '1.25rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem', marginBottom: '0.25rem' }}>
-                  <strong>{currentPetition.signaturesCount.toLocaleString('fr-FR')} signatures</strong>
-                  <span style={{ color: 'var(--text-secondary-light)' }}>Cible : {currentPetition.signaturesTarget}</span>
-                </div>
-                <div style={{ width: '100%', height: '10px', background: 'var(--border-light)', borderRadius: '5px', overflow: 'hidden', marginBottom: '0.5rem' }}>
-                  <div style={{ width: `${Math.min(100, Math.round((currentPetition.signaturesCount / currentPetition.signaturesTarget) * 100))}%`, height: '100%', background: 'var(--primary)', borderRadius: '5px' }} />
-                </div>
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-                  Progression : <strong>{Math.round((currentPetition.signaturesCount / currentPetition.signaturesTarget) * 100)}%</strong> de l'objectif
-                </span>
+              {/* Right Column (Action Sidebar) */}
+              <div>
+                {renderActionSidebarCard()}
               </div>
-
-              {/* Organizer widget */}
-              <div 
-                style={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: '0.75rem', 
-                  borderTop: '1px solid var(--border-light)', 
-                  borderBottom: '1px solid var(--border-light)', 
-                  padding: '0.75rem 0',
-                  marginBottom: '1.25rem',
-                  cursor: 'pointer'
-                }}
-                onClick={() => setSelectedPublicUserId(currentPetition.organizer.id)}
-                title="Voir le profil de l'organisateur"
-              >
-                <div 
-                  style={{ 
-                    width: '40px', 
-                    height: '40px', 
-                    borderRadius: '50%', 
-                    backgroundImage: `url(${currentPetition.organizer.avatar})`, 
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center' 
-                  }} 
-                />
-                <div>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>Lancé par</div>
-                  <strong style={{ fontSize: '0.85rem' }}>{currentPetition.organizer.name}</strong>
-                </div>
-              </div>
-
-              <button className="btn btn-primary" style={{ width: '100%', padding: '0.85rem' }} onClick={() => {
-                if (currentUser) {
-                  setShowSignModal(true);
-                } else {
-                  onNavigate('auth', { redirectPage: 'petitions', redirectId: currentPetition.id, triggerAction: 'sign' });
-                }
-              }}>
-                ✍️ Signer cette cause
-              </button>
-
-              <button 
-                className="btn btn-outline" 
-                style={{ width: '100%', padding: '0.85rem', marginTop: '0.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }} 
-                onClick={() => setShowShareModal(true)}
-              >
-                📢 Partager la cause
-              </button>
-
-              <button 
-                className="btn btn-secondary" 
-                style={{ 
-                  width: '100%', 
-                  padding: '0.85rem', 
-                  marginTop: '0.5rem', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '0.5rem',
-                  background: 'linear-gradient(135deg, #FFD700 0%, #FFA500 100%)',
-                  color: '#111',
-                  border: 'none',
-                  fontWeight: 'bold'
-                }} 
-                onClick={() => {
-                  if (currentUser) {
-                    setShowBoostModal(true);
-                    setBoostStep('package');
-                  } else {
-                    onNavigate('auth', { redirectPage: 'petitions', redirectId: currentPetition.id, triggerAction: 'boost' });
-                  }
-                }}
-              >
-                🚀 Booster cette cause
-              </button>
-
-              <div style={{ textAlign: 'center', marginTop: '0.75rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
-                  🔒 Signature sécurisée par vérification OTP mobile SMS.
-                </span>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
 
@@ -706,12 +1056,12 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
           <div style={{ background: 'rgba(0,133,63,0.04)', border: '1px dashed var(--primary)', padding: '1rem', borderRadius: 'var(--radius-md)', marginBottom: '1.5rem', display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             <span style={{ fontSize: '1.5rem' }}>🤖</span>
             <div style={{ fontSize: '0.8rem' }}>
-              <strong>Besoin d'aide pour rédiger ?</strong> Ouvrez l'<strong>Assistant IA</strong> dans le header pour générer des textes percutants et les insérer en 1 clic.
+              <strong>{t('petition.detail.need_ai_help').split(' ? ')[0]} ?</strong> {t('petition.detail.need_ai_help').split(' ? ')[1]}
             </div>
           </div>
 
           <form onSubmit={handleCreateSubmit} className="premium-card">
-            <h3 style={{ fontWeight: 800, marginBottom: '1.25rem' }}>Nouvelle Pétition Citoyenne</h3>
+            <h3 style={{ fontWeight: 800, marginBottom: '1.25rem' }}>{t('petition.detail.new_title')}</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div>
@@ -771,7 +1121,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
               <div className="grid-cols-2">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Destinataire administratif</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('petition.form.recipient')}</label>
                   <input
                     type="text"
                     required
@@ -783,7 +1133,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Objectif de signatures</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('petition.form.target')}</label>
                   <input
                     type="number"
                     required
@@ -798,7 +1148,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
               <div className="grid-cols-2">
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Date Limite de signature</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('petition.form.date')}</label>
                   <input
                     type="date"
                     required
@@ -809,7 +1159,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   />
                 </div>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Importer une image de couverture</label>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('petition.form.image')}</label>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <button
                       type="button"
@@ -827,9 +1177,15 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                       onChange={(e) => {
                         const file = e.target.files?.[0];
                         if (file) {
+                          if (file.size > 1 * 1024 * 1024) {
+                            alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                            return;
+                          }
                           const reader = new FileReader();
                           reader.onloadend = () => {
-                            setCoverImage(reader.result as string);
+                            compressImage(reader.result as string).then(compressed => {
+                              uploadBase64ToStorage(compressed, 'petitions').then(storageUrl => setCoverImage(storageUrl));
+                            });
                           };
                           reader.readAsDataURL(file);
                         }
@@ -841,7 +1197,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                           width: '60px',
                           height: '40px',
                           borderRadius: '6px',
-                          backgroundImage: `url(${coverImage})`,
+                          backgroundImage: `url("${coverImage}")`,
                           backgroundSize: 'cover',
                           backgroundPosition: 'center',
                           border: '1px solid var(--border-light)',
@@ -854,7 +1210,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Description & Arguments (Lettre)</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('petition.form.description')}</label>
                 <textarea
                   required
                   rows={6}
@@ -1002,7 +1358,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   ✓
                 </div>
                 <div>
-                  <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1rem' }}>Étape 1 : Soumission réussie</h4>
+                  <h4 style={{ fontWeight: 800, margin: 0, fontSize: '1rem' }}>{t('petition.form.success_step1')}</h4>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: '0.25rem 0 0 0' }}>
                     Votre doléance a été enregistrée dans notre registre décentralisé le {currentPetition.createdAt}.
                   </p>
@@ -1089,7 +1445,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
               <div className="animate-slide-up" style={{ background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', padding: '1.5rem', borderRadius: 'var(--radius-sm)', display: 'flex', flexDirection: 'column', gap: '1rem', alignItems: 'center', textAlign: 'center' }}>
                 <span style={{ fontSize: '2.5rem' }}>🎉</span>
                 <div>
-                  <strong style={{ display: 'block', fontSize: '1.1rem', color: 'var(--primary)' }}>Votre cause est en ligne !</strong>
+                  <strong style={{ display: 'block', fontSize: '1.1rem', color: 'var(--primary)' }}>{t('petition.form.online')}</strong>
                   <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: '0.25rem 0 0 0' }}>
                     Vous pouvez maintenant la partager, collecter des signatures et la booster pour maximiser son impact.
                   </p>
@@ -1140,7 +1496,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                   
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Titre de la doléance</label>
+                      <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('petition.form.title')}</label>
                       <input 
                         type="text" 
                         required 
@@ -1221,9 +1577,15 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                             onChange={(e) => {
                               const file = e.target.files?.[0];
                               if (file) {
+                                if (file.size > 1 * 1024 * 1024) {
+                                  alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                                  return;
+                                }
                                 const reader = new FileReader();
                                 reader.onloadend = () => {
-                                  setEditCoverImage(reader.result as string);
+                                  compressImage(reader.result as string).then(compressed => {
+                                     uploadBase64ToStorage(compressed, 'petitions').then(storageUrl => setEditCoverImage(storageUrl));
+                                  });
                                 };
                                 reader.readAsDataURL(file);
                               }
@@ -1235,7 +1597,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                                 width: '50px',
                                 height: '35px',
                                 borderRadius: '4px',
-                                backgroundImage: `url(${editCoverImage})`,
+                                backgroundImage: `url("${editCoverImage}")`,
                                 backgroundSize: 'cover',
                                 backgroundPosition: 'center',
                                 border: '1px solid var(--border-light)',
@@ -1271,6 +1633,8 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
         </div>
       )}
 
+      </div>
+
       {/* SIGNATURE MODAL WITH OTP */}
       {showSignModal && (
         <div 
@@ -1301,7 +1665,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>Signature de doléance</h3>
+              <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>{t('petition.detail.sign_grievance')}</h3>
               <button className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} onClick={() => { setShowSignModal(false); setOtpStep('form'); }}>
                 ✕
               </button>
@@ -1394,117 +1758,120 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
       )}
 
       {/* SHARE MODAL */}
-      {showShareModal && currentPetition && (
-        <div 
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0,0,0,0.5)',
-            backdropFilter: 'blur(4px)',
-            zIndex: 1100,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            padding: '1rem'
-          }}
-        >
+      {showShareModal && currentPetition && (() => {
+        const directLink = `${window.location.origin}/cause?petition=${currentPetition.id}`;
+        return (
           <div 
-            className="glass animate-fade-in" 
             style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
               width: '100%',
-              maxWidth: '420px',
-              background: 'var(--light-card)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1.5rem',
-              boxShadow: 'var(--shadow-lg)'
+              height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.5)',
+              backdropFilter: 'blur(4px)',
+              zIndex: 1100,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
             }}
           >
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>📢 Partager cette pétition</h3>
-              <button className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} onClick={() => setShowShareModal(false)}>
-                ✕
-              </button>
-            </div>
+            <div 
+              className="glass animate-fade-in" 
+              style={{
+                width: '100%',
+                maxWidth: '420px',
+                background: 'var(--light-card)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.5rem',
+                boxShadow: 'var(--shadow-lg)'
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+                <h3 style={{ fontWeight: 800, fontSize: '1.1rem' }}>📢 {t('petition.detail.share').replace('📢 ', '')}</h3>
+                <button className="btn btn-ghost" style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} onClick={() => setShowShareModal(false)}>
+                  ✕
+                </button>
+              </div>
 
-            <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem' }}>
-              Aidez-nous à faire entendre notre voix ! Partagez cette pétition avec vos proches ou sur les réseaux sociaux.
-            </p>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem' }}>
+                Aidez-nous à faire entendre notre voix ! Partagez cette pétition avec vos proches ou sur les réseaux sociaux.
+              </p>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
-              <a 
-                href={`https://wa.me/?text=${encodeURIComponent(
-                  `*✍️ Signez cette pétition sur Sunu Yité :* ${currentPetition.title}\n\nDestinataire : ${currentPetition.recipient}\n\n👉 Ensemble, faisons bouger les lignes ! Soutenez-nous ici : https://sunuyite.sn/petitions/${currentPetition.id}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn hover-scale"
-                style={{ 
-                  width: '100%', 
-                  background: '#25D366', 
-                  color: 'white', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '0.5rem', 
-                  textDecoration: 'none',
-                  padding: '0.65rem'
-                }}
-              >
-                💚 Partager sur WhatsApp
-              </a>
-
-              <a 
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-                  `https://sunuyite.sn/petitions/${currentPetition.id}`
-                )}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn hover-scale"
-                style={{ 
-                  width: '100%', 
-                  background: '#1877F2', 
-                  color: 'white', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center', 
-                  gap: '0.5rem', 
-                  textDecoration: 'none',
-                  padding: '0.65rem'
-                }}
-              >
-                💙 Partager sur Facebook
-              </a>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Lien direct :</label>
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <input 
-                  type="text" 
-                  readOnly 
-                  className="premium-card" 
-                  style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
-                  value={`https://sunuyite.sn/petitions/${currentPetition.id}`}
-                  onClick={(e) => (e.target as HTMLInputElement).select()}
-                />
-                <button 
-                  className="btn btn-primary" 
-                  style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(`https://sunuyite.sn/petitions/${currentPetition.id}`);
-                    addNotification("📋 Lien copié dans le presse-papier !");
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.25rem' }}>
+                <a 
+                  href={`https://wa.me/?text=${encodeURIComponent(
+                    `*✍️ Signez cette pétition sur Sunu Yité :* ${currentPetition.title}\n\nDestinataire : ${currentPetition.recipient}\n\n👉 Ensemble, faisons bouger les lignes ! Soutenez-nous ici : ${directLink}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn hover-scale"
+                  style={{ 
+                    width: '100%', 
+                    background: '#25D366', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.5rem', 
+                    textDecoration: 'none',
+                    padding: '0.65rem'
                   }}
                 >
-                  Copier
-                </button>
+                  💚 Partager sur WhatsApp
+                </a>
+
+                <a 
+                  href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
+                    directLink
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn hover-scale"
+                  style={{ 
+                    width: '100%', 
+                    background: '#1877F2', 
+                    color: 'white', 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    gap: '0.5rem', 
+                    textDecoration: 'none',
+                    padding: '0.65rem'
+                  }}
+                >
+                  💙 Partager sur Facebook
+                </a>
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Lien direct :</label>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input 
+                    type="text" 
+                    readOnly 
+                    className="premium-card" 
+                    style={{ flex: 1, padding: '0.5rem', fontSize: '0.8rem', background: 'var(--light)', border: '1px solid var(--border-light)' }}
+                    value={directLink}
+                    onClick={(e) => (e.target as HTMLInputElement).select()}
+                  />
+                  <button 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.5rem 1rem', fontSize: '0.8rem' }}
+                    onClick={() => {
+                      navigator.clipboard.writeText(directLink);
+                      addNotification("📋 Lien copié dans le presse-papier !");
+                    }}
+                  >
+                    Copier
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* BOOST MODAL */}
       {showBoostModal && currentPetition && (
@@ -1588,7 +1955,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                       onClick={() => setSelectedPack('ndamel')}
                     >
                       <div style={{ textAlign: 'left' }}>
-                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>🇸🇳 Pack Ndamel</strong>
+                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>{t('petition.detail.boost_ndamel')}</strong>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
                           Suggestion Régionale (+1 000 vues ciblées)
                         </span>
@@ -1613,7 +1980,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                       onClick={() => setSelectedPack('teranga')}
                     >
                       <div style={{ textAlign: 'left' }}>
-                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>🤝 Pack Teranga</strong>
+                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>{t('petition.detail.boost_teranga')}</strong>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
                           Flux Principal Prioritaire (+5 000 vues + Alerte E-mail)
                         </span>
@@ -1638,7 +2005,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
                       onClick={() => setSelectedPack('lion')}
                     >
                       <div style={{ textAlign: 'left' }}>
-                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>🦁 Lion de la Teranga</strong>
+                        <strong style={{ fontSize: '0.9rem', display: 'block' }}>{t('petition.detail.boost_lion')}</strong>
                         <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
                           Impact National (Carte interactive + SMS Bénévoles +20K vues)
                         </span>
@@ -1660,7 +2027,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
               {boostStep === 'method' && (
                 <div>
-                  <h4 style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '1rem' }}>Saisir le moyen de paiement</h4>
+                  <h4 style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '1rem' }}>{t('petition.detail.choose_payment')}</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
                     {/* Wave */}
                     <button
@@ -1842,7 +2209,7 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
               {boostStep === 'success' && (
                 <div style={{ textAlign: 'center', padding: '1rem 0' }}>
                   <span style={{ fontSize: '3.5rem', display: 'block', marginBottom: '1rem' }}>🎉</span>
-                  <h3 style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>Pétition Propulsée !</h3>
+                  <h3 style={{ fontWeight: 800, fontSize: '1.25rem', color: 'var(--primary)', marginBottom: '0.5rem' }}>{t('petition.detail.boosted_success')}</h3>
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
                     Votre paiement a été traité avec succès. La pétition a été configurée avec le niveau de boost **{selectedPack === 'ndamel' ? 'Régional' : selectedPack === 'teranga' ? 'Prioritaire' : 'National'}** et apparaîtra en avant-plan.
                   </p>
@@ -1867,6 +2234,49 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
           </div>
         </div>
       )}
-    </div>
+
+      {selectedLightboxImage && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.95)',
+            zIndex: 99999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '2rem'
+          }}
+          onClick={() => setSelectedLightboxImage(null)}
+        >
+          <button 
+            style={{ 
+              position: 'absolute', 
+              top: '20px', 
+              right: '20px', 
+              background: 'rgba(255,255,255,0.2)', 
+              border: 'none', 
+              color: 'white', 
+              fontSize: '1.5rem', 
+              padding: '0.4rem 0.8rem', 
+              borderRadius: '50%', 
+              cursor: 'pointer' 
+            }}
+            onClick={() => setSelectedLightboxImage(null)}
+          >
+            ✕
+          </button>
+          <img 
+            src={selectedLightboxImage} 
+            alt="Agrandissement" 
+            style={{ maxWidth: '100%', maxHeight: '90vh', objectFit: 'contain', borderRadius: 'var(--radius-sm)', border: '2px solid white' }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </>
   );
 };

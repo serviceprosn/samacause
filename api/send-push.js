@@ -1,4 +1,10 @@
 import crypto from 'crypto';
+import { createClient } from '@supabase/supabase-js';
+
+// Initialize Supabase Client
+const supabaseUrl = process.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Helper function to base64url encode a JSON object or buffer
 function base64url(source) {
@@ -21,13 +27,24 @@ function signJwt(payload, privateKey) {
 }
 
 export default async function handler(req, res) {
-  // Set CORS headers
+  // CORS origin restrictions
+  const origin = req.headers.origin;
+  const allowedOrigins = [
+    'https://sunuyite.vercel.app',
+    'https://samacause.vercel.app'
+  ];
+  
+  if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost:'))) {
+    res.setHeader('Access-Control-Allow-Origin', origin);
+  } else {
+    res.setHeader('Access-Control-Allow-Origin', 'https://sunuyite.vercel.app');
+  }
+  
   res.setHeader('Access-Control-Allow-Credentials', true);
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT');
+  res.setHeader('Access-Control-Allow-Methods', 'POST,OPTIONS');
   res.setHeader(
     'Access-Control-Allow-Headers',
-    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version'
+    'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization'
   );
 
   if (req.method === 'OPTIONS') {
@@ -37,6 +54,20 @@ export default async function handler(req, res) {
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Only POST method is allowed' });
+  }
+
+  // 1. Authenticate with Supabase JWT token from Authorization header
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+  }
+
+  const userToken = authHeader.split(' ')[1];
+  const { data: { user }, error: authError } = await supabase.auth.getUser(userToken);
+  
+  if (authError || !user) {
+    console.error('Push auth validation error:', authError);
+    return res.status(401).json({ error: 'Unauthorized: Session is invalid or has expired' });
   }
 
   const { token, title, body } = req.body;
@@ -67,7 +98,7 @@ export default async function handler(req, res) {
       });
     }
 
-    // 1. Generate JWT for Google OAuth2
+    // 2. Generate JWT for Google OAuth2
     const iat = Math.floor(Date.now() / 1000);
     const exp = iat + 3600; // 1 hour expiration
     const payload = {
@@ -82,7 +113,7 @@ export default async function handler(req, res) {
     const formattedPrivateKey = private_key.replace(/\\n/g, '\n');
     const jwt = signJwt(payload, formattedPrivateKey);
 
-    // 2. Exchange JWT for OAuth2 Access Token
+    // 3. Exchange JWT for OAuth2 Access Token
     const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -101,7 +132,7 @@ export default async function handler(req, res) {
     const tokenData = await tokenResponse.json();
     const accessToken = tokenData.access_token;
 
-    // 3. Send notification via FCM HTTP v1 API
+    // 4. Send notification via FCM HTTP v1 API
     const fcmUrl = `https://fcm.googleapis.com/v1/projects/${project_id}/messages:send`;
     const fcmPayload = {
       message: {

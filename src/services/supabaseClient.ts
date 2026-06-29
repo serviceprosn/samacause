@@ -281,3 +281,72 @@ export const subscribeToCampaignsRealtime = (
     )
     .subscribe();
 };
+
+/**
+ * Utilitaire pour convertir une image compressée Base64 en Blob et l'uploader sur Supabase Storage.
+ * Retourne l'URL publique de l'image ou la chaîne Base64 en secours si l'upload échoue.
+ */
+export const uploadBase64ToStorage = async (base64Str: string, bucket: string): Promise<string> => {
+  if (!base64Str || !base64Str.startsWith('data:image')) {
+    return base64Str; // Déjà une URL ou vide
+  }
+
+  try {
+    // 1. Décoder les métadonnées et données base64
+    const parts = base64Str.split(';');
+    if (parts.length < 2) return base64Str;
+    const contentType = parts[0].split(':')[1];
+    const rawData = parts[1].split(',')[1];
+
+    // 2. Convertir en binaire Blob
+    const binaryStr = atob(rawData);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: contentType });
+
+    // 3. Obtenir l'utilisateur courant pour nommer le fichier
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || 'anonymous';
+    
+    // Extension du fichier
+    let extension = 'jpg';
+    if (contentType.includes('png')) extension = 'png';
+    else if (contentType.includes('webp')) extension = 'webp';
+    else if (contentType.includes('gif')) extension = 'gif';
+
+    const fileName = `${userId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`;
+
+    // 4. Uploader le fichier sur le bucket Supabase Storage
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, blob, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      console.warn(`⚠️ Échec de l'upload vers le bucket Storage '${bucket}' :`, error.message);
+      return base64Str; // Secours Base64
+    }
+
+    // 5. Récupérer l'URL publique
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    if (publicUrlData?.publicUrl) {
+      console.log(`🚀 Image téléversée avec succès dans '${bucket}' :`, publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
+    }
+
+    return base64Str;
+  } catch (err) {
+    console.error("❌ Exception lors de l'upload vers Supabase Storage :", err);
+    return base64Str; // Renvoyer Base64 en secours pour éviter de crasher
+  }
+};
+

@@ -9,21 +9,11 @@ interface ExplorerProps {
 }
 
 export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, volunteerMissions } = useApp();
+  const { petitions, cagnottes, volunteerMissions, tontines } = useApp();
   const { t } = useLanguage();
 
-  // Load tontines from localStorage
-  const [tontines, setTontines] = useState<any[]>(() => {
-    try {
-      const saved = localStorage.getItem('sc_tontines_list');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'all' | 'petitions' | 'cagnottes' | 'tontines' | 'benevolat'>('all');
+  const [activeTab, setActiveTab] = useState<'all' | 'petition' | 'cagnotte' | 'tontine' | 'benevolat'>('all');
 
   // Filter lists
   const activePetitions = petitions.filter(p => p.status === 'active');
@@ -133,9 +123,9 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
       >
         {[
           { id: 'all', label: t('explore.tabs.all'), icon: '🌍' },
-          { id: 'petitions', label: t('explore.tabs.petitions'), icon: '✍️' },
-          { id: 'cagnottes', label: t('explore.tabs.cagnottes'), icon: '💰' },
-          { id: 'tontines', label: t('explore.tabs.tontines'), icon: '🪙' },
+          { id: 'petition', label: t('explore.tabs.petitions'), icon: '✍️' },
+          { id: 'cagnotte', label: t('explore.tabs.cagnottes'), icon: '💰' },
+          { id: 'tontine', label: t('explore.tabs.tontines'), icon: '🪙' },
           { id: 'benevolat', label: t('explore.tabs.benevolat'), icon: '🛠️' }
         ].map((tab) => (
           <button
@@ -237,6 +227,21 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
                 }}
               >
                 <div>
+                  {/* Cover Image */}
+                  {item.coverImage && (
+                    <div 
+                      style={{ 
+                        height: '160px', 
+                        borderRadius: 'var(--radius-md)', 
+                        backgroundImage: `url("${item.coverImage}")`, 
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                        marginBottom: '1rem',
+                        position: 'relative'
+                      }} 
+                    />
+                  )}
+
                   {/* Top Badge and Trust Score */}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
                     <span 

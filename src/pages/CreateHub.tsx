@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 
 interface Tontine {
   id: string;
@@ -19,6 +20,7 @@ interface CreateHubProps {
 
 export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
   const { currentUser, addNotification } = useApp();
+  const { t } = useLanguage();
   const [showTontineModal, setShowTontineModal] = useState(false);
   const [expandedTontineId, setExpandedTontineId] = useState<string | null>(null);
 
@@ -144,11 +146,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
+    <>
+      <div className="animate-fade-in" style={{ paddingBottom: '3rem' }}>
       <div style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>Que souhaitez-vous créer ?</h1>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800 }}>{t('createhub.title')}</h1>
         <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.9rem', marginTop: '0.25rem' }}>
-          Sélectionnez le type d'action citoyenne ou d'entraide que vous souhaitez lancer aujourd'hui.
+          {t('createhub.subtitle')}
         </p>
       </div>
 
@@ -161,12 +164,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
           onClick={() => onNavigate('petitions', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>✍️</span>
-          <h3 style={{ fontWeight: 800 }}>Lancer une Pétition</h3>
+          <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.petition_title')}</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-            Réclamez un changement, interpellez les ministères ou mairies et collectez des signatures citoyennes authentifiées par OTP SMS.
+            {t('createhub.opt.petition_desc')}
           </p>
           <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', marginTop: '0.5rem' }}>
-            Lancer la pétition ➔
+            {t('createhub.opt.petition_btn')}
           </button>
         </div>
 
@@ -177,12 +180,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
           onClick={() => onNavigate('cagnottes', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>💰</span>
-          <h3 style={{ fontWeight: 800 }}>Créer une Cagnotte</h3>
+          <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.cagnotte_title')}</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-            Financez un projet d'infrastructure locale (forage, école, matériel médical) avec un registre transparent des dépenses.
+            {t('createhub.opt.cagnotte_desc')}
           </p>
           <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', marginTop: '0.5rem' }}>
-            Créer la cagnotte ➔
+            {t('createhub.opt.cagnotte_btn')}
           </button>
         </div>
 
@@ -193,12 +196,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
           onClick={() => onNavigate('benevolat', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>🛠️</span>
-          <h3 style={{ fontWeight: 800 }}>Projet en Commun</h3>
+          <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.volunteer_title')}</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-            Mobilisez des citoyens locaux pour des chantiers solidaires, reboisements ou distributions d'aide sur le terrain.
+            {t('createhub.opt.volunteer_desc')}
           </p>
           <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', marginTop: '0.5rem' }}>
-            Lancer un projet ➔
+            {t('createhub.opt.volunteer_btn')}
           </button>
         </div>
 
@@ -209,12 +212,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
           onClick={() => onNavigate('tontines')}
         >
           <span style={{ fontSize: '2.5rem' }}>🔄</span>
-          <h3 style={{ fontWeight: 800 }}>Tontine Communautaire</h3>
+          <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.tontine_title')}</h3>
           <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', flex: 1 }}>
-            Créez un cercle d'épargne rotatif traditionnel sénégalais entre proches ou membres de la diaspora en toute confiance.
+            {t('createhub.opt.tontine_desc')}
           </p>
           <button className="btn btn-primary" style={{ fontSize: '0.8rem', padding: '0.5rem 1rem', marginTop: '0.5rem' }}>
-            Lancer une tontine ➔
+            {t('createhub.opt.tontine_btn')}
           </button>
         </div>
       </div>
@@ -222,23 +225,23 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
       {/* Active Tontines Simulation Section */}
       <div className="premium-card" style={{ background: 'var(--light)' }}>
         <h3 style={{ fontWeight: 800, marginBottom: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>🔄 Vos Tontines Actives</span>
+          <span>{t('createhub.tontines.title')}</span>
           <button 
             className="btn btn-outline" 
             style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
             onClick={() => setShowTontineModal(true)}
           >
-            ➕ Nouvelle Tontine
+            {t('createhub.tontines.new')}
           </button>
         </h3>
         
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {tontines.map((t) => {
-            const isExpanded = expandedTontineId === t.id;
-            const progress = Math.min(100, Math.round((t.joinedCount / t.participants) * 100));
+          {tontines.map((tVal) => {
+            const isExpanded = expandedTontineId === tVal.id;
+            const progress = Math.min(100, Math.round((tVal.joinedCount / tVal.participants) * 100));
             return (
               <div 
-                key={t.id} 
+                key={tVal.id} 
                 className="premium-card hover-glow" 
                 style={{ 
                   background: 'var(--light-card)', 
@@ -249,17 +252,17 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                 {/* Header elements always visible */}
                 <div 
                   style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
-                  onClick={() => setExpandedTontineId(isExpanded ? null : t.id)}
+                  onClick={() => setExpandedTontineId(isExpanded ? null : tVal.id)}
                 >
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem' }}>
-                    <strong style={{ fontSize: '1rem' }}>{t.name}</strong>
+                    <strong style={{ fontSize: '1rem' }}>{tVal.name}</strong>
                     <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-                      Membres : {t.joinedCount} / {t.participants} inscrits | Fréquence : {t.frequency === 'weekly' ? 'Hebdomadaire' : 'Mensuelle'}
+                      {t('createhub.tontines.members_prefix')}{tVal.joinedCount} / {tVal.participants} {t('createhub.tontines.members_inscribed')} | {t('createhub.tontines.freq_label')}{tVal.frequency === 'weekly' ? t('createhub.tontines.freq_weekly') : t('createhub.tontines.freq_monthly')}
                     </span>
                   </div>
                   <div style={{ textAlign: 'right', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                     <span style={{ fontSize: '0.9rem', color: 'var(--primary)', fontWeight: 'bold' }}>
-                      {t.amount.toLocaleString('fr-FR')} F / {t.frequency === 'weekly' ? 'sem' : 'mois'}
+                      {tVal.amount.toLocaleString('fr-FR')} F / {tVal.frequency === 'weekly' ? 'sem' : 'mois'}
                     </span>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
                       {isExpanded ? '▲' : '▼'}
@@ -277,9 +280,9 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                   <div className="animate-slide-up" style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)' }}>
                     {/* Circle Members */}
                     <div style={{ marginBottom: '1.25rem' }}>
-                      <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>👥 Membres du Cercle ({t.members.length}) :</strong>
+                      <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>👥 {t('createhub.tontines.members_prefix')}({tVal.members.length}) :</strong>
                       <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
-                        {t.members.map((member, i) => (
+                        {tVal.members.map((member, i) => (
                           <span 
                             key={i} 
                             style={{ 
@@ -299,14 +302,14 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
 
                     {/* History grid */}
                     <div style={{ marginBottom: '1.25rem' }}>
-                      <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>📋 Historique des Tirages :</strong>
-                      {t.drawHistory.length === 0 ? (
+                      <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>📋 {t('createhub.tontines.hist_title')}</strong>
+                      {tVal.drawHistory.length === 0 ? (
                         <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', fontStyle: 'italic' }}>
-                          Aucun tirage n'a encore été effectué pour ce cycle.
+                          {t('createhub.tontines.hist_none')}
                         </p>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
-                          {t.drawHistory.map((h, i) => (
+                          {tVal.drawHistory.map((h, i) => (
                             <div 
                               key={i} 
                               style={{ 
@@ -319,8 +322,8 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                                 fontSize: '0.8rem'
                               }}
                             >
-                              <span>📅 Ronde {h.round} ({h.date})</span>
-                              <span>Gagnant : <strong style={{ color: 'var(--primary)' }}>{h.winner}</strong> (+{h.amount.toLocaleString('fr-FR')} F)</span>
+                              <span>📅 {t('createhub.tontines.hist_round')} {h.round} ({h.date})</span>
+                              <span>{t('createhub.tontines.hist_winner')} <strong style={{ color: 'var(--primary)' }}>{h.winner}</strong> (+{h.amount.toLocaleString('fr-FR')} F)</span>
                             </div>
                           ))}
                         </div>
@@ -331,9 +334,9 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                     <button 
                       className="btn btn-primary" 
                       style={{ width: '100%', padding: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
-                      onClick={() => startDrawSimulation(t)}
+                      onClick={() => startDrawSimulation(tVal)}
                     >
-                      🎰 Lancer le tirage de la ronde ({t.drawHistory.length + 1})
+                      🎰 {t('createhub.tontines.draw_btn')} ({tVal.drawHistory.length + 1})
                     </button>
                   </div>
                 )}
@@ -341,6 +344,8 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
             );
           })}
         </div>
+      </div>
+      
       </div>
 
       {/* TONTINE CREATION MODAL */}
@@ -373,7 +378,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-              <h3 style={{ fontWeight: 800, fontSize: '1.2rem' }}>🔄 Lancer une Tontine</h3>
+              <h3 style={{ fontWeight: 800, fontSize: '1.2rem' }}>🔄 {t('createhub.modal.title')}</h3>
               <button 
                 className="btn btn-ghost" 
                 style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} 
@@ -385,11 +390,11 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
 
             <form onSubmit={handleCreateTontine} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Nom de la Tontine</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('createhub.modal.name')}</label>
                 <input 
                   type="text" 
                   required
-                  placeholder="Ex : Tontine Solidaire Ndambao"
+                  placeholder={t('createhub.modal.name_placeholder')}
                   className="premium-card" 
                   style={{ width: '100%', padding: '0.6rem', background: 'var(--light)' }}
                   value={tontineName}
@@ -399,7 +404,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
 
               <div className="grid-cols-2" style={{ gap: '0.75rem' }}>
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Cotisation (FCFA)</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('createhub.modal.amount')}</label>
                   <select 
                     className="premium-card"
                     style={{ width: '100%', padding: '0.6rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
@@ -409,27 +414,27 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                     <option value={5000}>5 000 F</option>
                     <option value={10000}>10 000 F</option>
                     <option value={25000}>25 000 F</option>
-                    <option value={50000}>50 000 F</option>
+                    <option value={50000}>5 0000 F</option>
                     <option value={100000}>100 000 F</option>
                   </select>
                 </div>
 
                 <div>
-                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Fréquence</label>
+                  <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('createhub.modal.frequency')}</label>
                   <select 
                     className="premium-card"
                     style={{ width: '100%', padding: '0.6rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
                     value={tontineFrequency}
                     onChange={(e: any) => setTontineFrequency(e.target.value)}
                   >
-                    <option value="weekly">Hebdomadaire</option>
-                    <option value="monthly">Mensuelle</option>
+                    <option value="weekly">{t('createhub.tontines.freq_weekly')}</option>
+                    <option value="monthly">{t('createhub.tontines.freq_monthly')}</option>
                   </select>
                 </div>
               </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Nombre max de participants</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>{t('createhub.modal.participants')}</label>
                 <input 
                   type="number" 
                   required
@@ -443,15 +448,15 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
               </div>
 
               <div style={{ background: 'rgba(0,133,63,0.05)', border: '1px dashed var(--primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary-light)', lineHeight: 1.4 }}>
-                💡 En activant cette tontine, Sunu Yité génère un calendrier de tirage transparent et envoie un SMS automatique d'invitation à vos participants.
+                {t('createhub.modal.hint')}
               </div>
 
               <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                 <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setShowTontineModal(false)}>
-                  Annuler
+                  {t('createhub.modal.cancel')}
                 </button>
                 <button type="submit" className="btn btn-primary" style={{ flex: 2 }}>
-                  Activer la Tontine ➔
+                  {t('createhub.modal.submit')}
                 </button>
               </div>
             </form>
@@ -491,9 +496,9 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
             }}
           >
             <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem', animation: 'float 2s infinite' }}>🎰</span>
-            <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>Tirage en cours...</h3>
+            <h3 style={{ fontWeight: 800, fontSize: '1.2rem', marginBottom: '0.5rem' }}>{t('createhub.draw.title')}</h3>
             <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '2rem' }}>
-              Sélection du bénéficiaire pour **{activeDrawTontine.name}**
+              {t('createhub.draw.desc')} **{activeDrawTontine.name}**
             </p>
 
             {/* Spinning names display */}
@@ -519,7 +524,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
             </div>
 
             <div style={{ marginTop: '2rem', fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-              ⚡ Pot total en jeu : <strong>{(activeDrawTontine.amount * activeDrawTontine.joinedCount).toLocaleString('fr-FR')} FCFA</strong>
+              ⚡ {t('createhub.draw.pot')} <strong>{(activeDrawTontine.amount * activeDrawTontine.joinedCount).toLocaleString('fr-FR')} FCFA</strong>
             </div>
           </div>
         </div>
@@ -557,7 +562,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
             }}
           >
             <span style={{ fontSize: '4rem', display: 'block', marginBottom: '0.5rem' }}>🎉</span>
-            <h3 style={{ fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>Félicitations !</h3>
+            <h3 style={{ fontWeight: 800, fontSize: '1.4rem', color: 'var(--primary)' }}>{t('createhub.winner.congrats')}</h3>
             
             <div style={{ margin: '1.5rem 0' }}>
               <div 
@@ -579,12 +584,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
               </div>
               <strong style={{ fontSize: '1.3rem', display: 'block', color: 'var(--text-primary-light)' }}>{drawWinner}</strong>
               <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
-                Remporte la ronde de tirage
+                {t('createhub.winner.sub')}
               </span>
             </div>
 
             <div style={{ background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
-              Gain du mois : <strong style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>{(activeDrawTontine.amount * activeDrawTontine.joinedCount).toLocaleString('fr-FR')} FCFA</strong>
+              {t('createhub.winner.gain')} <strong style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>{(activeDrawTontine.amount * activeDrawTontine.joinedCount).toLocaleString('fr-FR')} FCFA</strong>
             </div>
 
             <button 
@@ -595,11 +600,12 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
                 setActiveDrawTontine(null);
               }}
             >
-              Fermer & Continuer ➔
+              {t('createhub.winner.close')}
             </button>
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 };
+export default CreateHub;

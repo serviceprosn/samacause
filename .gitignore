@@ -33,3 +33,7 @@ scratch/
 findLines.js
 
 .vercel
+
+# Local temp and CLI config directories
+supabase/.temp/
+.temp/

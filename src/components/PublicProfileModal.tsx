@@ -1,8 +1,13 @@
 import React from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { TrustScore } from './TrustScore';
 
-export const PublicProfileModal: React.FC = () => {
+interface PublicProfileModalProps {
+  onNavigate?: (page: string, params?: any) => void;
+}
+
+export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ onNavigate }) => {
   const {
     selectedPublicUserId,
     setSelectedPublicUserId,
@@ -14,6 +19,7 @@ export const PublicProfileModal: React.FC = () => {
     followUser,
     unfollowUser
   } = useApp();
+  const { t } = useLanguage();
 
   if (!selectedPublicUserId) return null;
 
@@ -22,6 +28,8 @@ export const PublicProfileModal: React.FC = () => {
 
   const isSelf = currentUser && currentUser.id === user.id;
   const isFollowing = currentUser?.following?.includes(user.id);
+  const isFollower = currentUser?.followers?.includes(user.id);
+  const canContact = isFollowing || isFollower;
 
   // Calculate stats
   const organizedPetitions = petitions.filter(p => p.organizer?.id === user.id && p.status === 'active');
@@ -105,6 +113,9 @@ export const PublicProfileModal: React.FC = () => {
   const handleStartChat = () => {
     setActiveChatUserId(user.id);
     setSelectedPublicUserId(null);
+    if (onNavigate) {
+      onNavigate('profile', { target: 'messages' });
+    }
   };
 
   return (
@@ -163,7 +174,7 @@ export const PublicProfileModal: React.FC = () => {
               width: '90px',
               height: '90px',
               borderRadius: '50%',
-              backgroundImage: `url(${user.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='})`,
+              backgroundImage: `url("${user.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               border: '3px solid var(--primary)',
@@ -173,7 +184,7 @@ export const PublicProfileModal: React.FC = () => {
           />
           <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: '0 0 0.25rem 0', display: 'flex', alignItems: 'center', gap: '0.4rem', justifyContent: 'center' }}>
             {user.name}
-            {user.verified && <span title="Identité Certifiée" style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>✓</span>}
+            {user.verified && <span title={t('status.verified')} style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>✓</span>}
           </h2>
           <span style={{ fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.5px', color: 'var(--text-secondary-light)', fontWeight: 700, marginBottom: '0.75rem', display: 'block' }}>
             {user.role === 'admin' ? '🛡️ Administrateur' : user.role === 'organizer' ? '👑 Organisateur' : '👤 Citoyen'}
@@ -208,7 +219,7 @@ export const PublicProfileModal: React.FC = () => {
 
           {/* Activities Stats Overview */}
           <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1rem', marginTop: '0.5rem' }}>
-            <strong style={{ display: 'block', color: 'var(--text-secondary-light)', marginBottom: '0.75rem' }}>Impact & Activités</strong>
+            <strong style={{ display: 'block', color: 'var(--text-secondary-light)', marginBottom: '0.75rem' }}>{t('profile.impact_activities')}</strong>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', textAlign: 'center' }}>
               <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.75rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -216,7 +227,7 @@ export const PublicProfileModal: React.FC = () => {
                 <strong style={{ fontSize: '1rem', display: 'block', margin: '0.25rem 0 0.1rem 0' }}>
                   {organizedPetitions.length + organizedCagnottes.length}
                 </strong>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>Causes créées</span>
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>{t('profile.created_causes')}</span>
               </div>
 
               <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.75rem 0.5rem', borderRadius: '6px', border: '1px solid var(--border-light)' }}>
@@ -260,14 +271,31 @@ export const PublicProfileModal: React.FC = () => {
 
               <button
                 className="btn btn-primary"
-                style={{ flex: 1.5, padding: '0.65rem', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem' }}
+                style={{
+                  flex: 1.5,
+                  padding: '0.65rem',
+                  fontSize: '0.85rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '0.5rem',
+                  opacity: canContact ? 1 : 0.6,
+                  cursor: canContact ? 'pointer' : 'not-allowed'
+                }}
+                disabled={!canContact}
                 onClick={handleStartChat}
+                title={!canContact ? "Vous devez suivre cet utilisateur ou être suivi par lui pour pouvoir le contacter." : ""}
               >
                 💬 Contacter
               </button>
             </>
           )}
         </div>
+        {currentUser && !isSelf && !canContact && (
+          <p style={{ margin: '0.75rem 0 0', fontSize: '0.75rem', color: 'var(--text-secondary-light)', textAlign: 'center', fontStyle: 'italic' }}>
+            Pour envoyer un message, vous devez suivre cet utilisateur ou être suivi par lui.
+          </p>
+        )}
       </div>
     </div>
   );

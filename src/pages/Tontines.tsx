@@ -1,91 +1,54 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { Logo } from '../components/Logo';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
+import { uploadBase64ToStorage } from '../services/supabaseClient';
+import { Tontine, TontineMember, PaymentRecord, ActivityLog, VoteRequest, TontineChatMessage } from '../types';
+import { initializePayTechPayment } from '../services/paytech';
 
-// ==========================================
-// INTERFACES ET TYPES POUR LE MODULE TONTINE
-// ==========================================
+// Helper to compress base64 images client-side
+const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
+  return new Promise((resolve) => {
+    if (!base64Str || !base64Str.startsWith('data:image')) {
+      resolve(base64Str);
+      return;
+    }
+    const img = new Image();
+    img.src = base64Str;
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let width = img.width;
+      let height = img.height;
 
-interface TontineMember {
-  name: string;
-  avatar: string;
-  email: string;
-  phone: string;
-  verified: boolean;
-  reputation: 'excellent' | 'fiable' | 'nouveau' | 'surveillance' | 'sanctionne';
-  rate: number; // Taux de paiement (ex : 98)
-  hasPaidThisRound: boolean;
-}
+      if (width > height) {
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          width = Math.round((width * maxHeight) / height);
+          height = maxHeight;
+        }
+      }
 
-interface PaymentRecord {
-  id: string;
-  date: string;
-  amount: number;
-  payer: string;
-  beneficiary: string;
-  status: 'paid' | 'pending' | 'late';
-  transactionId: string;
-  method: string;
-  timestamp: string;
-  ipAddress: string;
-  proofHash: string;
-}
-
-interface ActivityLog {
-  id: string;
-  timestamp: string;
-  type: 'creation' | 'adhesion' | 'paiement' | 'retrait' | 'sanction' | 'vote';
-  user: string;
-  details: string;
-}
-
-interface VoteRequest {
-  id: string;
-  title: string;
-  description: string;
-  status: 'active' | 'passed' | 'rejected';
-  votesYes: string[];
-  votesNo: string[];
-  membersTotal: number;
-}
-
-interface ChatMessage {
-  id: string;
-  sender: string;
-  text: string;
-  timestamp: string;
-}
-
-interface Tontine {
-  id: string;
-  name: string;
-  description: string;
-  type: 'public' | 'private';
-  participantsMax: number;
-  joinedCount: number;
-  cotisation: number;
-  frequency: 'daily' | 'weekly' | 'monthly';
-  startDate: string;
-  endDate: string;
-  orderType: 'random' | 'defined' | 'bid' | 'vote';
-  status: 'recruiting' | 'active' | 'completed';
-  organizer: {
-    name: string;
-    email: string;
-    avatar: string;
-    verified: boolean;
-  };
-  members: TontineMember[];
-  payments: PaymentRecord[];
-  activityLogs: ActivityLog[];
-  votes: VoteRequest[];
-  chat: ChatMessage[];
-  guaranteeFundActive: boolean;
-  guaranteeFundAmount: number; // Caution par membre
-  guaranteeFundTotal: number; // Pool collecté
-}
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      } else {
+        resolve(base64Str);
+      }
+    };
+    img.onerror = () => {
+      resolve(base64Str);
+    };
+  });
+};
 
 interface TontinesProps {
   onNavigate: (page: string, params?: any) => void;
@@ -93,35 +56,54 @@ interface TontinesProps {
 }
 
 export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId }) => {
-  const { currentUser, addNotification, sendOtpSms, verifyOtp, isProfileComplete, setSelectedPublicUserId, usersList } = useApp();
+  const { currentUser, addNotification, sendOtpSms, verifyOtp, isProfileComplete, setSelectedPublicUserId, usersList, tontines, saveTontine } = useApp();
+  const { t } = useLanguage();
 
   // ----------------------------------------------------
   // ÉTATS DES ONGLETS DE LA PAGE ET SÉLECTION DE TONTINE
   // ----------------------------------------------------
   const [activeTab, setActiveTab] = useState<'discover' | 'my-tontines' | 'create' | 'admin'>('discover');
   const [selectedTontineId, setSelectedTontineId] = useState<string | null>(null);
-  const [tontineDashboardTab, setTontineDashboardTab] = useState<'general' | 'calendar' | 'ledger' | 'contract' | 'votes' | 'chat'>('general');
-  const [createdPrivateTontineLink, setCreatedPrivateTontineLink] = useState<string | null>(null);
+    const [tontineDashboardTab, setTontineDashboardTab] = useState<'general' | 'calendar' | 'ledger' | 'contract' | 'votes' | 'chat' | 'health'>('general');
+    const [createdPrivateTontineLink, setCreatedPrivateTontineLink] = useState<string | null>(null);
 
-  // -------------------------
-  // MOCK DE TONTINES PAR DÉFAUT
-  // -------------------------
-  const [tontines, setTontines] = useState<Tontine[]>(() => {
-    const saved = localStorage.getItem('sc_tontines_list');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        // Fallback
-      }
-    }
-    return [];
-  });
+    // Relance states
+  const [reminderModalData, setReminderModalData] = useState<{
+    tontine: Tontine;
+    memberName: string;
+    phone?: string;
+  } | null>(null);
+  const [sendViaWhatsApp, setSendViaWhatsApp] = useState<boolean>(false);
+  const [sendViaSms, setSendViaSms] = useState<boolean>(false);
+  const [customReminderPhone, setCustomReminderPhone] = useState<string>('');
+  const [customReminderMsg, setCustomReminderMsg] = useState<string>('');
 
-  // Sauvegarde locale
   useEffect(() => {
-    localStorage.setItem('sc_tontines_list', JSON.stringify(tontines));
-  }, [tontines]);
+    if (reminderModalData) {
+      setCustomReminderPhone(reminderModalData.phone || '');
+      setSendViaWhatsApp(!!reminderModalData.phone);
+      setSendViaSms(false);
+      
+      const tontine = reminderModalData.tontine;
+      const mName = reminderModalData.memberName;
+      const amountStr = tontine.cotisation.toLocaleString('fr-FR');
+      const defaultMsg = t('tontine.relance_template')
+        .replace('{name}', mName)
+        .replace('{amount}', amountStr)
+        .replace('{tontineName}', tontine.name);
+      setCustomReminderMsg(defaultMsg);
+    }
+  }, [reminderModalData, t]);
+
+  const setTontines = (updater: Tontine[] | ((prev: Tontine[]) => Tontine[])) => {
+    const nextVal = typeof updater === 'function' ? updater(tontines) : updater;
+    nextVal.forEach(t => {
+      const current = tontines.find(prevT => prevT.id === t.id);
+      if (!current || JSON.stringify(current) !== JSON.stringify(t)) {
+        saveTontine(t);
+      }
+    });
+  };
 
 
   // Handle shared link direct load (especially for private tontines)
@@ -179,9 +161,10 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
             ],
             votes: [],
             chat: [],
-            guaranteeFundActive: false,
+                         guaranteeFundActive: false,
             guaranteeFundAmount: 0,
-            guaranteeFundTotal: 0
+            guaranteeFundTotal: 0,
+            accumulatedSavings: 0
           };
           setTontines(prev => [newTontine, ...prev]);
         }
@@ -250,7 +233,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   // ------------------------------
   const [chatInput, setChatInput] = useState('');
 
-  // ---------------------------------------------
+    // ---------------------------------------------
   // SIMULATEUR DE PAIEMENT MOBILE MONEY (WAVE...)
   // ---------------------------------------------
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -258,6 +241,13 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<'wave' | 'om' | 'free' | 'card'>('wave');
   const [paymentPhone, setPaymentPhone] = useState('');
   const [isPaying, setIsPaying] = useState(false);
+
+  // KYC Blocker state
+  const [showKycBlocker, setShowKycBlocker] = useState(false);
+  // Cover image for creation
+  const [coverImage, setCoverImage] = useState('');
+  const [tontineType, setTontineType] = useState<'money' | 'product'>('money');
+  const [productImages, setProductImages] = useState<string[]>([]);
 
   // -----------------------
   // VOTE COMMUNAUTAIRE
@@ -334,7 +324,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
         details: `Cotisation de ${paymentTontine.cotisation.toLocaleString('fr-FR')} F validée via ${newPay.method}. Réf: ${txId}`
       };
 
-      setTontines(prev => prev.map(t => {
+            setTontines(prev => prev.map(t => {
         if (t.id === paymentTontine.id) {
           // Marquer le membre courant comme ayant payé
             const updatedMembers = t.members.map(m => {
@@ -348,7 +338,8 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
             ...t,
             payments: [newPay, ...t.payments],
             activityLogs: [newLog, ...t.activityLogs],
-            members: updatedMembers
+            members: updatedMembers,
+            accumulatedSavings: (t.accumulatedSavings || 0) + paymentTontine.cotisation
           };
         }
         return t;
@@ -372,7 +363,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
 
     if (!isProfileComplete(currentUser)) {
       addNotification("🔒 Profil d'identité incomplet. Vous devez certifier votre identité (KYC) pour rejoindre une tontine.");
-      onNavigate('profile', { requireCompletion: true });
+            onNavigate('profile', { requireCompletion: true, target: 'kyc' });
       return;
     }
     
@@ -398,13 +389,19 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     }
   };
 
-  const handleUploadPhotoBase64 = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleUploadPhotoBase64 = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 1 * 1024 * 1024) {
+        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+        return;
+      }
       const reader = new FileReader();
       reader.onload = (event) => {
         if (event.target?.result) {
-          setVerifAvatar(event.target.result as string);
+          compressImage(event.target.result as string).then(compressed => {
+                        uploadBase64ToStorage(compressed, 'tontines').then(storageUrl => setVerifAvatar(storageUrl));
+          });
         }
       };
       reader.readAsDataURL(file);
@@ -502,7 +499,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     }
     if (!isProfileComplete(currentUser)) {
       addNotification("🔒 Profil d'identité incomplet. Vous devez certifier votre identité (KYC) pour créer une tontine.");
-      onNavigate('profile', { requireCompletion: true });
+            onNavigate('profile', { requireCompletion: true, target: 'kyc' });
       return;
     }
     if (!name || !description) {
@@ -562,9 +559,13 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       chat: [
         { id: `chat_init_${Date.now()}`, sender: 'System', text: `Tontine "${name}" créée avec succès. En attente de membres.`, timestamp: now.toLocaleTimeString('fr-FR', {hour: '2-digit', minute: '2-digit'}) }
       ],
-      guaranteeFundActive,
+            guaranteeFundActive,
       guaranteeFundAmount: guaranteeFundActive ? guaranteeFundAmount : 0,
-      guaranteeFundTotal: guaranteeFundActive ? guaranteeFundAmount : 0
+      guaranteeFundTotal: guaranteeFundActive ? guaranteeFundAmount : 0,
+      accumulatedSavings: 0,
+      coverImage: coverImage,
+      tontineType: tontineType,
+      productImages: productImages
     };
 
     setTontines(prev => [newTontine, ...prev]);
@@ -581,7 +582,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
         organizerName: newTontine.organizer.name
       };
       const encodedData = btoa(unescape(encodeURIComponent(JSON.stringify(tontineDataObj))));
-      const shareLink = `${window.location.origin}${window.location.pathname}?tontineData=${encodedData}`;
+            const shareLink = `${window.location.origin}/cause?tontineData=${encodedData}`;
       setCreatedPrivateTontineLink(shareLink);
       addNotification(`🔒 Tontine privée "${name}" créée avec succès !`);
     } else {
@@ -598,6 +599,9 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     setStartDate('2026-06-15');
     setOrderType('random');
     setGuaranteeFundActive(false);
+    setCoverImage('');
+    setTontineType('money');
+    setProductImages([]);
     
     setSelectedTontineId(newTontine.id);
     setActiveTab('my-tontines');
@@ -713,7 +717,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     if (!chatInput.trim() || !currentUser) return;
 
     const now = new Date();
-    const newMsg: ChatMessage = {
+        const newMsg: TontineChatMessage = {
       id: `chat_${Date.now()}`,
       sender: currentUser.name,
       text: chatInput,
@@ -853,7 +857,134 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       return t;
     }));
 
-    addNotification(`⚠️ Le membre ${memberName} a été sanctionné officiellement.`);
+        addNotification(`⚠️ Le membre ${memberName} a été sanctionné officiellement.`);
+  };
+
+  // -----------------------------------------
+  // RAPPELS ET PÉNALITÉS PAR L'ORGANISATEUR
+  // -----------------------------------------
+    const handleSendPaymentReminder = (
+    tontine: Tontine, 
+    memberName: string, 
+    channel: 'chat' | 'whatsapp' | 'sms' = 'chat',
+    customPhone?: string,
+    customMsg?: string
+  ) => {
+    const now = new Date();
+    const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+
+    let msgText = '';
+    let logDetails = '';
+
+    if (channel === 'chat') {
+      msgText = customMsg || t('tontine.relance_chat_msg').replace('{name}', memberName);
+      logDetails = t('tontine.relance_chat_msg').replace('{name}', memberName);
+    } else if (channel === 'whatsapp') {
+      msgText = customMsg || t('tontine.relance_template').replace('{name}', memberName).replace('{amount}', tontine.cotisation.toLocaleString('fr-FR')).replace('{tontineName}', tontine.name);
+      logDetails = `Rappel de paiement envoyé à ${memberName} via WhatsApp (${customPhone || ''})`;
+    } else if (channel === 'sms') {
+      msgText = customMsg || t('tontine.relance_template').replace('{name}', memberName).replace('{amount}', tontine.cotisation.toLocaleString('fr-FR')).replace('{tontineName}', tontine.name);
+      logDetails = `Rappel de paiement envoyé à ${memberName} via SMS (${customPhone || ''})`;
+    }
+
+    const newLog: ActivityLog = {
+      id: `log_rem_${Date.now()}`,
+      timestamp: timestampStr,
+      type: 'paiement',
+      user: typeof tontine.organizer === 'string' ? tontine.organizer : tontine.organizer.name,
+      details: logDetails
+    };
+
+    const newChatMessage: TontineChatMessage = {
+      id: `chat_rem_${Date.now()}`,
+      sender: 'System',
+      text: msgText,
+      timestamp: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setTontines(prev => prev.map(t => {
+      if (t.id === tontine.id) {
+        return {
+          ...t,
+          members: t.members.map(m => {
+            const mName = typeof m === 'string' ? m : m.name;
+            if (mName === memberName) {
+              if (typeof m === 'string') {
+                return {
+                  name: m,
+                  avatar: '',
+                  email: '',
+                  phone: customPhone || '',
+                  verified: false,
+                  reputation: 'nouveau',
+                  rate: 100,
+                  hasPaidThisRound: false,
+                  hasPendingReminder: true
+                } as TontineMember;
+              } else {
+                return {
+                  ...m,
+                  phone: customPhone || m.phone || '',
+                  hasPendingReminder: true
+                };
+              }
+            }
+            return m;
+          }),
+          activityLogs: [newLog, ...t.activityLogs],
+          chat: [...t.chat, newChatMessage]
+        };
+      }
+      return t;
+    }));
+
+    addNotification(t('tontine.relance_success').replace('{name}', memberName));
+  };
+
+  const handleApplyPenalty = (tontine: Tontine, memberName: string) => {
+    const now = new Date();
+    const timestampStr = now.toISOString().replace('T', ' ').substring(0, 19) + ' UTC';
+    const penaltyAmount = 500;
+
+    const newLog: ActivityLog = {
+      id: `log_pen_${Date.now()}`,
+      timestamp: timestampStr,
+      type: 'sanction',
+      user: typeof tontine.organizer === 'string' ? tontine.organizer : tontine.organizer.name,
+      details: `Pénalité de ${penaltyAmount} FCFA appliquée à ${memberName} pour retard de cotisation.`
+    };
+
+    const newChatMessage: TontineChatMessage = {
+      id: `chat_pen_${Date.now()}`,
+      sender: 'System',
+      text: `⚠️ Une pénalité de ${penaltyAmount} FCFA a été appliquée à ${memberName} pour retard de contribution.`,
+      timestamp: now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+    };
+
+    setTontines(prev => prev.map(t => {
+      if (t.id === tontine.id) {
+        return {
+          ...t,
+          members: t.members.map(m => {
+            if (m.name === memberName) {
+              const currentPenalties = m.penalties || 0;
+              return { 
+                ...m, 
+                penalties: currentPenalties + penaltyAmount,
+                reputation: m.reputation === 'excellent' ? 'fiable' : m.reputation === 'fiable' ? 'surveillance' : m.reputation === 'nouveau' ? 'surveillance' : m.reputation,
+                rate: Math.max(30, m.rate - 5)
+              };
+            }
+            return m;
+          }),
+          activityLogs: [newLog, ...t.activityLogs],
+          chat: [...t.chat, newChatMessage]
+        };
+      }
+      return t;
+    }));
+
+    addNotification(`⚠️ Pénalité de ${penaltyAmount} FCFA appliquée avec succès à ${memberName}.`);
   };
 
   // -----------------------------------------
@@ -880,8 +1011,9 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
     keywords: 'Sénégal, tontine, épargne, crédit rotatif, confiance, solidarité, finances'
   });
 
-  return (
-    <div className="animate-fade-in" style={{ paddingBottom: '4rem' }}>
+    return (
+    <>
+      <div className="animate-fade-in" style={{ paddingBottom: '4rem' }}>
       
       {/* 1. EN-TÊTE FINTECH PREMIUM */}
       <div 
@@ -931,16 +1063,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
       </div>
 
       {/* 2. ONGLETS DE SÉLECTION PRINCIPALE */}
-      <div 
-        style={{ 
-          display: 'flex', 
-          gap: '0.5rem', 
-          borderBottom: '1px solid var(--border-light)', 
-          paddingBottom: '0.5rem', 
-          marginBottom: '1.5rem',
-          overflowX: 'auto'
-        }}
-      >
+            <div className="horizontal-scroll-tabs">
         <button 
           className={`btn ${activeTab === 'discover' && !selectedTontineId ? 'btn-primary' : 'btn-ghost'}`}
           onClick={() => { setSelectedTontineId(null); setActiveTab('discover'); }}
@@ -968,7 +1091,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
             }
             if (!isProfileComplete(currentUser)) {
               addNotification("🔒 Profil d'identité incomplet. Vous devez certifier votre identité (KYC) pour créer une tontine.");
-              onNavigate('profile', { requireCompletion: true });
+                    onNavigate('profile', { requireCompletion: true, target: 'kyc' });
               return;
             }
             setSelectedTontineId(null);
@@ -1123,11 +1246,15 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
             })}
           </div>
 
-          {/* Right panel: unit dashboard for selected tontine */}
-          <div style={{ flex: '2 1 600px', display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+                              {/* Right panel: unit dashboard for selected tontine */}
+          <div style={{ flex: '2 1 600px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {currentTontine ? (
-              <div className="premium-card" style={{ padding: '1.5rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <div className="premium-card" style={{ padding: 0, overflow: 'hidden' }}>
+                                {currentTontine.coverImage && (
+                  <div style={{ height: '180px', width: '100%', backgroundImage: `url("${currentTontine.coverImage}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderBottom: '1px solid var(--border-light)' }} />
+                )}
+                <div style={{ padding: '1.5rem' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
                   <div>
                     <h2 style={{ fontSize: '1.4rem', fontWeight: 800 }}>{currentTontine.name}</h2>
                     <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
@@ -1172,17 +1299,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                 </div>
 
                 {/* Subtabs for selected Tontine Dashboard */}
-                <div 
-                  style={{ 
-                    display: 'flex', 
-                    gap: '0.4rem', 
-                    borderBottom: '1px solid var(--border-light)', 
-                    paddingBottom: '0.5rem', 
-                    marginBottom: '1.5rem',
-                    overflowX: 'auto',
-                    fontSize: '0.8rem'
-                  }}
-                >
+                                <div className="horizontal-scroll-tabs" style={{ fontSize: '0.8rem' }}>
                   <button 
                     className={`btn ${tontineDashboardTab === 'general' ? 'btn-primary' : 'btn-ghost'}`}
                     style={{ padding: '0.35rem 0.6rem', minWidth: 'auto', fontSize: '0.8rem' }}
@@ -1232,50 +1349,216 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                 {/* --------------------------------- */}
                 {tontineDashboardTab === 'general' && (
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+                    {/* Tontine Type specific info & Description */}
+                    <div style={{ display: 'flex', gap: '1rem', background: 'rgba(6, 78, 59, 0.03)', border: '1px solid var(--border-light)', padding: '1rem', borderRadius: 'var(--radius-md)', flexWrap: 'wrap' }}>
+                      <div style={{ flex: 1, minWidth: '200px', textAlign: 'left' }}>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 'bold' }}>Genre de Tontine</span>
+                        <strong style={{ display: 'block', fontSize: '1.1rem', color: 'var(--primary)', marginTop: '0.2rem' }}>
+                          {currentTontine.tontineType === 'product' ? '📦 Tontine Produit (Biens & Équipements)' : '💵 Tontine Argent (Fintech)'}
+                        </strong>
+                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', marginTop: '0.5rem', lineHeight: 1.4 }}>
+                          {currentTontine.description}
+                        </p>
+                      </div>
+                      
+                      {currentTontine.tontineType === 'product' && currentTontine.productImages && currentTontine.productImages.length > 0 && (
+                        <div style={{ flex: 1, minWidth: '240px', textAlign: 'left' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 'bold', display: 'block', marginBottom: '0.4rem' }}>Photos du produit ({currentTontine.productImages.length})</span>
+                          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            {currentTontine.productImages.map((img, i) => (
+                              <img 
+                                key={i} 
+                                src={img} 
+                                alt="Produit" 
+                                style={{ width: '60px', height: '60px', borderRadius: '4px', objectFit: 'cover', border: '1px solid var(--border-light)', cursor: 'pointer' }}
+                                onClick={() => window.open(img, '_blank')}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+
                     {/* Ring members list with reputation badges */}
                     <div>
                       <strong style={{ display: 'block', fontSize: '0.85rem', marginBottom: '0.5rem' }}>👥 Membres actifs et Score de Confiance :</strong>
-                      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <div className="grid-cols-2" style={{ gap: '1rem', marginTop: '0.5rem' }}>
                         {currentTontine.members.map((member: any, i) => {
                           const mName = typeof member === 'string' ? member : member?.name;
                           const mReputation = typeof member === 'string' ? 'nouveau' : (member?.reputation || 'nouveau');
                           const mRate = typeof member === 'string' ? 100 : (member?.rate || 100);
+                          const mPaid = typeof member === 'string' ? false : (member?.hasPaidThisRound || false);
                           const memMatch = usersList.find(u => u.name && mName && u.name.toLowerCase() === mName.toLowerCase());
+                                                    const org = currentTontine.organizer as any;
+                          const isOrganizer = currentUser && (
+                            typeof org === 'string' 
+                              ? org.toLowerCase() === currentUser.name.toLowerCase() 
+                              : org?.name?.toLowerCase() === currentUser.name.toLowerCase()
+                          );
+
+                          // Reputation styles
+                          let repColor = '#92400e';
+                          let repBg = '#fef3c7';
+                          let repText = '🥉 Nouveau';
+                          if (mReputation === 'excellent') {
+                            repColor = '#065f46';
+                            repBg = '#d1fae5';
+                            repText = '🥇 Excellent';
+                          } else if (mReputation === 'fiable') {
+                            repColor = '#1e40af';
+                            repBg = '#dbeafe';
+                            repText = '🥈 Fiable';
+                          } else if (mReputation === 'surveillance') {
+                            repColor = '#854d0e';
+                            repBg = '#fef9c3';
+                            repText = '⚠️ Surveillance';
+                          } else if (mReputation === 'sanctionne') {
+                            repColor = '#991b1b';
+                            repBg = '#fee2e2';
+                            repText = '❌ Sanctionné';
+                          }
+
                           return (
                             <div 
                               key={i} 
+                              className="premium-card" 
                               style={{ 
                                 display: 'flex', 
-                                alignItems: 'center', 
-                                gap: '0.4rem', 
-                                background: 'var(--light)', 
-                                padding: '0.35rem 0.6rem', 
-                                borderRadius: '20px',
+                                flexDirection: 'column',
+                                gap: '0.75rem',
+                                padding: '1rem',
                                 border: '1px solid var(--border-light)',
-                                fontSize: '0.75rem',
-                                cursor: memMatch ? 'pointer' : 'default'
+                                background: 'var(--light-card)',
+                                borderRadius: 'var(--radius-md)',
+                                position: 'relative'
                               }}
-                              onClick={() => {
-                                if (memMatch) setSelectedPublicUserId(memMatch.id);
-                              }}
-                              title={memMatch ? "Voir le profil de ce membre" : undefined}
                             >
-                              <span style={{ textDecoration: memMatch ? 'underline' : 'none', color: memMatch ? 'var(--primary)' : 'inherit' }}>
-                                👤 {mName}
-                              </span>
-                              <span 
-                                style={{ 
-                                  fontSize: '0.65rem', 
-                                  background: mReputation === 'excellent' ? '#d1fae5' : mReputation === 'fiable' ? '#dbeafe' : mReputation === 'nouveau' ? '#fef3c7' : '#fee2e2',
-                                  color: mReputation === 'excellent' ? '#065f46' : mReputation === 'fiable' ? '#1e40af' : mReputation === 'nouveau' ? '#92400e' : '#991b1b',
-                                  padding: '0.1rem 0.4rem',
-                                  borderRadius: '10px',
-                                  fontWeight: 'bold'
-                                }}
-                              >
-                                {mReputation === 'excellent' ? '🥇 Excellent' : mReputation === 'fiable' ? '🥈 Fiable' : mReputation === 'nouveau' ? '🥉 Nouveau' : '⚠️ Sanctionné'}
-                              </span>
-                              <span style={{ fontWeight: 'bold', color: 'var(--primary)' }}>({mRate}%)</span>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                                {/* Avatar */}
+                                <div 
+                                  style={{ 
+                                    width: '40px', 
+                                    height: '40px', 
+                                    borderRadius: '50%', 
+                                    background: 'linear-gradient(135deg, var(--primary) 0%, #064e3b 100%)',
+                                    color: 'white',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    fontWeight: 'bold',
+                                    fontSize: '1.1rem',
+                                    border: '2px solid white',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    cursor: memMatch ? 'pointer' : 'default',
+                                    overflow: 'hidden'
+                                  }}
+                                  onClick={() => {
+                                    if (memMatch) setSelectedPublicUserId(memMatch.id);
+                                  }}
+                                >
+                                  {memMatch?.avatar ? (
+                                    <img src={memMatch.avatar} alt={mName} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                  ) : (
+                                    mName.charAt(0).toUpperCase()
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', textAlign: 'left' }}>
+                                  <span 
+                                    style={{ 
+                                      fontWeight: 'bold', 
+                                      fontSize: '0.9rem',
+                                      textDecoration: memMatch ? 'underline' : 'none', 
+                                      color: memMatch ? 'var(--primary)' : 'inherit',
+                                      cursor: memMatch ? 'pointer' : 'default'
+                                    }}
+                                    onClick={() => {
+                                      if (memMatch) setSelectedPublicUserId(memMatch.id);
+                                    }}
+                                    title={memMatch ? "Voir le profil de ce membre" : undefined}
+                                  >
+                                    {mName}
+                                  </span>
+                                  
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap' }}>
+                                    <span 
+                                      style={{ 
+                                        fontSize: '0.65rem', 
+                                        background: repBg,
+                                        color: repColor,
+                                        padding: '0.1rem 0.4rem',
+                                        borderRadius: '10px',
+                                        fontWeight: 'bold'
+                                      }}
+                                    >
+                                      {repText}
+                                    </span>
+                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', fontWeight: 'bold' }}>
+                                      Taux: {mRate}%
+                                    </span>
+                                    {member.penalties && member.penalties > 0 ? (
+                                      <span style={{ fontSize: '0.65rem', background: '#fee2e2', color: '#991b1b', padding: '0.1rem 0.4rem', borderRadius: '10px', fontWeight: 'bold' }}>
+                                        ⚠️ {member.penalties} F
+                                      </span>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Payment status badge for current round */}
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--light)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.8rem' }}>
+                                <span style={{ color: 'var(--text-secondary-light)' }}>Ronde en cours :</span>
+                                {mPaid ? (
+                                  <span style={{ background: '#d1fae5', color: '#065f46', fontWeight: 'bold', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                    Payé ✅
+                                  </span>
+                                ) : (
+                                  <span style={{ background: '#fef3c7', color: '#92400e', fontWeight: 'bold', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.75rem' }}>
+                                    En attente ⏳
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Organizer buttons */}
+                              {isOrganizer && !mPaid && (
+                                <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.25rem' }}>
+                                  <button 
+                                    className="btn btn-primary"
+                                    style={{ 
+                                      flex: 1, 
+                                      padding: '0.4rem 0.6rem', 
+                                      fontSize: '0.75rem', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      gap: '0.25rem',
+                                      minWidth: 'auto',
+                                      borderRadius: '4px'
+                                    }}
+                                    onClick={() => setReminderModalData({ tontine: currentTontine, memberName: mName, phone: member.phone })}
+                                  >
+                                    🔔 {t('tontine.relancer_btn')}
+                                  </button>
+                                  <button 
+                                    className="btn btn-outline"
+                                    style={{ 
+                                      padding: '0.4rem 0.6rem', 
+                                      fontSize: '0.75rem', 
+                                      display: 'flex', 
+                                      alignItems: 'center', 
+                                      justifyContent: 'center', 
+                                      gap: '0.25rem',
+                                      minWidth: 'auto',
+                                      borderColor: 'var(--danger)',
+                                      color: 'var(--danger)',
+                                      borderRadius: '4px'
+                                    }}
+                                    onClick={() => handleApplyPenalty(currentTontine, mName)}
+                                  >
+                                    ⚠️ Sanctionner
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -1693,6 +1976,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                   </div>
                 )}
 
+                            </div>
               </div>
             ) : (
               <div className="premium-card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
@@ -1741,6 +2025,32 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
 
             <div className="grid-cols-2" style={{ gap: '0.75rem' }}>
               <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Genre de Tontine</label>
+                <div style={{ display: 'flex', gap: '1rem', height: '38px', alignItems: 'center' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    <input 
+                      type="radio" 
+                      name="tontineType" 
+                      value="money" 
+                      checked={tontineType === 'money'}
+                      onChange={() => setTontineType('money')} 
+                    />
+                    💵 Argent
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', cursor: 'pointer', fontSize: '0.8rem' }}>
+                    <input 
+                      type="radio" 
+                      name="tontineType" 
+                      value="product" 
+                      checked={tontineType === 'product'}
+                      onChange={() => setTontineType('product')} 
+                    />
+                    📦 Produit
+                  </label>
+                </div>
+              </div>
+
+              <div>
                 <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Type d'accès</label>
                 <select 
                   className="premium-card"
@@ -1752,9 +2062,123 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                   <option value="private">Privée (Sur invitation)</option>
                 </select>
               </div>
+            </div>
+
+            {tontineType === 'product' && (
+              <div className="animate-slide-up" style={{ padding: '0.75rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                  Photos du Produit (Max 5 photos)
+                </label>
+                
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  {productImages.map((img, idx) => (
+                    <div key={idx} style={{ position: 'relative', width: '70px', height: '70px', borderRadius: '4px', overflow: 'hidden', border: '1px solid var(--border-light)' }}>
+                      <img src={img} alt={`Produit ${idx + 1}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      <button
+                        type="button"
+                        style={{
+                          position: 'absolute',
+                          top: '2px',
+                          right: '2px',
+                          background: 'rgba(239, 68, 68, 0.85)',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '50%',
+                          width: '18px',
+                          height: '18px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '0.65rem',
+                          cursor: 'pointer',
+                          padding: 0
+                        }}
+                        onClick={() => setProductImages(prev => prev.filter((_, i) => i !== idx))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                  
+                  {productImages.length < 5 && (
+                    <button
+                      type="button"
+                      style={{
+                        width: '70px',
+                        height: '70px',
+                        borderRadius: '4px',
+                        border: '1px dashed var(--border-light)',
+                        background: 'transparent',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        fontSize: '0.7rem',
+                        color: 'var(--text-secondary-light)',
+                        cursor: 'pointer',
+                        gap: '2px'
+                      }}
+                      onClick={() => document.getElementById('tontine-product-uploads')?.click()}
+                    >
+                      ➕
+                      <span>Photos</span>
+                    </button>
+                  )}
+                </div>
+
+                <input 
+                  id="tontine-product-uploads"
+                  type="file" 
+                  accept="image/*"
+                  multiple
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files || []);
+                    const availableSlots = 5 - productImages.length;
+                    const filesToUpload = files.slice(0, availableSlots);
+                    
+                    for (const file of filesToUpload) {
+                      if (file.size > 1 * 1024 * 1024) {
+                        alert(`Le fichier ${file.name} dépasse la limite maximale de 1 Mo. 🇸🇳`);
+                        continue;
+                      }
+                      
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        compressImage(reader.result as string).then(compressed => {
+                          uploadBase64ToStorage(compressed, 'tontines').then(storageUrl => {
+                            setProductImages(prev => [...prev, storageUrl]);
+                          });
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                
+                <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+                  Chargez jusqu'à 5 photos claires du ou des produits à acquérir.
+                </span>
+              </div>
+            )}
+
+            <div className="grid-cols-3" style={{ gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Cotisation (FCFA) *</label>
+                <input 
+                  type="number" 
+                  required
+                  min={100}
+                  placeholder="Ex : 10000" 
+                  className="premium-card" 
+                  style={{ width: '100%', padding: '0.6rem', background: 'var(--light)', color: 'var(--text-primary-light)' }}
+                  value={cotisation || ''}
+                  onChange={(e) => setCotisation(parseInt(e.target.value, 10) || 0)}
+                />
+              </div>
 
               <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Participants Maximum *</label>
+                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Participants Max *</label>
                 <input 
                   type="number" 
                   required
@@ -1765,24 +2189,6 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                   value={participantsMax}
                   onChange={(e) => setParticipantsMax(parseInt(e.target.value, 10))}
                 />
-              </div>
-            </div>
-
-            <div className="grid-cols-3" style={{ gap: '0.75rem' }}>
-              <div>
-                <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Cotisation (FCFA)</label>
-                <select 
-                  className="premium-card"
-                  style={{ width: '100%', padding: '0.6rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)', color: 'var(--text-primary-light)' }}
-                  value={cotisation}
-                  onChange={(e) => setCotisation(parseInt(e.target.value, 10))}
-                >
-                  <option value={5000}>5 000 F</option>
-                  <option value={10000}>10 000 F</option>
-                  <option value={20000}>20 000 F</option>
-                  <option value={50000}>50 000 F</option>
-                  <option value={100000}>100 000 F</option>
-                </select>
               </div>
 
               <div>
@@ -1839,6 +2245,52 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                   />
                   <label htmlFor="guaranteeActive" style={{ fontSize: '0.75rem', cursor: 'pointer' }}>Activer la caution d'impayé</label>
                 </div>
+              </div>
+                        </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Photo de couverture de la Tontine</label>
+              <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+                <input 
+                  type="text" 
+                  placeholder="URL de l'image (ou importez un fichier)" 
+                  className="premium-card" 
+                  style={{ flex: 1, padding: '0.6rem', background: 'var(--light)', color: 'var(--text-primary-light)' }}
+                  value={coverImage}
+                  onChange={(e) => setCoverImage(e.target.value)}
+                />
+                <button 
+                  type="button" 
+                  className="btn btn-outline" 
+                  style={{ padding: '0.6rem 1rem', fontSize: '0.75rem' }}
+                  onClick={() => document.getElementById('tontine-cover-upload')?.click()}
+                >
+                  📁 Fichier
+                </button>
+                <input 
+                  id="tontine-cover-upload"
+                  type="file" 
+                  accept="image/*"
+                  style={{ display: 'none' }}
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 1 * 1024 * 1024) {
+                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        compressImage(reader.result as string).then(compressed => {
+                          uploadBase64ToStorage(compressed, 'tontines').then(storageUrl => {
+                            setCoverImage(storageUrl);
+                          });
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
               </div>
             </div>
 
@@ -1962,6 +2414,8 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
         </div>
       )}
 
+      </div>
+
       {/* ==================================================== */}
       {/* MODAL 1 : VÉRIFICATION SMS OTP + PHOTO DE PROFIL    */}
       {/* ==================================================== */}
@@ -2058,7 +2512,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                       borderRadius: '50%', 
                       background: 'var(--light)', 
                       border: '2px solid var(--border-light)',
-                      backgroundImage: verifAvatar ? `url(${verifAvatar})` : 'none',
+                                            backgroundImage: verifAvatar ? `url("${verifAvatar}")` : 'none',
                       backgroundSize: 'cover',
                       backgroundPosition: 'center',
                       display: 'flex',
@@ -2403,22 +2857,12 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                 </div>
               </div>
 
-              {selectedPaymentMethod !== 'card' && (
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>
-                    Numéro de téléphone mobile associé *
-                  </label>
-                  <input 
-                    type="text" 
-                    required
-                    placeholder="+221 77 123 45 67"
-                    className="premium-card" 
-                    style={{ width: '100%', padding: '0.55rem', background: 'var(--light)', color: 'var(--text-primary-light)' }}
-                    value={paymentPhone}
-                    onChange={(e) => setPaymentPhone(e.target.value)}
-                  />
-                </div>
-              )}
+                                          <div style={{ background: 'rgba(0,133,63,0.03)', border: '1px dashed var(--primary)', padding: '0.65rem 0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.7rem', display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                <span>🔒</span>
+                <span style={{ color: 'var(--text-secondary-light)' }}>
+                  Paiement sécurisé conforme PCI-DSS traité via <strong>PayTech</strong>.
+                </span>
+              </div>
 
               <button 
                 type="submit" 
@@ -2426,7 +2870,7 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
                 style={{ width: '100%', padding: '0.65rem' }}
                 disabled={isPaying}
               >
-                {isPaying ? 'Traitement du paiement en cours...' : `Payer ${paymentTontine.cotisation.toLocaleString('fr-FR')} F ➔`}
+                {isPaying ? 'Connexion à Paystack...' : `Payer ${paymentTontine.cotisation.toLocaleString('fr-FR')} F ➔`}
               </button>
 
             </form>
@@ -2514,9 +2958,273 @@ export const Tontines: React.FC<TontinesProps> = ({ onNavigate, initialTontineId
             </button>
           </div>
         </div>
+                  )}
+
+      {/* KYC Blocker Modal */}
+      {(() => {
+        if (!showKycBlocker) return null;
+        const status = currentUser?.verificationStatus || 'none';
+        const rejectReason = currentUser?.kycRejectReason || '';
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 1000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1.5rem'
+            }}
+            onClick={() => setShowKycBlocker(false)}
+          >
+            <div 
+              className="glass animate-fade-in"
+              style={{
+                maxWidth: '500px',
+                width: '100%',
+                background: 'var(--light-card)',
+                borderRadius: 'var(--radius-md)',
+                padding: '2rem',
+                border: '1px solid var(--border-light)',
+                boxShadow: 'var(--shadow-lg)',
+                textAlign: 'center'
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <span style={{ fontSize: '3rem', display: 'block', marginBottom: '1rem' }}>🪪</span>
+              <h3 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: '1rem', color: 'var(--primary)' }}>
+                Vérification d'identité requise (KYC)
+              </h3>
+              
+              {status === 'pending' ? (
+                <p style={{ color: 'var(--text-primary-light)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Votre dossier de vérification d'identité est actuellement en cours de modération. Nos administrateurs l'analysent sous 24h. Vous recevrez une notification dès sa validation.
+                </p>
+              ) : status === 'rejected' ? (
+                <div style={{ marginBottom: '1.5rem' }}>
+                  <p style={{ color: 'var(--danger)', fontSize: '0.95rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>
+                    Votre dossier KYC a été rejeté par les administrateurs.
+                  </p>
+                  {rejectReason && (
+                    <div style={{ background: 'rgba(239,68,68,0.05)', border: '1px dashed var(--danger)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.85rem', color: 'var(--danger)', marginBottom: '1rem' }}>
+                      <strong>Motif du rejet :</strong> {rejectReason}
+                    </div>
+                  )}
+                  <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
+                    Veuillez mettre à jour vos pièces d'identité et votre selfie dans votre espace profil.
+                  </p>
+                </div>
+              ) : (
+                <p style={{ color: 'var(--text-primary-light)', fontSize: '0.95rem', marginBottom: '1.5rem', lineHeight: 1.5 }}>
+                  Pour garantir la sécurité et la transparence de notre plateforme citoyenne, vous devez faire certifier votre compte (KYC) en transmettant votre pièce d'identité avant de pouvoir participer ou créer une tontine.
+                </p>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
+                <button 
+                  type="button" 
+                  className="btn btn-outline" 
+                  style={{ padding: '0.5rem 1.5rem' }}
+                  onClick={() => setShowKycBlocker(false)}
+                >
+                  Fermer
+                </button>
+                {status !== 'pending' && (
+                  <button 
+                    type="button" 
+                    className="btn btn-primary" 
+                    style={{ padding: '0.5rem 1.5rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}
+                    onClick={() => {
+                      setShowKycBlocker(false);
+                      onNavigate('profile', { requireCompletion: true, target: 'kyc' });
+                    }}
+                  >
+                    Passer le KYC 🪪
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        );
+            })()}
+
+      {/* ==================================================== */}
+      {/* MODAL 7 : RELANCE MULTI-CANAL                       */}
+      {/* ==================================================== */}
+      {reminderModalData && (
+        <div 
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            width: '100%',
+            height: '100%',
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            backdropFilter: 'blur(4px)',
+            zIndex: 1300,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '1rem'
+          }}
+        >
+          <div 
+            className="glass animate-fade-in" 
+            style={{
+              width: '100%',
+              maxWidth: '420px',
+              background: 'var(--light-card)',
+              borderRadius: 'var(--radius-lg)',
+              padding: '1.5rem',
+              boxShadow: 'var(--shadow-lg)'
+            }}
+          >
+            {/* Header */}
+            <div style={{ display: 'flex', justifyItems: 'center', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <strong style={{ fontSize: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                {t('tontine.relance_modal.title')}
+              </strong>
+              <button 
+                className="btn btn-ghost" 
+                style={{ padding: '0.2rem 0.4rem', minWidth: 'auto' }} 
+                onClick={() => setReminderModalData(null)}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', textAlign: 'left' }}>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)' }}>
+                {t('tontine.relance_modal.subtitle').replace('{name}', reminderModalData.memberName)}
+              </p>
+
+              {/* Channel selections */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {/* Chat Group - Always active */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--light)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                  <input type="checkbox" checked disabled id="inapp-chat-opt" />
+                  <label htmlFor="inapp-chat-opt" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary-light)' }}>
+                    {t('tontine.relance_modal.inapp')}
+                  </label>
+                </div>
+
+                {/* WhatsApp */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--light)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={sendViaWhatsApp} 
+                    onChange={(e) => setSendViaWhatsApp(e.target.checked)} 
+                    id="whatsapp-opt" 
+                  />
+                  <label htmlFor="whatsapp-opt" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary-light)', cursor: 'pointer' }}>
+                    {t('tontine.relance_modal.whatsapp')}
+                  </label>
+                </div>
+
+                {/* SMS */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'var(--light)', padding: '0.5rem 0.75rem', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={sendViaSms} 
+                    onChange={(e) => setSendViaSms(e.target.checked)} 
+                    id="sms-opt" 
+                  />
+                  <label htmlFor="sms-opt" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-primary-light)', cursor: 'pointer' }}>
+                    {t('tontine.relance_modal.sms')}
+                  </label>
+                </div>
+              </div>
+
+              {/* Phone number field (shown if WhatsApp or SMS selected) */}
+              {(sendViaWhatsApp || sendViaSms) && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Numéro de téléphone :</label>
+                  <input 
+                    type="text" 
+                    className="input" 
+                    style={{ fontSize: '0.8rem', padding: '0.5rem' }} 
+                    placeholder={t('tontine.relance_modal.phone_placeholder')}
+                    value={customReminderPhone}
+                    onChange={(e) => setCustomReminderPhone(e.target.value)}
+                  />
+                </div>
+              )}
+
+              {/* Customized message field */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                <label style={{ fontSize: '0.75rem', fontWeight: 'bold' }}>Message personnalisé :</label>
+                <textarea 
+                  className="input" 
+                  style={{ fontSize: '0.8rem', padding: '0.5rem', minHeight: '80px', resize: 'vertical' }} 
+                  value={customReminderMsg}
+                  onChange={(e) => setCustomReminderMsg(e.target.value)}
+                />
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+                {/* Standard Send button (always triggers in-app and WhatsApp if selected) */}
+                <button 
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '0.65rem' }}
+                  onClick={() => {
+                    const tontine = reminderModalData.tontine;
+                    const mName = reminderModalData.memberName;
+
+                    // 1. Send in-app chat message
+                    handleSendPaymentReminder(tontine, mName, 'chat', customReminderPhone, customReminderMsg);
+
+                    // 2. Send via WhatsApp if selected
+                    if (sendViaWhatsApp) {
+                      handleSendPaymentReminder(tontine, mName, 'whatsapp', customReminderPhone, customReminderMsg);
+                      const waUrl = `https://api.whatsapp.com/send?phone=${encodeURIComponent(customReminderPhone)}&text=${encodeURIComponent(customReminderMsg)}`;
+                      window.open(waUrl, '_blank');
+                    }
+
+                    // 3. Send via SMS if selected (simulate)
+                    if (sendViaSms) {
+                      handleSendPaymentReminder(tontine, mName, 'sms', customReminderPhone, customReminderMsg);
+                    }
+
+                    setReminderModalData(null);
+                  }}
+                >
+                  {t('tontine.relance_modal.btn_send')}
+                </button>
+
+                {/* Specific SMS Native link button (shown only if SMS is selected) */}
+                {sendViaSms && (
+                  <button 
+                    className="btn btn-outline"
+                    style={{ width: '100%', padding: '0.65rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.25rem' }}
+                    onClick={() => {
+                      const tontine = reminderModalData.tontine;
+                      const mName = reminderModalData.memberName;
+
+                      // Triggers in-app logging + native SMS
+                      handleSendPaymentReminder(tontine, mName, 'sms', customReminderPhone, customReminderMsg);
+                      
+                      const smsUrl = `sms:${customReminderPhone}?body=${encodeURIComponent(customReminderMsg)}`;
+                      window.open(smsUrl, '_blank');
+                      setReminderModalData(null);
+                    }}
+                  >
+                    📱 Ouvrir l'application SMS natif
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
-    </div>
+    </>
   );
 };
 

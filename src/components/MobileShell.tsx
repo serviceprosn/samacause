@@ -3,12 +3,15 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Logo } from './Logo';
 
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==';
+
 interface MobileShellProps {
   children: React.ReactNode;
   activeTab: string;
   setActiveTab: (tab: string) => void;
   onOpenAi?: () => void;
   onNavigate?: (page: string, params?: any) => void;
+  onOpenFooterModal?: (modal: 'charte' | 'mentions' | 'support') => void;
 }
 
 export const MobileShell: React.FC<MobileShellProps> = ({ 
@@ -16,11 +19,28 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   activeTab, 
   setActiveTab,
   onOpenAi,
-  onNavigate
+  onNavigate,
+  onOpenFooterModal
 }) => {
-  const { toggleTheme, activeTheme, currentUser, useSupabase } = useApp();
+  const { toggleTheme, activeTheme, currentUser, directMessages } = useApp();
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+
+  // Prevent body scroll when menu drawer is open
+  React.useEffect(() => {
+    if (isMenuOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [isMenuOpen]);
+
+  const unreadCount = currentUser && directMessages
+    ? directMessages.filter(m => m.receiverId === currentUser.id && !m.read).length
+    : 0;
 
   return (
     <div className="mobile-shell-frame animate-fade-in">
@@ -109,20 +129,67 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 
           {/* User profile avatar or connection button */}
           {currentUser ? (
-            <div 
-              title={currentUser.name}
-              style={{ 
-                width: '26px', 
-                height: '26px', 
-                borderRadius: '50%', 
-                backgroundImage: `url(${currentUser.avatar})`, 
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                cursor: 'pointer',
-                border: '1.5px solid var(--primary)'
-              }}
-              onClick={() => { if (onNavigate) onNavigate('profile'); else setActiveTab('profile'); }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+              {/* Mobile Message Button with Badge */}
+              <button
+                className="btn btn-ghost"
+                style={{
+                  padding: '0.35rem',
+                  minWidth: 'auto',
+                  position: 'relative',
+                  fontSize: '1rem',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--text-primary-light)'
+                }}
+                onClick={() => {
+                  if (onNavigate) {
+                    onNavigate('messages');
+                  }
+                }}
+                title="Messages"
+              >
+                ✉️
+                {unreadCount > 0 && (
+                  <span
+                    style={{
+                      position: 'absolute',
+                      top: '-4px',
+                      right: '-4px',
+                      background: 'var(--danger, #ef4444)',
+                      color: 'white',
+                      fontSize: '0.55rem',
+                      fontWeight: 'bold',
+                      borderRadius: '50%',
+                      width: '14px',
+                      height: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: '0 0 0 1px var(--bg-card, #ffffff)'
+                    }}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+
+              <div 
+                title={currentUser.name}
+                style={{ 
+                  width: '26px', 
+                  height: '26px', 
+                  borderRadius: '50%', 
+                  backgroundImage: `url("${currentUser.avatar || DEFAULT_AVATAR}")`, 
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  cursor: 'pointer',
+                  border: '1.5px solid var(--primary)'
+                }}
+                onClick={() => { if (onNavigate) onNavigate('profile'); else setActiveTab('profile'); }}
+              />
+            </div>
           ) : (
             <button 
               className="btn btn-outline" 
@@ -207,7 +274,8 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               flexDirection: 'column',
               padding: '1.5rem',
               textAlign: 'left',
-              borderRight: '1px solid var(--border-light)'
+              borderRight: '1px solid var(--border-light)',
+              overflowY: 'auto'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -273,6 +341,82 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               ))}
             </div>
 
+            {/* Legal / Policy Links inside Drawer */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid var(--border-light)', paddingTop: '0.75rem', marginBottom: '0.75rem' }}>
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.45rem 0.75rem',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-secondary-light)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderRadius: 'var(--radius-sm)'
+                }}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  if (onOpenFooterModal) onOpenFooterModal('charte');
+                }}
+              >
+                {t('shell.charter')}
+              </button>
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.45rem 0.75rem',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-secondary-light)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderRadius: 'var(--radius-sm)'
+                }}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  if (onOpenFooterModal) onOpenFooterModal('mentions');
+                }}
+              >
+                {t('shell.mentions')}
+              </button>
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.45rem 0.75rem',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  fontSize: '0.8rem',
+                  color: 'var(--text-secondary-light)',
+                  background: 'transparent',
+                  border: 'none',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderRadius: 'var(--radius-sm)'
+                }}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  if (onOpenFooterModal) onOpenFooterModal('support');
+                }}
+              >
+                {t('shell.support')}
+              </button>
+            </div>
+
             {/* Bottom User Profile card in menu */}
             {currentUser && (
               <div style={{ borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -281,7 +425,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
                     width: '32px', 
                     height: '32px', 
                     borderRadius: '50%', 
-                    backgroundImage: `url(${currentUser.avatar})`, 
+                    backgroundImage: `url("${currentUser.avatar || DEFAULT_AVATAR}")`, 
                     backgroundSize: 'cover',
                     backgroundPosition: 'center',
                     border: '1.5px solid var(--primary)'
@@ -296,7 +440,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 
             {/* Drawer Language Switcher */}
             <div style={{ marginTop: 'auto', paddingTop: '1rem', borderTop: '1px solid var(--border-light)' }}>
-              <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-secondary-light)', marginBottom: '0.4rem' }}>Langue / Kóbó :</div>
+              <div style={{ fontSize: '0.7rem', fontWeight: 'bold', color: 'var(--text-secondary-light)', marginBottom: '0.4rem' }}>{t('shell.lang')}</div>
               <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-light)', padding: '0.2rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
                 {(['fr', 'wo', 'en'] as const).map((lang) => (
                   <button
@@ -324,18 +468,6 @@ export const MobileShell: React.FC<MobileShellProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
-
-            {/* Database Connection Badge */}
-            <div style={{ marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--border-light)', fontSize: '0.65rem', display: 'flex', alignItems: 'center', gap: '0.4rem', color: 'var(--text-secondary-light)' }}>
-              <span style={{ 
-                width: '6px', 
-                height: '6px', 
-                borderRadius: '50%', 
-                backgroundColor: useSupabase ? '#00853F' : '#f59e0b',
-                display: 'inline-block'
-              }} />
-              <span>Base : {useSupabase ? 'En ligne (Supabase)' : 'Hors-ligne (Local)'}</span>
             </div>
           </div>
         </div>

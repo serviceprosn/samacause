@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
+import { useLanguage } from '../context/LanguageContext';
 import { DirectMessage, User } from '../types';
+
+const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==';
 
 interface DirectChatPanelProps {
   isOpen: boolean;
@@ -17,13 +20,16 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
     setActiveChatUserId,
     setSelectedPublicUserId
   } = useApp();
+  const { t } = useLanguage();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [inputText, setInputText] = useState('');
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesBodyRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesBodyRef.current) {
+      messagesBodyRef.current.scrollTop = messagesBodyRef.current.scrollHeight;
+    }
   };
 
   useEffect(() => {
@@ -34,9 +40,16 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  // Filter users by search query
+  // Filter users by search query and follow relationship
   const filteredUsers = usersList.filter(u => {
-    if (currentUser && u.id === currentUser.id) return false;
+    if (!currentUser) return false;
+    if (u.id === currentUser.id) return false;
+
+    // Only allow users we follow or who follow us
+    const isFollowing = currentUser.following?.includes(u.id);
+    const isFollower = currentUser.followers?.includes(u.id);
+    if (!isFollowing && !isFollower) return false;
+
     return u.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
 
@@ -80,6 +93,7 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
       <div 
         style={{
           padding: '1.25rem 1.5rem',
+          paddingTop: 'calc(1.25rem + env(safe-area-inset-top, 0px))',
           borderBottom: '1px solid var(--border-light)',
           background: 'var(--primary)',
           color: 'white',
@@ -94,7 +108,7 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
               className="btn btn-ghost" 
               style={{ padding: '0.2rem 0.4rem', color: 'white', minWidth: 'auto', marginRight: '0.25rem' }} 
               onClick={() => setActiveChatUserId(null)}
-              title="Retour aux discussions"
+              title={t('chat.back_tooltip')}
             >
               ←
             </button>
@@ -103,7 +117,7 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
                 width: '36px',
                 height: '36px',
                 borderRadius: '50%',
-                backgroundImage: `url(${activeChatUser.avatar})`,
+                backgroundImage: `url("${(activeChatUser && activeChatUser.avatar) || DEFAULT_AVATAR}")`,
                 backgroundSize: 'cover',
                 backgroundPosition: 'center',
                 cursor: 'pointer',
@@ -129,8 +143,8 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <span style={{ fontSize: '1.4rem' }}>💬</span>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>Discussions Citoyennes</h3>
-              <span style={{ fontSize: '0.65rem', color: 'var(--secondary)' }}>Échanges directs entre visiteurs</span>
+              <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 800 }}>{t('chat.direct_title')}</h3>
+              <span style={{ fontSize: '0.65rem', color: 'var(--secondary)' }}>{t('chat.direct_subtitle')}</span>
             </div>
           </div>
         )}
@@ -156,10 +170,10 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
         // Chat messaging view
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: 'var(--light)', overflow: 'hidden' }}>
           {/* Scrollable messages container */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+          <div ref={messagesBodyRef} style={{ flex: 1, overflowY: 'auto', padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
             {activeConversationMsgs.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '2rem 1rem', color: 'var(--text-secondary-light)', fontSize: '0.8rem', fontStyle: 'italic' }}>
-                Aucun message précédent. Envoyez le premier mot pour démarrer la discussion !
+                {t('chat.no_messages')}
               </div>
             ) : (
               activeConversationMsgs.map((msg) => {
@@ -199,7 +213,6 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
                 );
               })
             )}
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Form message input */}
@@ -216,7 +229,7 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
             <input 
               type="text"
               required
-              placeholder="Écrire un message..."
+              placeholder={t('chat.input_placeholder')}
               className="premium-card"
               style={{ flex: 1, padding: '0.6rem 0.75rem', fontSize: '0.85rem', background: 'var(--light)', borderRadius: 'var(--radius-md)' }}
               value={inputText}
@@ -278,7 +291,7 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
                         width: '42px',
                         height: '42px',
                         borderRadius: '50%',
-                        backgroundImage: `url(${user.avatar})`,
+                        backgroundImage: `url("${user.avatar || DEFAULT_AVATAR}")`,
                         backgroundSize: 'cover',
                         backgroundPosition: 'center',
                         position: 'relative'
