@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { TrustScore } from './TrustScore';
+import { supabase } from '../services/supabaseClient';
 
 interface PublicProfileModalProps {
   onNavigate?: (page: string, params?: any) => void;
@@ -21,10 +22,49 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ onNaviga
   } = useApp();
   const { t } = useLanguage();
 
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportReason, setReportReason] = useState('');
+  const [reportDetails, setReportDetails] = useState('');
+
   if (!selectedPublicUserId) return null;
 
   const user = usersList.find(u => u.id === selectedPublicUserId);
   if (!user) return null;
+
+  const handleSendReport = async () => {
+    if (!reportReason) {
+      alert("Veuillez sélectionner un motif de signalement.");
+      return;
+    }
+
+    try {
+      const finalReason = reportDetails.trim() 
+        ? `${reportReason} - Détails : ${reportDetails.trim()}`
+        : reportReason;
+
+      const reportMsg = `[REPORT] ReporterID:${currentUser?.id};ReportedID:${user.id};ReportedName:${user.name};Reason:${finalReason}`;
+      
+      const { error } = await supabase.from('contact_messages').insert([{
+        name: currentUser?.name || 'Anonyme',
+        email: currentUser?.email || 'anonyme@sunuyite.com',
+        phone: currentUser?.phone || '',
+        message: reportMsg
+      }]);
+
+      if (error) {
+        console.error("Error sending report:", error.message);
+        alert("Une erreur est survenue lors de l'envoi du signalement. Réessayez.");
+      } else {
+        alert("🚨 Signalement envoyé avec succès ! L'administration va procéder à la vérification.");
+        setShowReportForm(false);
+        setReportReason('');
+        setReportDetails('');
+      }
+    } catch (err: any) {
+      console.error(err);
+      alert("Erreur de connexion.");
+    }
+  };
 
   const isSelf = currentUser && currentUser.id === user.id;
   const isFollowing = currentUser?.following?.includes(user.id);
@@ -117,6 +157,94 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ onNaviga
       onNavigate('profile', { target: 'messages' });
     }
   };
+
+  if (showReportForm) {
+    return (
+      <div 
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(0,0,0,0.6)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '1rem'
+        }}
+        onClick={() => { setShowReportForm(false); setSelectedPublicUserId(null); }}
+      >
+        <div 
+          className="glass animate-fade-in"
+          style={{
+            maxWidth: '450px',
+            width: '100%',
+            background: 'var(--light-card)',
+            borderRadius: 'var(--radius-md)',
+            padding: '2rem',
+            border: '1px solid var(--border-light)',
+            boxShadow: 'var(--shadow-lg)',
+            position: 'relative'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 800, color: '#dc2626', marginBottom: '1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+            🚨 Signaler {user.name}
+          </h2>
+          <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', marginBottom: '1.25rem', lineHeight: '1.4' }}>
+            Veuillez indiquer la raison précise pour laquelle vous signalez cet utilisateur. Votre signalement sera transmis directement à l'administration de Sunu Yité pour vérification.
+          </p>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', textAlign: 'left' }}>
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold' }}>Sélectionnez un motif :</label>
+            <select
+              className="premium-card"
+              style={{ padding: '0.5rem', fontSize: '0.85rem', width: '100%' }}
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+            >
+              <option value="">-- Choisir un motif --</option>
+              <option value="Fraude / Escroquerie (Tontine / Cagnotte)">💸 Fraude / Escroquerie (Tontine / Cagnotte)</option>
+              <option value="Usurpation d'identité / Faux profil">🎭 Usurpation d'identité / Faux profil</option>
+              <option value="Harcèlement / Comportement abusif">🗣️ Harcèlement / Comportement abusif</option>
+              <option value="Spam / Contenu inapproprié">Spam / Contenu inapproprié</option>
+              <option value="Autre raison (à préciser ci-dessous)">Autre raison (à préciser ci-dessous)</option>
+            </select>
+
+            <label style={{ fontSize: '0.8rem', fontWeight: 'bold', marginTop: '0.5rem' }}>Détails / Précisions :</label>
+            <textarea
+              rows={3}
+              placeholder="Décrivez en quelques mots pourquoi ce profil pose problème..."
+              className="premium-card"
+              style={{ width: '100%', padding: '0.6rem', fontSize: '0.85rem', resize: 'none' }}
+              value={reportDetails}
+              onChange={(e) => setReportDetails(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem', borderTop: '1px solid var(--border-light)', paddingTop: '1.25rem' }}>
+            <button
+              className="btn btn-outline"
+              style={{ flex: 1, padding: '0.6rem', fontSize: '0.85rem' }}
+              onClick={() => { setShowReportForm(false); setReportReason(''); setReportDetails(''); }}
+            >
+              Annuler
+            </button>
+            <button
+              className="btn"
+              style={{ flex: 1.5, padding: '0.6rem', fontSize: '0.85rem', background: '#dc2626', color: 'white' }}
+              onClick={handleSendReport}
+            >
+              Envoyer le signalement
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div 
@@ -295,6 +423,17 @@ export const PublicProfileModal: React.FC<PublicProfileModalProps> = ({ onNaviga
           <p style={{ margin: '0.75rem 0 0', fontSize: '0.75rem', color: 'var(--text-secondary-light)', textAlign: 'center', fontStyle: 'italic' }}>
             Pour envoyer un message, vous devez suivre cet utilisateur ou être suivi par lui.
           </p>
+        )}
+
+        {currentUser && !isSelf && (
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: '0.4rem', fontSize: '0.75rem', color: '#dc2626', width: '100%', marginTop: '0.75rem', fontWeight: 'bold' }}
+            onClick={() => setShowReportForm(true)}
+          >
+            🚨 Signaler cet utilisateur
+          </button>
         )}
       </div>
     </div>

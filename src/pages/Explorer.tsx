@@ -9,17 +9,22 @@ interface ExplorerProps {
 }
 
 export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, volunteerMissions, tontines } = useApp();
+  const { petitions, cagnottes, volunteerMissions, tontines, usersList } = useApp();
   const { t } = useLanguage();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'petition' | 'cagnotte' | 'tontine' | 'benevolat'>('all');
 
+  const getOrganizerTrustScore = (email: string) => {
+    const found = usersList.find(u => u.email === email);
+    return found ? found.trustScore : 100;
+  };
+
   // Filter lists
-  const activePetitions = petitions.filter(p => p.status === 'active');
-  const activeCagnottes = cagnottes.filter(c => c.status === 'active');
+  const activePetitions = petitions.filter(p => p.status === 'active' && (!p.organizer || p.organizer.trustScore > 0));
+  const activeCagnottes = cagnottes.filter(c => c.status === 'active' && (!c.organizer || c.organizer.trustScore > 0));
   const activeMissions = volunteerMissions.filter(m => m.status === 'active');
-  const activeTontines = tontines.filter(t => t.type !== 'private' && (t.status === 'active' || t.status === 'recruiting' || !t.status));
+  const activeTontines = tontines.filter(t => t.type !== 'private' && (t.status === 'active' || t.status === 'recruiting' || !t.status) && (!t.organizer || getOrganizerTrustScore(t.organizer.email) > 0));
 
   // Combine items for unified list
   const allItems = [

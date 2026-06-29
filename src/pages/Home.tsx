@@ -34,8 +34,8 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
     message: ''
   });
   
-  const activePetitions = petitions.filter(p => p.status === 'active');
-  const activeCagnottes = cagnottes.filter(c => c.status === 'active');
+  const activePetitions = petitions.filter(p => p.status === 'active' && (!p.organizer || p.organizer.trustScore > 0));
+  const activeCagnottes = cagnottes.filter(c => c.status === 'active' && (!c.organizer || c.organizer.trustScore > 0));
 
   // Carousel states
   const [carouselIndex, setCarouselIndex] = useState(0);

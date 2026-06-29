@@ -677,13 +677,48 @@ const MainLayout: React.FC = () => {
     }
   };
 
-  if (currentUser && currentUser.trustScore <= 0 && currentUser.role !== 'admin') {
+  let isBanned = false;
+  let isSuspended = false;
+  let suspensionEndDate: Date | null = null;
+  let blockReasonText = "";
+
+  if (currentUser && currentUser.role !== 'admin') {
+    if (currentUser.trustScore <= 0) {
+      if (currentUser.kycRejectReason && currentUser.kycRejectReason.startsWith('SuspendedUntil:')) {
+        const parts = currentUser.kycRejectReason.split(';');
+        const dateStr = parts[0].replace('SuspendedUntil:', '');
+        const reasonPart = parts.find(p => p.startsWith('Reason:'));
+        const reason = reasonPart ? reasonPart.replace('Reason:', '') : '';
+        
+        suspensionEndDate = new Date(dateStr);
+        const now = new Date();
+        
+        if (suspensionEndDate > now) {
+          isSuspended = true;
+          blockReasonText = reason || "Non-respect de la charte de notre communauté.";
+        }
+      } else {
+        isBanned = true;
+        blockReasonText = currentUser.kycRejectReason === 'BannedPermanently' 
+          ? "Suspicion d'activité frauduleuse ou de non-respect de nos règles communautaires." 
+          : (currentUser.kycRejectReason || "Suspicion d'activité frauduleuse.");
+      }
+    }
+  }
+
+  if (isBanned || isSuspended) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '2rem', textAlign: 'center', background: 'var(--light)', color: 'var(--text-primary-light)' }}>
-        <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚫</span>
-        <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--danger)' }}>Accès Refusé / Compte Suspendu</h1>
+        <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>{isBanned ? '🚫' : '⏳'}</span>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--danger)' }}>
+          {isBanned ? 'Compte Banni Définitivement' : 'Compte Suspendu Temporairement'}
+        </h1>
         <p style={{ maxWidth: '500px', marginTop: '1rem', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: '1.5' }}>
-          Votre compte a été suspendu définitivement par l'administration de Sunu Yité suite à une suspicion de fraude, d'activité malveillante ou de non-respect de la charte de notre communauté.
+          {isBanned ? (
+            `Votre compte a été banni définitivement par l'administration de Sunu Yité. Motif : ${blockReasonText}`
+          ) : (
+            `Votre compte a été suspendu par l'administration jusqu'au ${suspensionEndDate?.toLocaleString('fr-FR')}. Motif : ${blockReasonText}`
+          )}
         </p>
         <button 
           className="btn btn-primary" 

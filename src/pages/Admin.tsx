@@ -70,6 +70,39 @@ export const Admin: React.FC = () => {
     }
   }, [currentUser]);
 
+  const parseReportMessage = (msgText: string) => {
+    const result = {
+      reporterId: '',
+      reportedId: '',
+      reportedName: '',
+      reason: ''
+    };
+
+    if (!msgText || !msgText.startsWith('[REPORT]')) return result;
+
+    const body = msgText.replace('[REPORT] ', '').replace('[REPORT]', '');
+    const parts = body.split(';');
+    for (const part of parts) {
+      if (part.startsWith('ReporterID:')) result.reporterId = part.replace('ReporterID:', '').trim();
+      else if (part.startsWith('ReportedID:')) result.reportedId = part.replace('ReportedID:', '').trim();
+      else if (part.startsWith('ReportedName:')) result.reportedName = part.replace('ReportedName:', '').trim();
+      else if (part.startsWith('Reason:')) result.reason = part.replace('Reason:', '').trim();
+    }
+
+    return result;
+  };
+
+  const handleResolveReport = async (msgId: string) => {
+    const { error } = await supabase.from('contact_messages').delete().eq('id', msgId);
+    if (error) {
+      console.error("Error deleting report:", error.message);
+      alert("Erreur lors de la suppression du signalement.");
+    } else {
+      setContactMessages(prev => prev.filter(m => m.id !== msgId));
+      alert("Signalement traité et retiré.");
+    }
+  };
+
   useEffect(() => {
     if (expandedUserId) {
       loadUserKycDocs(expandedUserId);
@@ -404,6 +437,9 @@ export const Admin: React.FC = () => {
       </div>
     );
   };
+
+  const reports = contactMessages.filter(msg => msg.message && msg.message.startsWith('[REPORT]'));
+  const regularMessages = contactMessages.filter(msg => !msg.message || !msg.message.startsWith('[REPORT]'));
 
   return (
     <>
@@ -1480,6 +1516,26 @@ export const Admin: React.FC = () => {
                         <span style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
                           KYC: {getStatusBadge(user.verificationStatus)}
                         </span>
+                        {user.trustScore <= 0 && (
+                          <>
+                            <span style={{ color: '#d1d5db' }}>|</span>
+                            {user.kycRejectReason && user.kycRejectReason.startsWith('SuspendedUntil:') ? (() => {
+                              const parts = user.kycRejectReason.split(';');
+                              const dateStr = parts[0].replace('SuspendedUntil:', '');
+                              const untilDate = new Date(dateStr);
+                              const isOver = untilDate < new Date();
+                              return (
+                                <span style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', background: isOver ? 'rgba(16,185,129,0.1)' : 'rgba(245,158,11,0.1)', color: isOver ? '#10b981' : '#d97706', fontWeight: 'bold' }}>
+                                  {isOver ? '🔓 Suspension Expirée' : `⏳ Suspendu jusqu'au ${untilDate.toLocaleDateString('fr-FR')}`}
+                                </span>
+                              );
+                            })() : (
+                              <span style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem', borderRadius: '4px', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', fontWeight: 'bold' }}>
+                                🚫 Banni Définitivement
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1726,23 +1782,20 @@ export const Admin: React.FC = () => {
                         />
                       </div>
 
-                      {/* Bloquer/Bannir button */}
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', justifyContent: 'center' }}>
+                      {/* Bloquer/Bannir/Suspendre controls */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', justifyContent: 'center', minWidth: '220px' }}>
                         <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary-light)' }}>Sécurité du Compte</span>
-                        <button
-                          type="button"
-                          className="btn"
-                          style={{ 
-                            padding: '0.45rem 1rem', 
-                            fontSize: '0.8rem', 
-                            background: user.trustScore <= 0 ? 'var(--primary)' : '#dc2626', 
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: 'var(--radius-sm)',
-                            cursor: 'pointer'
-                          }}
-                          onClick={async () => {
-                            if (user.trustScore <= 0) {
+                        
+                        {user.trustScore <= 0 ? (
+                          <button
+                            type="button"
+                            className="btn btn-primary"
+                            style={{ 
+                              padding: '0.45rem 1rem', 
+                              fontSize: '0.8rem', 
+                              width: '100%'
+                            }}
+                            onClick={async () => {
                               if (confirm(`Débloquer l'utilisateur ${user.name} ?`)) {
                                 await adminUpdateUser(user.id, { 
                                   trustScore: 50,
@@ -1751,20 +1804,83 @@ export const Admin: React.FC = () => {
                                 });
                                 alert(`L'utilisateur ${user.name} a été débloqué.`);
                               }
-                            } else {
-                              if (confirm(`Êtes-vous sûr de vouloir bloquer définitivement l'utilisateur ${user.name} ?`)) {
-                                await adminUpdateUser(user.id, { 
-                                  trustScore: 0, 
-                                  verificationStatus: 'rejected',
-                                  kycRejectReason: 'Compte suspendu pour suspicion de fraude.'
-                                });
-                                alert(`L'utilisateur ${user.name} a été bloqué définitivement.`);
-                              }
-                            }
-                          }}
-                        >
-                          {user.trustScore <= 0 ? '🔓 Débloquer l\'utilisateur' : '🚫 Bloquer définitivement'}
-                        </button>
+                            }}
+                          >
+                            🔓 Débloquer l'utilisateur
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', width: '100%' }}>
+                            {/* Block permanently */}
+                            <button
+                              type="button"
+                              className="btn"
+                              style={{ 
+                                padding: '0.45rem 1rem', 
+                                fontSize: '0.8rem', 
+                                background: '#dc2626',
+                                color: 'white',
+                                width: '100%',
+                                border: 'none',
+                                borderRadius: 'var(--radius-sm)'
+                              }}
+                              onClick={async () => {
+                                if (confirm(`Êtes-vous sûr de vouloir bloquer définitivement l'utilisateur ${user.name} ?`)) {
+                                  await adminUpdateUser(user.id, { 
+                                    trustScore: 0, 
+                                    verificationStatus: 'rejected',
+                                    kycRejectReason: 'BannedPermanently'
+                                  });
+                                  alert(`L'utilisateur ${user.name} a été bloqué définitivement.`);
+                                }
+                              }}
+                            >
+                              🚫 Bloquer définitivement
+                            </button>
+
+                            {/* Suspend temporarily */}
+                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                              <select
+                                id={`suspension-duration-${user.id}`}
+                                className="premium-card"
+                                style={{ padding: '0.4rem', fontSize: '0.75rem', flex: 1, minWidth: '100px' }}
+                                defaultValue="7"
+                              >
+                                <option value="3">3 jours</option>
+                                <option value="7">7 jours</option>
+                                <option value="15">15 jours</option>
+                                <option value="30">30 jours</option>
+                                <option value="90">90 jours</option>
+                              </select>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                style={{ 
+                                  padding: '0.4rem 0.75rem', 
+                                  fontSize: '0.75rem',
+                                  borderColor: 'var(--warning)',
+                                  color: '#d97706'
+                                }}
+                                onClick={async () => {
+                                  const selectEl = document.getElementById(`suspension-duration-${user.id}`) as HTMLSelectElement;
+                                  const days = Number(selectEl?.value || '7');
+                                  const expiryDate = new Date();
+                                  expiryDate.setDate(expiryDate.getDate() + days);
+                                  
+                                  if (confirm(`Suspendre l'utilisateur ${user.name} pour une durée de ${days} jours (jusqu'au ${expiryDate.toLocaleDateString('fr-FR')}) ?`)) {
+                                    await adminUpdateUser(user.id, {
+                                      trustScore: 0,
+                                      verificationStatus: 'rejected',
+                                      kycRejectReason: `SuspendedUntil:${expiryDate.toISOString()};Reason:Suspension temporaire décidée par l'admin.`
+                                    });
+                                    alert(`L'utilisateur ${user.name} a été suspendu pour ${days} jours.`);
+                                  }
+                                }}
+                              >
+                                ⏳ Suspendre
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
 
                     </div>
@@ -1776,13 +1892,140 @@ export const Admin: React.FC = () => {
         </div>
       </section>
 
+      {/* 3.5. SIGNALEMENTS D'UTILISATEURS PANEL */}
+      <section style={{ marginTop: '3rem' }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem', color: 'var(--danger)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>🚨 Signalements d'utilisateurs suspectés ({reports.length})</span>
+        </h2>
+        
+        {messagesLoading ? (
+          <div style={{ textAlign: 'center', padding: '2rem' }}>Chargement des signalements...</div>
+        ) : reports.length === 0 ? (
+          <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)', border: '1px dashed var(--border-light)' }}>
+            <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
+              Aucun signalement d'utilisateur en attente de traitement.
+            </p>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            {reports.map((msg) => {
+              const report = parseReportMessage(msg.message);
+              return (
+                <div 
+                  key={msg.id} 
+                  className="premium-card animate-fade-in" 
+                  style={{ 
+                    background: 'var(--light-card)', 
+                    borderLeft: '4px solid #dc2626', 
+                    padding: '1.25rem',
+                    textAlign: 'left',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.5rem' }}>
+                    <div>
+                      <strong style={{ fontSize: '0.95rem', display: 'block' }}>
+                        👤 Signalé : <span style={{ color: 'var(--danger)', fontWeight: 'bold' }}>{report.reportedName}</span> (ID: {report.reportedId})
+                      </strong>
+                      <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
+                        Signaleur : <strong>{msg.name}</strong> ({msg.email})
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <span style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+                        {new Date(msg.created_at).toLocaleString('fr-FR')}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ fontSize: '0.85rem', color: 'var(--text-primary-light)', padding: '0.75rem', background: 'rgba(0,0,0,0.02)', borderRadius: '4px', marginBottom: '1rem', border: '1px solid var(--border-light)' }}>
+                    <strong>Raison du signalement :</strong>
+                    <p style={{ margin: '0.25rem 0 0 0', lineHeight: 1.4 }}>{report.reason}</p>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    {/* Action: Bloquer Définitivement */}
+                    <button
+                      className="btn"
+                      style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                      onClick={async () => {
+                        if (confirm(`Bloquer définitivement ${report.reportedName} et clore ce signalement ?`)) {
+                          await adminUpdateUser(report.reportedId, {
+                            trustScore: 0,
+                            verificationStatus: 'rejected',
+                            kycRejectReason: 'BannedPermanently'
+                          });
+                          await handleResolveReport(msg.id);
+                        }
+                      }}
+                    >
+                      🚫 Bloquer définitivement
+                    </button>
+
+                    {/* Action: Suspendre */}
+                    <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                      <select
+                        id={`report-suspension-duration-${msg.id}`}
+                        className="premium-card"
+                        style={{ padding: '0.35rem', fontSize: '0.8rem' }}
+                        defaultValue="7"
+                      >
+                        <option value="3">3 jours</option>
+                        <option value="7">7 jours</option>
+                        <option value="15">15 jours</option>
+                        <option value="30">30 jours</option>
+                        <option value="90">90 jours</option>
+                      </select>
+                      <button
+                        className="btn btn-outline"
+                        style={{ padding: '0.35rem 0.75rem', fontSize: '0.8rem', color: '#d97706', borderColor: 'var(--warning)' }}
+                        onClick={async () => {
+                          const selectEl = document.getElementById(`report-suspension-duration-${msg.id}`) as HTMLSelectElement;
+                          const days = Number(selectEl?.value || '7');
+                          const expiryDate = new Date();
+                          expiryDate.setDate(expiryDate.getDate() + days);
+                          
+                          if (confirm(`Suspendre ${report.reportedName} pour ${days} jours et clore ce signalement ?`)) {
+                            await adminUpdateUser(report.reportedId, {
+                              trustScore: 0,
+                              verificationStatus: 'rejected',
+                              kycRejectReason: `SuspendedUntil:${expiryDate.toISOString()};Reason:${report.reason}`
+                            });
+                            await handleResolveReport(msg.id);
+                          }
+                        }}
+                      >
+                        ⏳ Suspendre
+                      </button>
+                    </div>
+
+                    {/* Action: Rejeter le signalement / Laisser continuer */}
+                    <button
+                      className="btn btn-outline"
+                      style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', marginLeft: 'auto' }}
+                      onClick={async () => {
+                        if (confirm(`Rejeter le signalement contre ${report.reportedName} (l'utilisateur pourra continuer ses activités) ?`)) {
+                          await handleResolveReport(msg.id);
+                        }
+                      }}
+                    >
+                      ✅ Laisser continuer (Ignorer)
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
       {/* 4. CONTACT MESSAGES PANEL */}
       <section style={{ marginTop: '3rem' }}>
         <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>{t('admin.received_messages')}</h2>
         
         {messagesLoading ? (
           <div style={{ textAlign: 'center', padding: '2rem' }}>Chargement des messages...</div>
-        ) : contactMessages.length === 0 ? (
+        ) : regularMessages.length === 0 ? (
           <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)' }}>
             <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
               Aucun message de contact reçu pour le moment.
@@ -1790,7 +2033,7 @@ export const Admin: React.FC = () => {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {contactMessages.map((msg) => (
+            {regularMessages.map((msg) => (
               <div 
                 key={msg.id} 
                 className="premium-card" 
