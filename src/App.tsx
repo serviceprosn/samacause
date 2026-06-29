@@ -677,6 +677,25 @@ const MainLayout: React.FC = () => {
     }
   };
 
+  if (currentUser && currentUser.trustScore <= 0 && currentUser.role !== 'admin') {
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', padding: '2rem', textAlign: 'center', background: 'var(--light)', color: 'var(--text-primary-light)' }}>
+        <span style={{ fontSize: '4rem', marginBottom: '1rem' }}>🚫</span>
+        <h1 style={{ fontSize: '2rem', fontWeight: 800, color: 'var(--danger)' }}>Accès Refusé / Compte Suspendu</h1>
+        <p style={{ maxWidth: '500px', marginTop: '1rem', color: 'var(--text-secondary-light)', fontSize: '0.95rem', lineHeight: '1.5' }}>
+          Votre compte a été suspendu définitivement par l'administration de Sunu Yité suite à une suspicion de fraude, d'activité malveillante ou de non-respect de la charte de notre communauté.
+        </p>
+        <button 
+          className="btn btn-primary" 
+          style={{ marginTop: '2rem', padding: '0.6rem 2rem', fontSize: '0.9rem' }} 
+          onClick={() => logout()}
+        >
+          Se déconnecter
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* PWA Splash Screen */}

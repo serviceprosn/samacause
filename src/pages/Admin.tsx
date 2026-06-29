@@ -1726,6 +1726,47 @@ export const Admin: React.FC = () => {
                         />
                       </div>
 
+                      {/* Bloquer/Bannir button */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem', justifyContent: 'center' }}>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary-light)' }}>Sécurité du Compte</span>
+                        <button
+                          type="button"
+                          className="btn"
+                          style={{ 
+                            padding: '0.45rem 1rem', 
+                            fontSize: '0.8rem', 
+                            background: user.trustScore <= 0 ? 'var(--primary)' : '#dc2626', 
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: 'var(--radius-sm)',
+                            cursor: 'pointer'
+                          }}
+                          onClick={async () => {
+                            if (user.trustScore <= 0) {
+                              if (confirm(`Débloquer l'utilisateur ${user.name} ?`)) {
+                                await adminUpdateUser(user.id, { 
+                                  trustScore: 50,
+                                  verificationStatus: 'none',
+                                  kycRejectReason: ''
+                                });
+                                alert(`L'utilisateur ${user.name} a été débloqué.`);
+                              }
+                            } else {
+                              if (confirm(`Êtes-vous sûr de vouloir bloquer définitivement l'utilisateur ${user.name} ?`)) {
+                                await adminUpdateUser(user.id, { 
+                                  trustScore: 0, 
+                                  verificationStatus: 'rejected',
+                                  kycRejectReason: 'Compte suspendu pour suspicion de fraude.'
+                                });
+                                alert(`L'utilisateur ${user.name} a été bloqué définitivement.`);
+                              }
+                            }
+                          }}
+                        >
+                          {user.trustScore <= 0 ? '🔓 Débloquer l\'utilisateur' : '🚫 Bloquer définitivement'}
+                        </button>
+                      </div>
+
                     </div>
                   </div>
                 )}
