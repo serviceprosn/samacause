@@ -118,16 +118,24 @@ export const Auth: React.FC<AuthProps> = ({ onSuccess }) => {
         }
 
         // 3. Uniqueness checks on local usersList
-        const emailExists = usersList.some(u => u.email && u.email.toLowerCase() === email.toLowerCase());
-        if (emailExists) {
-          setError(t('auth.error.email_exists'));
+        const existingUserByEmail = usersList.find(u => u.email && u.email.toLowerCase() === email.toLowerCase());
+        if (existingUserByEmail) {
+          if (existingUserByEmail.trustScore <= 0 && existingUserByEmail.kycRejectReason === 'BannedPermanently') {
+            setError("Cet e-mail a été banni définitivement de la plateforme.");
+          } else {
+            setError(t('auth.error.email_exists'));
+          }
           setLoading(false);
           return;
         }
 
-        const phoneExists = usersList.some(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone);
-        if (phoneExists) {
-          setError(t('auth.error.phone_exists'));
+        const existingUserByPhone = usersList.find(u => u.phone && u.phone.replace(/[\s-]/g, '') === cleanPhone);
+        if (existingUserByPhone) {
+          if (existingUserByPhone.trustScore <= 0 && existingUserByPhone.kycRejectReason === 'BannedPermanently') {
+            setError("Ce numéro de téléphone a été banni définitivement de la plateforme.");
+          } else {
+            setError(t('auth.error.phone_exists'));
+          }
           setLoading(false);
           return;
         }

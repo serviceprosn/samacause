@@ -3032,6 +3032,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (updates.verificationStatus !== undefined) supabaseUpdates.verification_status = updates.verificationStatus;
       if (updates.availableFunds !== undefined) supabaseUpdates.funds_available = updates.availableFunds;
       if (updates.kycRejectReason !== undefined) supabaseUpdates.kyc_reject_reason = updates.kycRejectReason;
+      
+      // Sanitization fields
+      if (updates.name !== undefined) supabaseUpdates.name = updates.name;
+      if (updates.avatar !== undefined) supabaseUpdates.avatar = updates.avatar;
+      if (updates.bio !== undefined) supabaseUpdates.bio = updates.bio;
+      if (updates.address !== undefined) supabaseUpdates.address = updates.address;
+      if (updates.country !== undefined) supabaseUpdates.country = updates.country;
+      if (updates.region !== undefined) supabaseUpdates.region = updates.region;
+      if (updates.idCardRecto !== undefined) supabaseUpdates.id_card_recto = updates.idCardRecto;
+      if (updates.idCardVerso !== undefined) supabaseUpdates.id_card_verso = updates.idCardVerso;
+      if (updates.selfie !== undefined) supabaseUpdates.selfie = updates.selfie;
+      if (updates.cniNumber !== undefined) supabaseUpdates.cni_number = updates.cniNumber;
 
       const { error } = await supabase
         .from('profiles')

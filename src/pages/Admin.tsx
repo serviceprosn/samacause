@@ -1448,6 +1448,7 @@ export const Admin: React.FC = () => {
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {usersList.filter(user => {
+            if (user.kycRejectReason === 'BannedPermanently') return false;
             if (kycFilter === 'all') return true;
             return user.verificationStatus === kycFilter;
           }).map((user) => {
@@ -1824,13 +1825,23 @@ export const Admin: React.FC = () => {
                                 borderRadius: 'var(--radius-sm)'
                               }}
                               onClick={async () => {
-                                if (confirm(`Êtes-vous sûr de vouloir bloquer définitivement l'utilisateur ${user.name} ?`)) {
+                                if (confirm(`Êtes-vous sûr de vouloir bloquer définitivement l'utilisateur ${user.name} ? Toutes ses coordonnées personnelles seront purgées de la base de données.`)) {
                                   await adminUpdateUser(user.id, { 
+                                    name: 'Utilisateur Banni',
+                                    avatar: '',
+                                    bio: 'Ce compte a été banni définitivement de la plateforme.',
                                     trustScore: 0, 
                                     verificationStatus: 'rejected',
-                                    kycRejectReason: 'BannedPermanently'
+                                    kycRejectReason: 'BannedPermanently',
+                                    address: '',
+                                    country: '',
+                                    region: '',
+                                    idCardRecto: '',
+                                    idCardVerso: '',
+                                    selfie: '',
+                                    cniNumber: ''
                                   });
-                                  alert(`L'utilisateur ${user.name} a été bloqué définitivement.`);
+                                  alert(`L'utilisateur a été bloqué définitivement et ses données personnelles ont été supprimées.`);
                                 }
                               }}
                             >
@@ -1949,11 +1960,21 @@ export const Admin: React.FC = () => {
                       className="btn"
                       style={{ padding: '0.4rem 1rem', fontSize: '0.8rem', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                       onClick={async () => {
-                        if (confirm(`Bloquer définitivement ${report.reportedName} et clore ce signalement ?`)) {
+                        if (confirm(`Bloquer définitivement ${report.reportedName} et clore ce signalement ? Toutes ses coordonnées personnelles seront purgées de la base de données.`)) {
                           await adminUpdateUser(report.reportedId, {
+                            name: 'Utilisateur Banni',
+                            avatar: '',
+                            bio: 'Ce compte a été banni définitivement de la plateforme.',
                             trustScore: 0,
                             verificationStatus: 'rejected',
-                            kycRejectReason: 'BannedPermanently'
+                            kycRejectReason: 'BannedPermanently',
+                            address: '',
+                            country: '',
+                            region: '',
+                            idCardRecto: '',
+                            idCardVerso: '',
+                            selfie: '',
+                            cniNumber: ''
                           });
                           await handleResolveReport(msg.id);
                         }
