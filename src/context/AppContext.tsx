@@ -310,7 +310,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     ];
   });
 
-  const syncUserSession = async (session: any) => {
+  const syncUserSession = async (session: any): Promise<User | null> => {
     if (session && session.user) {
       try {
         const { data: profile, error: selectError } = await supabase
@@ -371,7 +371,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             // A network or DB connection error occurred. DO NOT clear the currentUser session, keep what is cached.
             console.error("❌ Erreur de connexion réseau lors de la récupération du profil Supabase :", selectError.message);
           }
-          return;
+          return null;
         }
 
         let matchedUser: User;
@@ -437,6 +437,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             kycRejectReason: profile.kyc_reject_reason || ''
           };
           setCurrentUser(matchedUser);
+          return matchedUser;
         }
       } catch (err) {
         console.error("Erreur lors de la synchronisation de la session :", err);
@@ -444,17 +445,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     } else {
       setCurrentUser(null);
     }
+    return null;
   };
 
-  // DETECT AND CONNECT SUPABASE
-  useEffect(() => {
-    const isConfigured = true;
-    setUseSupabase(true);
-    
-    if (isConfigured) {
-      console.log('🔌 Connexion active à Supabase (base en ligne) !');
-      
-      const loadPetitions = async () => {
+  // Supabase Data Loaders
+  const loadPetitions = async () => {
         const { data, error } = await supabase
           .from('petitions')
           .select('id, title, description, cover_image, category, signatures_count, signatures_target, recipient, location, date_limit, created_at, status, organizer, updates, signers, boosted, boost_level, viewed_by_admin, rejection_feedback, image_before, image_after, gallery')
@@ -612,10 +607,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
-      const loadDirectMessages = async () => {
+      const loadDirectMessages = async (userId?: string) => {
+        if (!userId) {
+          setDirectMessages([]);
+          return;
+        }
         const { data, error } = await supabase
           .from('direct_messages')
-          .select('*');
+          .select('*')
+          .or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
         if (!error && data) {
           setDirectMessages(data.map((item: any) => ({
             id: item.id,
@@ -630,31 +630,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
-      const loadProfiles = async () => {
+      const loadProfiles = async (isAdmin = false) => {
+        const selectFields = isAdmin 
+          ? 'id, name, email, phone, role, verified, avatar, trust_score, badges, bio, address, country, region, verification_status, cni_number, dob, account_type, following, followers, created_at, funds_available, kyc_reject_reason'
+          : 'id, name, role, verified, avatar, trust_score, badges, bio, country, region, account_type';
+
         const { data, error } = await supabase
           .from('profiles')
-          .select('id, name, email, phone, role, verified, avatar, trust_score, badges, bio, address, country, region, verification_status, cni_number, dob, account_type, following, followers, created_at, funds_available, kyc_reject_reason');
+          .select(selectFields);
         if (!error && data) {
           setUsersList(data.map((p: any) => ({
             id: p.id,
             name: p.name,
-            email: p.email,
+            email: p.email || '',
             phone: p.phone || '',
             role: p.role || 'citizen',
             verified: p.verified || false,
             avatar: p.avatar || '',
             trustScore: p.trust_score || 50,
             badges: p.badges || [],
-            bio: p.bio,
-            address: p.address,
-            country: p.country,
-            region: p.region,
+            bio: p.bio || '',
+            address: p.address || '',
+            country: p.country || '',
+            region: p.region || '',
             idCardRecto: '',
             idCardVerso: '',
             selfie: '',
             verificationStatus: p.verification_status || 'none',
-            cniNumber: p.cni_number,
-            dob: p.dob,
+            cniNumber: p.cni_number || '',
+            dob: p.dob || '',
             following: p.following || [],
             followers: p.followers || [],
             availableFunds: Number(p.funds_available || 0),
@@ -663,11 +667,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
-      const loadWithdrawalRequests = async () => {
-        const { data, error } = await supabase
-          .from('withdrawal_requests')
-          .select('*')
-          .order('created_at', { ascending: false });
+      const loadWithdrawalRequests = async (userId?: string, isAdmin = false) => {
+        if (!userId) {
+          setWithdrawalRequests([]);
+          return [];
+        }
+        let query = supabase.from('withdrawal_requests').select('*');
+        if (!isAdmin) {
+          query = query.eq('user_id', userId);
+        }
+        const { data, error } = await query.order('created_at', { ascending: false });
         if (!error && data) {
           const mapped = data.map((item: any) => ({
             id: item.id,
@@ -689,8 +698,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         try {
           // 1. Recover auth session and sync user profile first
           const { data: { session } } = await supabase.auth.getSession();
+          let isUserAdmin = false;
+          let sessionUserId = '';
           if (session) {
-            await syncUserSession(session);
+            const profile = await syncUserSession(session);
+            isUserAdmin = profile?.role === 'admin' || session.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            sessionUserId = session.user.id;
           }
 
           // 2. Fetch ALL database tables in parallel
@@ -708,10 +721,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             loadCagnottes(),
             loadVolunteerMissions(),
             loadTontines(),
-            loadProfiles(),
+            loadProfiles(isUserAdmin),
             loadVolunteerApplications(),
-            loadDirectMessages(),
-            loadWithdrawalRequests()
+            loadDirectMessages(sessionUserId),
+            loadWithdrawalRequests(sessionUserId, isUserAdmin)
           ]);
 
           // 3. Preload ALL active cover image assets to guarantee 0ms loading layout shifts
@@ -775,9 +788,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
-      loadAllData();
+      // DETECT AND CONNECT SUPABASE
+      useEffect(() => {
+        setUseSupabase(true);
 
-      // Realtime subscriptions
+        // Realtime subscriptions
       const petitionsSub = supabase
         .channel('realtime:petitions')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'petitions' }, (payload: any) => {
@@ -855,14 +870,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const directMessagesSub = supabase
         .channel('realtime:direct_messages')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
-          loadDirectMessages();
+          loadDirectMessages(currentUserRef.current?.id);
         })
         .subscribe();
 
       const profilesSub = supabase
         .channel('realtime:profiles')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, (payload: any) => {
-          loadProfiles();
+          loadProfiles(currentUserRef.current?.role === 'admin');
           if (payload.new) {
             const p = payload.new;
             setCurrentUser(prev => {
@@ -899,7 +914,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const withdrawalRequestsSub = supabase
         .channel('realtime:withdrawal_requests')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'withdrawal_requests' }, () => {
-          loadWithdrawalRequests();
+          loadWithdrawalRequests(currentUserRef.current?.id, currentUserRef.current?.role === 'admin');
         })
         .subscribe();
 
@@ -913,7 +928,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.removeChannel(profilesSub);
         supabase.removeChannel(withdrawalRequestsSub);
       };
-    }
   }, []);
 
   // Listen to Supabase Auth State changes for secure session recovery
@@ -923,12 +937,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (isConfigured) {
       // Get initial session
       supabase.auth.getSession().then(({ data: { session } }) => {
-        syncUserSession(session);
+        syncUserSession(session).then(() => {
+          loadAllData();
+        });
       });
 
       // Listen for auth events
       const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        syncUserSession(session);
+        syncUserSession(session).then(() => {
+          loadAllData();
+        });
       });
 
       return () => {
