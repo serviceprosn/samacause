@@ -26,6 +26,8 @@ interface AppContextType {
   setIsMobileView: (val: boolean) => void;
   notifications: string[];
   addNotification: (msg: string) => void;
+  notificationPermission: NotificationPermission;
+  requestNotificationPermission: () => Promise<boolean>;
   
   // Public Profile Viewer & Chat system between users
   selectedPublicUserId: string | null;
@@ -283,6 +285,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return false;
   });
   const [notifications, setNotifications] = useState<string[]>([]);
+  const [notificationPermission, setNotificationPermission] = useState<NotificationPermission>(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      return Notification.permission;
+    }
+    return 'default';
+  });
+
+  const requestNotificationPermission = async (): Promise<boolean> => {
+    if (typeof window === 'undefined' || !('Notification' in window)) {
+      addNotification("ℹ️ Votre navigateur ne supporte pas les notifications push.");
+      return false;
+    }
+    try {
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === 'granted') {
+        addNotification("🔔 Notifications activées avec succès !");
+        try {
+          new Notification("Sunu Yité", {
+            body: "Les notifications sont maintenant activées sur cet appareil !",
+            icon: "/logo.png"
+          });
+        } catch (e) {
+          console.warn("Could not fire test notification:", e);
+        }
+        return true;
+      } else if (permission === 'denied') {
+        addNotification("⚠️ Notifications bloquées. Veuillez les autoriser dans les paramètres de votre navigateur.");
+        return false;
+      }
+    } catch (err) {
+      console.error("Error requesting notification permission:", err);
+    }
+    return false;
+  };
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
 
   // PWA Install prompt state & listener (Disabled)
@@ -3586,6 +3623,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsMobileView,
       notifications,
       addNotification,
+      notificationPermission,
+      requestNotificationPermission,
       withdrawalRequests,
       submitWithdrawalRequest,
       submitTontinePayoutRequest,
