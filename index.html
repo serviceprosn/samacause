@@ -9,6 +9,11 @@
     
     <title>Sunu Yité | Mobilisation Citoyenne au Sénégal</title>
     <script>
+      // Redirect vercel.app to custom domain sunuyite.fun
+      if (window.location.hostname === 'sunuyite.vercel.app') {
+        window.location.replace('https://sunuyite.fun' + window.location.pathname + window.location.search + window.location.hash);
+      }
+
       // Force unregistration of old PWA Service Workers
       if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
