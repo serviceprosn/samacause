@@ -83,7 +83,15 @@ export const Admin: React.FC = () => {
         });
 
       if (error) {
-        alert("Erreur lors du téléversement du son : " + error.message);
+        if (error.message.includes('row-level security') || error.message.includes('policy')) {
+          alert(
+            "⚠️ Règle de sécurité (RLS) bloquée dans Supabase.\n\n" +
+            "Pour autoriser le téléversement du son global, allez dans le menu 'SQL Editor' de votre console Supabase, ouvrez une nouvelle requête (New query), collez le code SQL suivant, puis cliquez sur le bouton 'Run' en haut à droite :\n\n" +
+            "CREATE POLICY \"Allow sound access\" ON storage.objects FOR ALL USING (bucket_id = 'profiles') WITH CHECK (bucket_id = 'profiles');"
+          );
+        } else {
+          alert("Erreur lors du téléversement du son : " + error.message);
+        }
       } else {
         setSoundStatus('custom');
         alert("🔔 Le son de notification général a été mis à jour avec succès pour tous les utilisateurs !");

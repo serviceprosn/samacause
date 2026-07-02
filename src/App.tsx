@@ -160,6 +160,20 @@ const MainLayout: React.FC = () => {
     "100% transparent, 100% sénégalais ! 🇸🇳"
   ];
 
+  // Clean Cloudflare Turnstile token from URL
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search) {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has('__cf_chl_f_tk') || params.has('cf_chl_tk')) {
+        params.delete('__cf_chl_f_tk');
+        params.delete('cf_chl_tk');
+        const newSearch = params.toString();
+        const newUrl = window.location.pathname + (newSearch ? `?${newSearch}` : '') + window.location.hash;
+        window.history.replaceState({}, document.title, newUrl);
+      }
+    }
+  }, []);
+
   // Dynamic Splash Screen Text Cycle
   React.useEffect(() => {
     if (!showSplashScreen) return;
