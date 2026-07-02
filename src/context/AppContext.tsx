@@ -3385,11 +3385,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const playChimeSound = () => {
     try {
-      const audio = new Audio('/notification.mp3');
+      // 1. Try to play the global custom sound from Supabase Storage
+      const globalAudioUrl = 'https://otdqdmihcadeusslgrsl.supabase.co/storage/v1/object/public/profiles/global_notification.mp3';
+      const audio = new Audio(globalAudioUrl);
       audio.volume = 0.5;
       audio.play().catch((err) => {
-        console.warn("Custom notification sound blocked or not found, using synthesized fallback:", err);
-        playSynthesizedChime();
+        console.warn("Global custom notification sound not found or blocked, trying local fallback:", err);
+        
+        // 2. Local fallback
+        const localAudio = new Audio('/notification.mp3');
+        localAudio.volume = 0.5;
+        localAudio.play().catch((localErr) => {
+          console.warn("Local notification sound also failed, playing synthesized chime:", localErr);
+          playSynthesizedChime();
+        });
       });
     } catch (e) {
       playSynthesizedChime();

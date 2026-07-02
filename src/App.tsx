@@ -1209,41 +1209,6 @@ const MainLayout: React.FC = () => {
               {activeTheme === 'light' ? '🌙' : '☀️'}
             </button>
 
-            {/* Notification Bell Toggle */}
-            <button 
-              className="btn btn-ghost" 
-              style={{ 
-                padding: '0.5rem', 
-                minWidth: 'auto',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                fontSize: '1.2rem'
-              }}
-              onClick={requestNotificationPermission}
-              title={
-                notificationPermission === 'granted' 
-                  ? 'Notifications activées' 
-                  : notificationPermission === 'denied' 
-                  ? 'Notifications bloquées par le navigateur' 
-                  : 'Activer les notifications push'
-              }
-            >
-              {notificationPermission === 'granted' ? '🔔' : notificationPermission === 'denied' ? '❌' : '🔕'}
-              {notificationPermission === 'default' && (
-                <span style={{
-                  position: 'absolute',
-                  top: '4px',
-                  right: '4px',
-                  width: '6px',
-                  height: '6px',
-                  borderRadius: '50%',
-                  background: 'var(--warning, #f59e0b)'
-                }} />
-              )}
-            </button>
-
             {/* Profile Avatar & Connexion/Déconnexion click */}
             {!isMobileView && (
               currentUser ? (

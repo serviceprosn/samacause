@@ -52,6 +52,65 @@ export const Admin: React.FC = () => {
   const [replyingMessageId, setReplyingMessageId] = useState<string | null>(null);
   const [directReplyText, setDirectReplyText] = useState('');
 
+  // Notification Sound Configuration States & Handlers
+  const [soundFile, setSoundFile] = useState<File | null>(null);
+  const [uploadingSound, setUploadingSound] = useState(false);
+  const [soundStatus, setSoundStatus] = useState<'default' | 'custom'>('default');
+
+  useEffect(() => {
+    // Check if the custom notification file exists in the profiles bucket
+    fetch('https://otdqdmihcadeusslgrsl.supabase.co/storage/v1/object/public/profiles/global_notification.mp3', { method: 'HEAD' })
+      .then(res => {
+        if (res.ok) {
+          setSoundStatus('custom');
+        } else {
+          setSoundStatus('default');
+        }
+      })
+      .catch(() => setSoundStatus('default'));
+  }, []);
+
+  const handleSoundUpload = async () => {
+    if (!soundFile) return;
+    setUploadingSound(true);
+    try {
+      const { error } = await supabase.storage
+        .from('profiles')
+        .upload('global_notification.mp3', soundFile, {
+          contentType: 'audio/mpeg',
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (error) {
+        alert("Erreur lors du téléversement du son : " + error.message);
+      } else {
+        setSoundStatus('custom');
+        alert("🔔 Le son de notification général a été mis à jour avec succès pour tous les utilisateurs !");
+      }
+    } catch (e: any) {
+      alert("Erreur : " + e.message);
+    } finally {
+      setUploadingSound(false);
+    }
+  };
+
+  const handleTestSound = () => {
+    try {
+      const playUrl = soundFile 
+        ? URL.createObjectURL(soundFile)
+        : 'https://otdqdmihcadeusslgrsl.supabase.co/storage/v1/object/public/profiles/global_notification.mp3';
+      
+      const audio = new Audio(playUrl);
+      audio.volume = 0.6;
+      audio.play().catch(() => {
+        alert("Lecture impossible : assurez-vous d'avoir interagi avec la page au moins une fois.");
+      });
+    } catch (e) {
+      alert("Erreur de lecture du son.");
+    }
+  };
+
   useEffect(() => {
     if (currentUser && currentUser.role === 'admin') {
       setMessagesLoading(true);
@@ -734,6 +793,82 @@ export const Admin: React.FC = () => {
             </div>
           </div>
 
+        </div>
+      </section>
+
+      {/* CONFIGURATION DU SON DE NOTIFICATION GLOBAL */}
+      <section style={{ 
+        marginBottom: '3rem', 
+        padding: '1.5rem', 
+        background: 'var(--bg-card, #ffffff)', 
+        border: '1px solid var(--border-light)', 
+        borderRadius: 'var(--radius-md)' 
+      }}>
+        <h2 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          🔔 Son des Notifications Global
+        </h2>
+        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
+          Ajoutez ou remplacez le son de notification général de la plateforme. Ce son sera joué pour tous les utilisateurs du site lorsqu'ils reçoivent de nouvelles alertes ou messages.
+        </p>
+
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', alignItems: 'center' }}>
+          <div>
+            <label 
+              htmlFor="notif-sound-file" 
+              className="btn btn-outline" 
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: '0.5rem' }}
+            >
+              🎵 Choisir un fichier MP3
+            </label>
+            <input 
+              id="notif-sound-file"
+              type="file" 
+              accept="audio/mpeg,audio/mp3" 
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                if (e.target.files && e.target.files[0]) {
+                  setSoundFile(e.target.files[0]);
+                }
+              }}
+            />
+          </div>
+
+          {soundFile && (
+            <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--primary)' }}>
+              Fichier sélectionné : {soundFile.name}
+            </span>
+          )}
+
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button 
+              className="btn btn-ghost"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+              onClick={handleTestSound}
+            >
+              ▶️ Tester le son
+            </button>
+
+            <button 
+              className="btn btn-primary"
+              style={{ padding: '0.5rem 1rem', fontSize: '0.85rem' }}
+              onClick={handleSoundUpload}
+              disabled={!soundFile || uploadingSound}
+            >
+              {uploadingSound ? "Envoi en cours..." : "💾 Enregistrer pour tous"}
+            </button>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '1.25rem', paddingTop: '1rem', borderTop: '1px solid var(--border-light)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
+          <span style={{ 
+            width: '8px', 
+            height: '8px', 
+            borderRadius: '50%', 
+            background: soundStatus === 'custom' ? 'var(--primary, #00853F)' : 'var(--text-secondary-light, #999)' 
+          }} />
+          <span>
+            Statut actuel : {soundStatus === 'custom' ? "Son personnalisé actif en ligne pour tous les utilisateurs" : "Son d'origine actif"}
+          </span>
         </div>
       </section>
 
