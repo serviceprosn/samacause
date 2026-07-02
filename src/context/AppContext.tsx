@@ -1072,6 +1072,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addNotification = (msg: string) => {
     setNotifications(prev => [msg, ...prev.slice(0, 4)]);
+    playChimeSound();
     setTimeout(() => {
       setNotifications(prev => {
         const next = [...prev];
@@ -3309,7 +3310,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const playChimeSound = () => {
+  const playSynthesizedChime = () => {
     try {
       const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
       if (!AudioContext) return;
@@ -3342,6 +3343,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       osc2.stop(now + 0.55);
     } catch (e) {
       console.warn("AudioContext playback blocked or failed:", e);
+    }
+  };
+
+  const playChimeSound = () => {
+    try {
+      const audio = new Audio('/notification.mp3');
+      audio.volume = 0.5;
+      audio.play().catch((err) => {
+        console.warn("Custom notification sound blocked or not found, using synthesized fallback:", err);
+        playSynthesizedChime();
+      });
+    } catch (e) {
+      playSynthesizedChime();
     }
   };
 
