@@ -35,7 +35,7 @@ export const Turnstile: React.FC<TurnstileProps> = ({
   useEffect(() => {
     // Immediately call onVerify with a bypass token to prevent endless loops on mobile/desktop
     onVerify('bypass_token');
-  }, [onVerify]);
+  }, []);
 
   return null;
 };
