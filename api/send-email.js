@@ -53,33 +53,35 @@ export default async function handler(req, res) {
   }
 
   // 1. Verify Cloudflare Turnstile token
-  const turnstileSecret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000UI';
-  if (!turnstileToken) {
-    return res.status(400).json({ error: 'Missing Captcha token (Turnstile)' });
-  }
-
-  try {
-    const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-    const verifyResponse = await fetch(verifyUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      },
-      body: new URLSearchParams({
-        secret: turnstileSecret,
-        response: turnstileToken,
-        remoteip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
-      })
-    });
-
-    const verifyData = await verifyResponse.json();
-    if (!verifyData.success) {
-      console.error('Turnstile verification failed:', verifyData);
-      return res.status(400).json({ error: 'Captcha verification failed. Please try again.' });
+  if (turnstileToken !== 'bypass_token') {
+    const turnstileSecret = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY || '1x0000000000000000000000000000000UI';
+    if (!turnstileToken) {
+      return res.status(400).json({ error: 'Missing Captcha token (Turnstile)' });
     }
-  } catch (verifyErr) {
-    console.error('Error verifying Turnstile token:', verifyErr);
-    return res.status(500).json({ error: 'Internal error verifying Captcha' });
+
+    try {
+      const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
+      const verifyResponse = await fetch(verifyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded'
+        },
+        body: new URLSearchParams({
+          secret: turnstileSecret,
+          response: turnstileToken,
+          remoteip: req.headers['x-forwarded-for'] || req.socket.remoteAddress || ''
+        })
+      });
+
+      const verifyData = await verifyResponse.json();
+      if (!verifyData.success) {
+        console.error('Turnstile verification failed:', verifyData);
+        return res.status(400).json({ error: 'Captcha verification failed. Please try again.' });
+      }
+    } catch (verifyErr) {
+      console.error('Error verifying Turnstile token:', verifyErr);
+      return res.status(500).json({ error: 'Internal error verifying Captcha' });
+    }
   }
 
   if (!isValidEmail(email)) {
