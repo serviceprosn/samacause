@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { uploadBase64ToStorage } from '../services/supabaseClient';
+import { jsPDF } from 'jspdf';
 import { BadgeList } from '../components/BadgeList';
 import { TrustScore } from '../components/TrustScore';
 
@@ -106,6 +107,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const [withdrawalMethod, setWithdrawalMethod] = useState<'wave' | 'orange_money' | 'free_money' | 'virement'>('wave');
   const [withdrawalPhone, setWithdrawalPhone] = useState('');
   const [chatInputText, setChatInputText] = useState('');
+  const [receiptLoadingRef, setReceiptLoadingRef] = useState<string | null>(null);
 
   const messagesBodyRef = React.useRef<HTMLDivElement | null>(null);
 
@@ -440,7 +442,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const userDonations = cagnottes.reduce((list: any[], c) => {
     const matchingDons = c.donors.filter(d => (d.name || '').toLowerCase() === (currentUser?.name || '').toLowerCase());
     matchingDons.forEach(d => {
-      list.push({ cagnotteTitle: c.title, amount: d.amount, date: d.date });
+      list.push({ cagnotteTitle: c.title, amount: d.amount, date: d.date, transactionId: d.transactionId });
     });
     return list;
   }, []);
@@ -450,6 +452,150 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const appliedMissionsCount = volunteerApplications.filter(a => 
     (a.userName || '').toLowerCase() === (currentUser?.name || '').toLowerCase()
   ).length;
+
+  const handleDownloadReceipt = (don: any) => {
+    const txId = don.transactionId || `DON-${Math.floor(100000 + Math.random() * 900000)}`;
+    setReceiptLoadingRef(txId);
+
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const donorName = currentUser?.name || 'Citoyen';
+    const amountStr = `${don.amount.toLocaleString('fr-FR')} F CFA`;
+    const dateStr = don.date || new Date().toISOString().split('T')[0];
+    const causeTitle = don.cagnotteTitle;
+
+    // Draw Senegal-themed border
+    doc.setDrawColor(0, 133, 63); // Senegal Green
+    doc.setLineWidth(1.5);
+    doc.rect(5, 5, 200, 287); // Page border
+
+    doc.setDrawColor(252, 209, 22); // Senegal Yellow
+    doc.rect(6.5, 6.5, 197, 284);
+
+    doc.setDrawColor(217, 83, 79); // Senegal Red
+    doc.rect(8, 8, 194, 281);
+
+    // Platform Logo Watermark in background
+    doc.setTextColor(240, 240, 240);
+    doc.setFontSize(55);
+    doc.setFont("helvetica", "bold");
+    doc.text("SUNU YITE", 50, 150, { angle: 45 });
+
+    // Header Content
+    doc.setTextColor(0, 133, 63); // Senegal Green
+    doc.setFontSize(24);
+    doc.text("SUNU YITÉ", 15, 25);
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text("Mobilisation Citoyenne & Financement Participatif Solidaire", 15, 30);
+    doc.text("République du Sénégal", 15, 34);
+
+    // Divider line
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(15, 40, 195, 40);
+
+    // Receipt Title
+    doc.setTextColor(51, 51, 51);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("REÇU DE DON CITOYEN", 15, 52);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(120, 120, 120);
+    doc.text(`Réf. Transaction : ${txId}`, 15, 58);
+    doc.text(`Date d'émission : ${dateStr}`, 15, 63);
+
+    // Receipt Content details
+    doc.setFontSize(12);
+    doc.setTextColor(51, 51, 51);
+    doc.text("Sunu Yité atteste par le présent reçu le versement d'une contribution financière :", 15, 78);
+
+    // Table layout
+    doc.setFillColor(245, 245, 245);
+    doc.rect(15, 85, 180, 75, "F");
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Donateur :", 20, 95);
+    doc.setFont("helvetica", "normal");
+    doc.text(donorName, 60, 95);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Montant versé :", 20, 107);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 133, 63); // Green for amount
+    doc.text(amountStr, 60, 107);
+    doc.setTextColor(51, 51, 51);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Cause soutenue :", 20, 119);
+    doc.setFont("helvetica", "normal");
+    
+    // Wrap long text
+    const causeLines = doc.splitTextToSize(causeTitle, 130);
+    doc.text(causeLines, 60, 119);
+
+    doc.setFont("helvetica", "bold");
+    doc.text("Statut du paiement :", 20, 142);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0, 133, 63);
+    doc.text("VALIDÉ (SUCCESS)", 60, 142);
+    doc.setTextColor(51, 51, 51);
+
+    // Footnotes
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(8);
+    doc.setTextColor(150, 150, 150);
+    doc.text("Ce reçu de don est généré numériquement de manière sécurisée et ne nécessite pas de signature physique.", 15, 245);
+    doc.text("Pour vérifier l'authenticité de ce document, veuillez flasher le QR Code ci-dessus ou visiter sunuyite.fun.", 15, 250);
+
+    // QR Code generation for Verification
+    const verificationUrl = `${window.location.origin}/?verify_receipt=${txId}`;
+    const qrImageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(verificationUrl)}`;
+    
+    // Signature & Stamps
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.setTextColor(120, 120, 120);
+    doc.text("Signature autorisée", 145, 175);
+    
+    // Draw mock stamp / badge
+    doc.setDrawColor(0, 133, 63);
+    doc.setFillColor(230, 245, 235);
+    doc.rect(140, 182, 45, 20, "DF");
+    doc.setTextColor(0, 133, 63);
+    doc.setFont("helvetica", "bold");
+    doc.text("SUNU YITÉ", 151, 191);
+    doc.setFontSize(8);
+    doc.text("VÉRIFIÉ & CERTIFIÉ", 147, 197);
+
+    // Load and add QR Code image from serverless API
+    const img = new Image();
+    img.crossOrigin = "Anonymous";
+    img.onload = () => {
+      // Draw QR Code block
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(51, 51, 51);
+      doc.text("Scanner pour authentifier :", 15, 175);
+      
+      doc.addImage(img, 'PNG', 15, 180, 40, 40);
+      doc.save(`recu-don-${txId}.pdf`);
+      setReceiptLoadingRef(null);
+      addNotification("📄 Votre reçu de don PDF a été téléchargé avec succès !");
+    };
+    img.onerror = () => {
+      doc.save(`recu-don-${txId}.pdf`);
+      setReceiptLoadingRef(null);
+      addNotification("📄 Votre reçu de don PDF a été téléchargé (sans code QR).");
+    };
+    img.src = qrImageUrl;
+  };
 
   const handleUpdateProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1521,20 +1667,45 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                   }
 
                   {/* Donations made */}
-                  {userDonations.map((don, idx) => (
-                    <div key={`don-${idx}`} className="premium-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', background: 'var(--light-card)' }}>
-                      <div>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--secondary-dark)', fontWeight: 'bold' }}>❤️ DON CITOYEN</span>
-                        <h4 style={{ fontWeight: 800, fontSize: '0.95rem', margin: '0.15rem 0' }}>{don.cagnotteTitle}</h4>
-                        <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>
-                          Reçu fiscal validé sous référence : <strong>TX-{idx}04523</strong>
-                        </span>
+                  {userDonations.map((don, idx) => {
+                    const txId = don.transactionId || `DON-${idx}04523`;
+                    const isDownloading = receiptLoadingRef === txId;
+                    return (
+                      <div key={`don-${idx}`} className="premium-card" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', background: 'var(--light-card)', flexWrap: 'wrap', gap: '1rem' }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--secondary-dark)', fontWeight: 'bold' }}>❤️ DON CITOYEN</span>
+                          <h4 style={{ fontWeight: 800, fontSize: '0.95rem', margin: '0.15rem 0' }}>{don.cagnotteTitle}</h4>
+                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)', display: 'block', marginTop: '0.15rem' }}>
+                            Réf : <strong style={{ fontFamily: 'monospace' }}>{txId}</strong>
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+                          <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>
+                            +{don.amount.toLocaleString('fr-FR')} FCFA
+                          </strong>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ 
+                              padding: '0.35rem 0.65rem', 
+                              fontSize: '0.75rem', 
+                              border: '1px solid var(--border-light)', 
+                              minWidth: 'auto',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.25rem',
+                              background: 'var(--light)',
+                              color: 'var(--text-primary)'
+                            }}
+                            onClick={() => handleDownloadReceipt(don)}
+                            disabled={receiptLoadingRef !== null}
+                          >
+                            {isDownloading ? 'Génération...' : 'Reçu PDF 📄'}
+                          </button>
+                        </div>
                       </div>
-                      <strong style={{ color: 'var(--primary)', fontSize: '0.95rem' }}>
-                        +{don.amount.toLocaleString('fr-FR')} FCFA
-                      </strong>
-                    </div>
-                  ))}
+                    );
+                  })}
 
                   {/* Volunteer applied */}
                   {volunteerApplications

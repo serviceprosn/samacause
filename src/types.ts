@@ -105,6 +105,7 @@ export interface Cagnotte {
     date: string;
     comment?: string;
     isDiaspora: boolean;
+    transactionId?: string;
   }[];
   documents?: string[];
   gallery?: string[];

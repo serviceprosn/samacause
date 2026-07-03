@@ -1388,13 +1388,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
-  const donateToCagnotte = async (id: string, amount: number, name: string, comment: string, isDiaspora: boolean, paymentMethod: string): Promise<boolean> => {
+  const donateToCagnotte = async (id: string, amount: number, name: string, comment: string, isDiaspora: boolean, paymentMethod: string, transactionId?: string): Promise<boolean> => {
+    const finalTxId = transactionId || `DON-${Math.floor(100000 + Math.random() * 900000)}`;
+
     setCagnottes(prev => prev.map(cag => {
       if (cag.id === id) {
         return {
           ...cag,
           amountCollected: cag.amountCollected + amount,
-          donors: [{ name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora }, ...cag.donors]
+          donors: [{ name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora, transactionId: finalTxId }, ...cag.donors]
         };
       }
       return cag;
@@ -1410,7 +1412,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         if (!fetchErr && cag) {
           const currentDonors = cag.donors || [];
-          const newDonor = { name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora };
+          const newDonor = { name, amount, date: new Date().toISOString().split('T')[0], comment, isDiaspora, transactionId: finalTxId };
           const updatedDonors = [newDonor, ...currentDonors];
           const newAmount = Number(cag.amount_collected || 0) + amount;
           
@@ -1752,7 +1754,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 pending.donorName,
                 pending.comment,
                 pending.isDiaspora,
-                'PayTech'
+                'PayTech',
+                paytechRef
               ).then((ok) => {
                 if (ok) {
                   addNotification(`🎉 Don de ${pending.amount.toLocaleString('fr-FR')} FCFA validé avec succès via PayTech !`);

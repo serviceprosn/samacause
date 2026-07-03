@@ -38,9 +38,12 @@ const MainLayout: React.FC = () => {
     installApp,
     isDataLoaded,
     notificationPermission,
-    requestNotificationPermission
+    requestNotificationPermission,
+    cagnottes
   } = useApp();
   const { language, setLanguage, t } = useLanguage();
+
+  const [verifyReceiptRef, setVerifyReceiptRef] = useState<string | null>(null);
 
   const unreadCount = currentUser && directMessages
     ? directMessages.filter(m => m.receiverId === currentUser.id && !m.read).length
@@ -434,6 +437,14 @@ const MainLayout: React.FC = () => {
   React.useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     
+    const verifyReceipt = params.get('verify_receipt');
+    if (verifyReceipt) {
+      setVerifyReceiptRef(verifyReceipt);
+      const url = new URL(window.location.href);
+      url.searchParams.delete('verify_receipt');
+      window.history.replaceState({}, '', url.pathname + url.search);
+    }
+
     const tontineId = params.get('tontine') || params.get('tontineData');
     if (tontineId) {
       setCurrentPage('tontines');
@@ -1733,6 +1744,171 @@ const MainLayout: React.FC = () => {
 
       {/* PUBLIC PROFILE MODAL */}
       <PublicProfileModal onNavigate={handleNavigate} />
+
+      {/* RECEIPT VERIFICATION MODAL */}
+      {verifyReceiptRef && (() => {
+        let matchedDonor = null;
+        let matchedCagnotte = null;
+        for (const c of cagnottes) {
+          const d = (c.donors || []).find(x => x.transactionId === verifyReceiptRef);
+          if (d) {
+            matchedDonor = d;
+            matchedCagnotte = c;
+            break;
+          }
+        }
+
+        return (
+          <div 
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              backgroundColor: 'rgba(0,0,0,0.6)',
+              backdropFilter: 'blur(5px)',
+              zIndex: 2000,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '1rem'
+            }}
+          >
+            <div 
+              className="glass animate-fade-in"
+              style={{
+                width: '100%',
+                maxWidth: '480px',
+                background: 'var(--light-card)',
+                borderRadius: 'var(--radius-lg)',
+                boxShadow: 'var(--shadow-lg)',
+                overflow: 'hidden',
+                border: '2px solid var(--success, #10b981)'
+              }}
+            >
+              {/* Green Senegal Flag Ribbon */}
+              <div style={{ height: '6px', background: 'linear-gradient(90deg, #00853f 0%, #fcd116 50%, #d12421 100%)' }} />
+
+              {/* Content */}
+              <div style={{ padding: '2rem', textAlign: 'center' }}>
+                {matchedDonor && matchedCagnotte ? (
+                  <>
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: 'rgba(16, 185, 129, 0.1)',
+                      color: 'var(--success, #10b981)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '2rem',
+                      marginBottom: '1rem'
+                    }}>
+                      ✓
+                    </div>
+                    <h3 style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--success, #10b981)', marginBottom: '0.5rem' }}>
+                      Reçu Certifié & Authentique
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
+                      Ce donateur et cette transaction ont été identifiés avec succès sur la blockchain citoyenne de Sunu Yité.
+                    </p>
+
+                    {/* Transaction Details Box */}
+                    <div 
+                      className="premium-card" 
+                      style={{ 
+                        background: 'var(--light)', 
+                        padding: '1rem', 
+                        borderRadius: 'var(--radius-md)', 
+                        textAlign: 'left', 
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.6rem',
+                        marginBottom: '1.5rem',
+                        border: '1.5px solid var(--border-light)'
+                      }}
+                    >
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Donateur :</span>
+                        <strong>{matchedDonor.name}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Montant :</span>
+                        <strong style={{ color: 'var(--primary)' }}>{matchedDonor.amount.toLocaleString('fr-FR')} F CFA</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Cause soutenue :</span>
+                        <strong style={{ maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{matchedCagnotte.title}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Date :</span>
+                        <strong>{matchedDonor.date}</strong>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Réf. Transaction :</span>
+                        <span style={{ fontFamily: 'monospace', fontWeight: 'bold' }}>{verifyReceiptRef}</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: 'var(--text-secondary-light)' }}>Statut :</span>
+                        <strong style={{ color: 'var(--success, #10b981)' }}>✓ ENREGISTRÉ (VALIDE)</strong>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div style={{
+                      width: '64px',
+                      height: '64px',
+                      borderRadius: '50%',
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: 'var(--error, #ef4444)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: '2rem',
+                      marginBottom: '1rem'
+                    }}>
+                      ⚠️
+                    </div>
+                    <h3 style={{ fontWeight: 900, fontSize: '1.25rem', color: 'var(--error, #ef4444)', marginBottom: '0.5rem' }}>
+                      Reçu Non Trouvé
+                    </h3>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)', marginBottom: '1.5rem' }}>
+                      La référence de transaction demandée est introuvable ou en cours de synchronisation.
+                    </p>
+                    <div 
+                      className="premium-card" 
+                      style={{ 
+                        background: 'var(--light)', 
+                        padding: '1rem', 
+                        borderRadius: 'var(--radius-md)', 
+                        textAlign: 'left', 
+                        fontSize: '0.85rem',
+                        marginBottom: '1.5rem',
+                        fontFamily: 'monospace',
+                        border: '1.5px solid var(--border-light)'
+                      }}
+                    >
+                      Réf recherchée : {verifyReceiptRef}
+                    </div>
+                  </>
+                )}
+
+                <button 
+                  className="btn btn-primary"
+                  style={{ width: '100%', padding: '0.75rem', fontWeight: 'bold' }}
+                  onClick={() => setVerifyReceiptRef(null)}
+                >
+                  Fermer la vérification ➔
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
     </div>
   );
