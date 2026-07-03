@@ -3383,7 +3383,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const lastSoundPlayedRef = React.useRef<number>(0);
+
   const playChimeSound = () => {
+    const now = Date.now();
+    // Prevent the sound from repeating if played less than 1.5 seconds ago
+    if (now - lastSoundPlayedRef.current < 1500) {
+      return;
+    }
+    lastSoundPlayedRef.current = now;
+
     try {
       // 1. Try to play the global custom sound from Supabase Storage
       const globalAudioUrl = 'https://otdqdmihcadeusslgrsl.supabase.co/storage/v1/object/public/profiles/global_notification.mp3';
