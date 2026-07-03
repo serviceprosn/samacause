@@ -2438,20 +2438,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     if (email && adminEmail && email.toLowerCase() === adminEmail.toLowerCase() && pass === adminPassword) {
-      const existingAdmin = usersList.find(u => u.email && u.email.toLowerCase() === adminEmail.toLowerCase());
+      let existingAdmin = usersList.find(u => u.email && u.email.toLowerCase() === adminEmail.toLowerCase());
+      if (!existingAdmin) {
+        existingAdmin = usersList.find(u => u.name === 'Mouhameth Sarr');
+      }
+
+      let dbAdminProfile = null;
+      if (useSupabase) {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('email', adminEmail)
+            .single();
+          if (data) dbAdminProfile = data;
+        } catch (e) {
+          console.warn("Could not fetch admin profile directly on login:", e);
+        }
+      }
+
       const adminUser: User = {
-        id: 'usr_admin_mouhameth',
-        name: 'Mouhameth Sarr',
+        id: dbAdminProfile?.id || existingAdmin?.id || 'usr_admin_mouhameth',
+        name: dbAdminProfile?.name || 'Mouhameth Sarr',
         email: adminEmail,
-        phone: '+221 70 111 22 33',
-        avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80',
-        badges: ['leader', 'bienfaiteur', 'citoyen'],
-        availableFunds: existingAdmin?.availableFunds || 0,
-        kycRejectReason: existingAdmin?.kycRejectReason || '',
-        ...existingAdmin, // preserves modified properties (phone, address, dob, CNI, verificationStatus, selfie, etc.)
-        role: 'admin',    // enforces admin role
-        verified: true,   // enforces verified status
-        trustScore: 100   // enforces trust score
+        phone: dbAdminProfile?.phone || existingAdmin?.phone || '+221 70 111 22 33',
+        avatar: dbAdminProfile?.avatar || existingAdmin?.avatar || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&fit=crop&q=80',
+        badges: dbAdminProfile?.badges || existingAdmin?.badges || ['leader', 'bienfaiteur', 'citoyen'],
+        availableFunds: dbAdminProfile?.funds_available !== undefined ? Number(dbAdminProfile.funds_available) : (existingAdmin?.availableFunds || 0),
+        kycRejectReason: dbAdminProfile?.kyc_reject_reason || existingAdmin?.kycRejectReason || '',
+        bio: dbAdminProfile?.bio || existingAdmin?.bio || '',
+        address: dbAdminProfile?.address || existingAdmin?.address || '',
+        country: dbAdminProfile?.country || existingAdmin?.country || 'Sénégal',
+        region: dbAdminProfile?.region || existingAdmin?.region || 'Dakar',
+        idCardRecto: dbAdminProfile?.id_card_recto || existingAdmin?.idCardRecto || '',
+        idCardVerso: dbAdminProfile?.id_card_verso || existingAdmin?.idCardVerso || '',
+        selfie: dbAdminProfile?.selfie || existingAdmin?.selfie || '',
+        verificationStatus: (dbAdminProfile?.verification_status || existingAdmin?.verificationStatus || 'verified') as any,
+        cniNumber: dbAdminProfile?.cni_number || existingAdmin?.cniNumber || '',
+        dob: dbAdminProfile?.dob || existingAdmin?.dob || '',
+        following: dbAdminProfile?.following || existingAdmin?.following || [],
+        followers: dbAdminProfile?.followers || existingAdmin?.followers || [],
+        role: 'admin',
+        verified: true,
+        trustScore: 100
       };
       
       // Ensure admin exists in usersList or is updated
@@ -2789,11 +2818,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verified: isVerified,
         trust_score: newTrustScore
       }).eq('id', currentUser.id).then(({ error }) => {
-        if (error) console.error("Error updating profile in Supabase:", error);
+        if (error) {
+          console.error("Error updating profile in Supabase:", error);
+          addNotification(`❌ Échec de la sauvegarde en base : ${error.message}`);
+        } else {
+          addNotification('👤 Votre profil a été mis à jour avec succès !');
+        }
       });
+    } else {
+      addNotification('👤 Votre profil a été mis à jour avec succès !');
     }
 
-    addNotification('👤 Votre profil a été mis à jour avec succès !');
     return true;
   };
 
