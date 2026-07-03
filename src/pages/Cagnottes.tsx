@@ -138,6 +138,77 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   const [updateTitle, setUpdateTitle] = useState('');
   const [updateContent, setUpdateContent] = useState('');
 
+  // Voice Note states for updates
+  const [isRecording, setIsRecording] = useState(false);
+  const [audioBase64, setAudioBase64] = useState<string | null>(null);
+  const [audioPreviewUrl, setAudioPreviewUrl] = useState<string | null>(null);
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+  const timerRef = React.useRef<number | null>(null);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      audioChunksRef.current = [];
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+
+      mediaRecorder.onstop = () => {
+        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+        const previewUrl = URL.createObjectURL(audioBlob);
+        setAudioPreviewUrl(previewUrl);
+
+        const reader = new FileReader();
+        reader.readAsDataURL(audioBlob);
+        reader.onloadend = () => {
+          setAudioBase64(reader.result as string);
+        };
+        stream.getTracks().forEach(track => track.stop());
+      };
+
+      mediaRecorder.start();
+      setIsRecording(true);
+      setRecordingDuration(0);
+
+      timerRef.current = window.setInterval(() => {
+        setRecordingDuration(prev => {
+          if (prev >= 59) {
+            stopRecording();
+            return 60;
+          }
+          return prev + 1;
+        });
+      }, 1000);
+    } catch (err) {
+      console.error("Microphone access error:", err);
+      alert("Impossible d'accéder au microphone. Veuillez accorder les permissions.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      mediaRecorderRef.current.stop();
+    }
+    setIsRecording(false);
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  const deleteRecording = () => {
+    setAudioBase64(null);
+    setAudioPreviewUrl(null);
+    setRecordingDuration(0);
+  };
+
   const [showExpenseForm, setShowExpenseForm] = useState(false);
   const [expenseDesc, setExpenseDesc] = useState('');
   const [expenseAmount, setExpenseAmount] = useState(0);
@@ -238,9 +309,10 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
   const handlePostUpdateSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (selectedCagnotteId && updateTitle && updateContent) {
-      addCampaignUpdate(selectedCagnotteId, 'cagnotte', updateTitle, updateContent);
+      addCampaignUpdate(selectedCagnotteId, 'cagnotte', updateTitle, updateContent, audioBase64 || undefined);
       setUpdateTitle('');
       setUpdateContent('');
+      deleteRecording();
       setShowUpdateForm(false);
     }
   };
@@ -875,6 +947,51 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                         value={updateContent}
                         onChange={(e) => setUpdateContent(e.target.value)}
                       />
+
+                      {/* Voice Note Recorder Section */}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem', background: 'white', borderRadius: 'var(--radius-sm)', border: '1.5px solid var(--border-light)' }}>
+                        {!audioPreviewUrl ? (
+                          <button
+                            type="button"
+                            className="btn"
+                            onClick={isRecording ? stopRecording : startRecording}
+                            style={{
+                              padding: '0.4rem 0.8rem',
+                              fontSize: '0.75rem',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '0.35rem',
+                              background: isRecording ? 'var(--error, #ef4444)' : 'var(--primary)',
+                              color: 'white',
+                              border: 'none',
+                              minWidth: 'auto'
+                            }}
+                          >
+                            {isRecording ? (
+                              <>
+                                <span className="animate-pulse" style={{ width: '8px', height: '8px', borderRadius: '50%', background: 'white', display: 'inline-block' }} />
+                                Arrêter ({recordingDuration}s)
+                              </>
+                            ) : (
+                              <>🎙️ Enregistrer une note vocale (Wolof / Fr)</>
+                            )}
+                          </button>
+                        ) : (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', width: '100%', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--success, #10b981)', fontWeight: 'bold' }}>✓ Note vocale prête :</span>
+                            <audio src={audioPreviewUrl} controls style={{ height: '32px', flex: 1, minWidth: '150px' }} />
+                            <button
+                              type="button"
+                              className="btn btn-ghost"
+                              onClick={deleteRecording}
+                              style={{ padding: '0.25rem 0.5rem', minWidth: 'auto', color: 'var(--error, #ef4444)', fontSize: '0.75rem' }}
+                            >
+                              Supprimer 🗑️
+                            </button>
+                          </div>
+                        )}
+                      </div>
+
                       <button type="submit" className="btn btn-primary" style={{ alignSelf: 'flex-end', padding: '0.45rem 1rem', fontSize: '0.8rem' }}>
                         Publier
                       </button>
@@ -895,7 +1012,13 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                           <span>{upd.date}</span>
                         </div>
                         <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '0.25rem' }}>{upd.title}</h4>
-                        <p style={{ fontSize: '0.85rem', lineHeight: 1.4 }}>{upd.content}</p>
+                        <p style={{ fontSize: '0.85rem', lineHeight: 1.4, marginBottom: upd.audioUrl ? '0.75rem' : 0 }}>{upd.content}</p>
+                        {upd.audioUrl && (
+                          <div style={{ background: 'white', padding: '0.5rem', borderRadius: 'var(--radius-sm)', display: 'flex', alignItems: 'center', gap: '0.75rem', border: '1px solid var(--border-light)' }}>
+                            <span style={{ fontSize: '0.75rem', fontWeight: 'bold', color: 'var(--primary)' }}>🎙️ Note Vocale :</span>
+                            <audio src={upd.audioUrl} controls style={{ height: '28px', flex: 1 }} />
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

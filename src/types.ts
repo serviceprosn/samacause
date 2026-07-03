@@ -32,6 +32,7 @@ export interface Update {
   content: string;
   author: string;
   images?: string[];
+  audioUrl?: string;
 }
 
 export interface Expense {

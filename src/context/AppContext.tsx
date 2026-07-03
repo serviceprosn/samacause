@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User, Petition, Cagnotte, VolunteerMission, VolunteerApplication, Badge, ChatMessage, AdminKPIs, Update, Expense, DirectMessage, Tontine, WithdrawalRequest, PaymentRecord, ActivityLog } from '../types';
-import { supabase } from '../services/supabaseClient';
+import { supabase, uploadAudioBase64ToStorage } from '../services/supabaseClient';
 import { messaging } from '../services/firebaseClient';
 import { getToken } from 'firebase/messaging';
 
@@ -93,7 +93,7 @@ interface AppContextType {
     documents?: string[],
     gallery?: string[]
   ) => void;
-  addCampaignUpdate: (id: string, type: 'petition' | 'cagnotte', title: string, content: string) => void;
+  addCampaignUpdate: (id: string, type: 'petition' | 'cagnotte', title: string, content: string, audioUrl?: string) => void;
   addCampaignExpense: (cagnotteId: string, desc: string, amount: number, category: string) => void;
   updateCampaignAfterImage: (id: string, type: 'petition' | 'cagnotte' | 'volunteer', imageAfter: string) => Promise<boolean>;
   
@@ -2147,14 +2147,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const addCampaignUpdate = (id: string, type: 'petition' | 'cagnotte', title: string, content: string) => {
+  const addCampaignUpdate = async (id: string, type: 'petition' | 'cagnotte', title: string, content: string, audioBase64?: string) => {
     if (!currentUser) return;
+    
+    let finalAudioUrl = undefined;
+    if (audioBase64 && audioBase64.startsWith('data:audio')) {
+      finalAudioUrl = await uploadAudioBase64ToStorage(audioBase64, type === 'petition' ? 'petitions' : 'cagnottes');
+    } else {
+      finalAudioUrl = audioBase64;
+    }
+
     const newUpdate: Update = {
       id: `upd_${Math.random().toString(36).substr(2, 9)}`,
       date: new Date().toISOString().split('T')[0],
       title,
       content,
-      author: currentUser.name
+      author: currentUser.name,
+      audioUrl: finalAudioUrl
     };
 
     if (type === 'petition') {

@@ -350,3 +350,61 @@ export const uploadBase64ToStorage = async (base64Str: string, bucket: string): 
   }
 };
 
+export const uploadAudioBase64ToStorage = async (base64Str: string, bucket: string): Promise<string> => {
+  if (!base64Str || !base64Str.startsWith('data:audio')) {
+    return base64Str; // Déjà une URL ou vide
+  }
+
+  try {
+    const parts = base64Str.split(';');
+    if (parts.length < 2) return base64Str;
+    const contentType = parts[0].split(':')[1];
+    const rawData = parts[1].split(',')[1];
+
+    const binaryStr = atob(rawData);
+    const len = binaryStr.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: contentType });
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id || 'anonymous';
+    
+    let extension = 'webm';
+    if (contentType.includes('wav')) extension = 'wav';
+    else if (contentType.includes('mp3')) extension = 'mp3';
+    else if (contentType.includes('ogg')) extension = 'ogg';
+
+    const fileName = `audio-${userId}-${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${extension}`;
+
+    const { data, error } = await supabase.storage
+      .from(bucket)
+      .upload(fileName, blob, {
+        contentType,
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) {
+      console.warn(`⚠️ Échec de l'upload audio vers le bucket '${bucket}' :`, error.message);
+      return base64Str; // Secours Base64
+    }
+
+    const { data: publicUrlData } = supabase.storage
+      .from(bucket)
+      .getPublicUrl(fileName);
+
+    if (publicUrlData?.publicUrl) {
+      console.log(`🚀 Audio téléversé avec succès dans '${bucket}' :`, publicUrlData.publicUrl);
+      return publicUrlData.publicUrl;
+    }
+
+    return base64Str;
+  } catch (err) {
+    console.error("❌ Exception lors de l'upload audio vers Supabase Storage :", err);
+    return base64Str;
+  }
+};
+
