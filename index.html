@@ -14,16 +14,16 @@
         window.location.replace('https://sunuyite.fun' + window.location.pathname + window.location.search + window.location.hash);
       }
 
-      // Force unregistration of old PWA Service Workers
+      // Register Firebase Messaging Service Worker for background push notifications
       if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-          for (let registration of registrations) {
-            registration.unregister().then(function(success) {
-              if (success) {
-                console.log('Old Service Worker unregistered successfully.');
-              }
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('/firebase-messaging-sw.js')
+            .then(function(registration) {
+              console.log('Firebase Service Worker registered successfully with scope:', registration.scope);
+            })
+            .catch(function(err) {
+              console.warn('Firebase Service Worker registration failed:', err);
             });
-          }
         });
       }
       // Clear cache storage to remove cached API responses/assets

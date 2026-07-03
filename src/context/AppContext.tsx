@@ -1109,7 +1109,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addNotification = (msg: string) => {
     setNotifications(prev => [msg, ...prev.slice(0, 4)]);
-    playChimeSound();
     setTimeout(() => {
       setNotifications(prev => {
         const next = [...prev];
@@ -1124,6 +1123,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const triggerPushNotification = (title: string, body: string) => {
     addNotification(`🔔 ${title} : ${body}`);
+    playChimeSound();
     if ('Notification' in window) {
       if (Notification.permission === 'granted') {
         try {
