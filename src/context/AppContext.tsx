@@ -488,6 +488,51 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error("Erreur lors de la synchronisation de la session :", err);
       }
     } else {
+      const savedBypass = localStorage.getItem('sc_bypass_admin_session');
+      if (savedBypass) {
+        try {
+          const parsed = JSON.parse(savedBypass);
+          if (parsed && parsed.email) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('email', parsed.email.toLowerCase())
+              .single();
+            if (profile) {
+              const matchedUser: User = {
+                id: profile.id,
+                name: profile.name,
+                email: profile.email,
+                phone: profile.phone || '',
+                role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
+                verified: profile.verified || false,
+                avatar: profile.avatar || '',
+                trustScore: profile.trust_score || 50,
+                badges: profile.badges || [],
+                bio: profile.bio || '',
+                address: profile.address || '',
+                country: profile.country || 'Sénégal',
+                region: profile.region || 'Dakar',
+                idCardRecto: profile.id_card_recto || '',
+                idCardVerso: profile.id_card_verso || '',
+                selfie: profile.selfie || '',
+                verificationStatus: profile.verification_status || 'none',
+                cniNumber: profile.cni_number || '',
+                dob: profile.dob || '',
+                accountType: profile.account_type || 'citizen',
+                following: profile.following || [],
+                followers: profile.followers || [],
+                availableFunds: Number(profile.funds_available || 0),
+                kycRejectReason: profile.kyc_reject_reason || ''
+              };
+              setCurrentUser(matchedUser);
+              return matchedUser;
+            }
+          }
+        } catch (err) {
+          console.error("Failed to restore bypassed session:", err);
+        }
+      }
       setCurrentUser(null);
     }
     return null;
@@ -2375,6 +2420,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     if (isBypassEmail && isBypassPassword) {
       console.log("🔓 Admin login bypass triggered via VITE_ADMIN_PASSWORD match.");
+      localStorage.setItem('sc_bypass_admin_session', JSON.stringify({ email: email.toLowerCase() }));
       let dbAdminProfile = null;
       if (useSupabase) {
         try {
@@ -2399,12 +2445,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         verified: true,
         trustScore: dbAdminProfile?.trust_score || 100,
         badges: dbAdminProfile?.badges || ['leader', 'bienfaiteur', 'citoyen'],
+        bio: dbAdminProfile?.bio || '',
+        address: dbAdminProfile?.address || '',
+        country: dbAdminProfile?.country || 'Sénégal',
+        region: dbAdminProfile?.region || 'Dakar',
+        idCardRecto: dbAdminProfile?.id_card_recto || '',
+        idCardVerso: dbAdminProfile?.id_card_verso || '',
+        selfie: dbAdminProfile?.selfie || '',
+        cniNumber: dbAdminProfile?.cni_number || '',
+        dob: dbAdminProfile?.dob || '',
         availableFunds: dbAdminProfile?.funds_available !== undefined ? Number(dbAdminProfile.funds_available) : 0,
-        verificationStatus: 'verified',
-        accountType: 'citizen',
+        verificationStatus: dbAdminProfile?.verification_status || 'verified',
+        accountType: dbAdminProfile?.account_type || 'citizen',
         following: dbAdminProfile?.following || [],
         followers: dbAdminProfile?.followers || [],
-        kycRejectReason: ''
+        kycRejectReason: dbAdminProfile?.kyc_reject_reason || ''
       };
       setCurrentUser(adminUser);
       addNotification(`Bonjour, ${adminUser.name} (Admin) !`);
@@ -2911,6 +2966,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // logout action
   const logout = () => {
+    localStorage.removeItem('sc_bypass_admin_session');
     if (useSupabase) {
       supabase.auth.signOut().then(() => {
         setCurrentUser(null);
