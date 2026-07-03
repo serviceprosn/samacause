@@ -1758,6 +1758,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   addNotification(`🎉 Don de ${pending.amount.toLocaleString('fr-FR')} FCFA validé avec succès via PayTech !`);
                 }
               });
+            } else if (pending.type === 'boost') {
+              boostPetition(
+                pending.petitionId,
+                pending.pack,
+                pending.amount,
+                pending.methodLabel
+              ).then((ok) => {
+                if (ok) {
+                  addNotification(`🚀 Boost ${pending.pack.toUpperCase()} activé avec succès via PayTech !`);
+                }
+              });
             } else if (pending.type === 'tontine') {
               // Tontine payment confirmation
               const targetTontine = tontines.find(t => t.id === pending.tontineId);

@@ -5,6 +5,7 @@ import { uploadBase64ToStorage } from '../services/supabaseClient';
 import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
 import { useLanguage } from '../context/LanguageContext';
+import { initializePayTechPayment } from '../services/paytech';
 
 // Helper to compress base64 images client-side
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
@@ -2103,104 +2104,74 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
 
               {boostStep === 'details' && (
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     setBoostLoading(true);
                     const amount = selectedPack === 'ndamel' ? 5000 : selectedPack === 'teranga' ? 15000 : 50000;
-                    setTimeout(async () => {
-                      const ref = `BST-${Math.floor(100000 + Math.random() * 900000)}`;
-                      setBoostTxRef(ref);
-                      const methodLabel = boostMethod === 'wave' ? 'Wave' : boostMethod === 'om' ? 'Orange Money' : 'Visa/Mastercard';
-                      if (selectedPetitionId) {
-                        await boostPetition(selectedPetitionId, selectedPack, amount, methodLabel);
-                      }
+                    const ref = `BST-${Math.floor(100000 + Math.random() * 900000)}`;
+                    const methodLabel = boostMethod === 'wave' ? 'Wave' : boostMethod === 'om' ? 'Orange Money' : 'Carte Bancaire';
+                    
+                    // Store pending boost payment in localStorage
+                    localStorage.setItem('pending_payment', JSON.stringify({
+                      type: 'boost',
+                      petitionId: selectedPetitionId,
+                      pack: selectedPack,
+                      amount,
+                      methodLabel,
+                      refCommand: ref
+                    }));
+
+                    const success = await initializePayTechPayment({
+                      amount,
+                      itemName: `Boost Cause - ${currentPetition.title}`,
+                      refCommand: ref
+                    });
+
+                    if (!success) {
+                      localStorage.removeItem('pending_payment');
                       setBoostLoading(false);
-                      setBoostStep('success');
-                    }, 2000);
+                    }
                   }}
                 >
-                  <h4 style={{ fontWeight: 800, fontSize: '0.9rem', marginBottom: '1.25rem' }}>
-                    Finalisation du paiement - {selectedPack === 'ndamel' ? '5 000' : selectedPack === 'teranga' ? '15 000' : '50 000'} FCFA
+                  <h4 style={{ fontWeight: 800, fontSize: '0.95rem', marginBottom: '1.25rem', color: 'var(--text-primary)' }}>
+                    Récapitulatif de votre commande de Boost 🚀
                   </h4>
 
-                  {boostMethod !== 'card' ? (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Numéro de téléphone mobile</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="Ex: +221 77 123 45 67"
-                          className="premium-card" 
-                          style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
-                          value={boostPhone}
-                          onChange={(e) => setBoostPhone(e.target.value)}
-                        />
-                      </div>
-                      <div style={{ background: 'rgba(0,0,0,0.02)', padding: '0.65rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary-light)', border: '1px dashed var(--border-light)' }}>
-                        📱 Un pop-up de validation Wave ou Orange Money apparaîtra sur votre téléphone pour confirmer la transaction.
-                      </div>
+                  <div className="premium-card" style={{ padding: '1rem', background: 'var(--light)', marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary-light)' }}>Cause :</span>
+                      <strong style={{ maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{currentPetition.title}</strong>
                     </div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', marginBottom: '1.5rem' }}>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Nom sur la carte</label>
-                        <input 
-                          type="text" 
-                          required 
-                          className="premium-card" 
-                          style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
-                          value={boostCardName}
-                          onChange={(e) => setBoostCardName(e.target.value)}
-                        />
-                      </div>
-                      <div>
-                        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Numéro de carte</label>
-                        <input 
-                          type="text" 
-                          required 
-                          placeholder="4000 1234 5678 9010"
-                          className="premium-card" 
-                          style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
-                          value={boostCardNumber}
-                          onChange={(e) => setBoostCardNumber(e.target.value)}
-                        />
-                      </div>
-                      <div className="grid-cols-2" style={{ gap: '0.5rem' }}>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>Expiration</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="MM/AA"
-                            className="premium-card" 
-                            style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
-                            value={boostCardExpiry}
-                            onChange={(e) => setBoostCardExpiry(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 'bold', marginBottom: '0.25rem' }}>CVV</label>
-                          <input 
-                            type="text" 
-                            required 
-                            placeholder="123"
-                            className="premium-card" 
-                            style={{ width: '100%', padding: '0.55rem', background: 'var(--light)' }}
-                            value={boostCardCvv}
-                            onChange={(e) => setBoostCardCvv(e.target.value)}
-                          />
-                        </div>
-                      </div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary-light)' }}>Formule de Boost :</span>
+                      <strong>
+                        {selectedPack === 'ndamel' ? '🥉 Ndamel (Régional)' : selectedPack === 'teranga' ? '🥈 Teranga (Prioritaire)' : '🥇 Lion (National)'}
+                      </strong>
                     </div>
-                  )}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
+                      <span style={{ color: 'var(--text-secondary-light)' }}>Option :</span>
+                      <strong>{boostMethod === 'wave' ? '🌊 Wave' : boostMethod === 'om' ? '🍊 Orange Money' : '💳 Carte Bancaire'}</strong>
+                    </div>
+                    <hr style={{ border: 'none', borderTop: '1px solid var(--border-light)', margin: '0.25rem 0' }} />
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.95rem' }}>
+                      <span style={{ fontWeight: 'bold' }}>Total à payer :</span>
+                      <strong style={{ color: 'var(--primary)', fontSize: '1.1rem' }}>
+                        {selectedPack === 'ndamel' ? '5 000' : selectedPack === 'teranga' ? '15 000' : '50 000'} F CFA
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div style={{ background: 'rgba(0,133,63,0.05)', padding: '0.75rem', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--text-secondary-light)', border: '1px dashed var(--primary)', marginBottom: '1.5rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <span>🔒</span>
+                    <span>Vous allez être redirigé vers la passerelle sécurisée PayTech pour effectuer la transaction en toute sécurité.</span>
+                  </div>
 
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <button type="button" className="btn btn-ghost" style={{ flex: 1 }} onClick={() => setBoostStep('method')} disabled={boostLoading}>
                       Retour
                     </button>
                     <button type="submit" className="btn btn-primary" style={{ flex: 2 }} disabled={boostLoading}>
-                      {boostLoading ? 'Validation...' : 'Confirmer & Payer'}
+                      {boostLoading ? 'Redirection...' : 'Payer avec PayTech 💳'}
                     </button>
                   </div>
                 </form>
