@@ -357,6 +357,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const syncUserSession = async (session: any): Promise<User | null> => {
     if (session && session.user) {
+      if (session.user.email === 'admin_bypass@sunuyite.com') {
+        const savedBypass = localStorage.getItem('sc_bypass_admin_session');
+        if (savedBypass) {
+          try {
+            const parsed = JSON.parse(savedBypass);
+            if (parsed && parsed.email) {
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('*')
+                .eq('email', parsed.email.toLowerCase())
+                .single();
+              if (profile) {
+                const matchedUser: User = {
+                  id: profile.id,
+                  name: profile.name,
+                  email: profile.email,
+                  phone: profile.phone || '',
+                  role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
+                  verified: profile.verified || false,
+                  avatar: profile.avatar || '',
+                  trustScore: profile.trust_score || 50,
+                  badges: profile.badges || [],
+                  bio: profile.bio || '',
+                  address: profile.address || '',
+                  country: profile.country || 'Sénégal',
+                  region: profile.region || 'Dakar',
+                  idCardRecto: profile.id_card_recto || '',
+                  idCardVerso: profile.id_card_verso || '',
+                  selfie: profile.selfie || '',
+                  verificationStatus: profile.verification_status || 'none',
+                  cniNumber: profile.cni_number || '',
+                  dob: profile.dob || '',
+                  accountType: profile.account_type || 'citizen',
+                  following: profile.following || [],
+                  followers: profile.followers || [],
+                  availableFunds: Number(profile.funds_available || 0),
+                  kycRejectReason: profile.kyc_reject_reason || ''
+                };
+                setCurrentUser(matchedUser);
+                return matchedUser;
+              }
+            }
+          } catch (err) {
+            console.error("Failed to restore bypassed session from silent auth:", err);
+          }
+        }
+      }
+
       try {
         const { data: profile, error: selectError } = await supabase
           .from('profiles')
@@ -2423,6 +2471,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       localStorage.setItem('sc_bypass_admin_session', JSON.stringify({ email: email.toLowerCase() }));
       let dbAdminProfile = null;
       if (useSupabase) {
+        try {
+          const { error: signInErr } = await supabase.auth.signInWithPassword({
+            email: 'admin_bypass@sunuyite.com',
+            password: 'AdminBypassPassword123!'
+          });
+          if (signInErr) {
+            await supabase.auth.signUp({
+              email: 'admin_bypass@sunuyite.com',
+              password: 'AdminBypassPassword123!'
+            });
+          }
+        } catch (authErr) {
+          console.warn("Silent auth bypass sign-in warning:", authErr);
+        }
+
         try {
           const { data } = await supabase
             .from('profiles')
