@@ -86,6 +86,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     updateProfile, 
     addNotification,
     usersList,
+    followUser,
     unfollowUser,
     setSelectedPublicUserId,
     deleteAccount,
@@ -1387,6 +1388,96 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                           >
                             Désabonner
                           </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+
+          {/* ABONNÉS (FOLLOWERS) */}
+          <section style={{ marginBottom: '3rem' }}>
+            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>👥 Vos Abonnés ({currentUser.followers?.length || 0})</h3>
+            
+            {(currentUser.followers?.length || 0) === 0 ? (
+              <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)' }}>
+                <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
+                  Vous n'avez pas encore d'abonnés. Partagez vos campagnes pour vous faire suivre !
+                </p>
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
+                {(currentUser.followers || []).map(followerId => {
+                  const followerUser = usersList.find(u => u.id === followerId);
+                  if (!followerUser) return null;
+                  const isFollowingBack = currentUser.following?.includes(followerId);
+                  return (
+                    <div 
+                      key={followerId} 
+                      className="premium-card hover-glow"
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '1rem',
+                        padding: '1rem',
+                        background: 'var(--light-card)',
+                        border: '1.5px solid var(--border-light)',
+                        borderRadius: 'var(--radius-md)'
+                      }}
+                    >
+                      <div 
+                        style={{
+                          width: '45px',
+                          height: '45px',
+                          borderRadius: '50%',
+                          backgroundImage: `url("${followerUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00erIvPjwvc3ZnPg=='}")`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          border: '1.5px solid var(--primary)'
+                        }}
+                      />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {followerUser.name}
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 'bold', marginTop: '0.1rem' }}>
+                          {followerUser.accountType === 'ngo' ? '🤝 ONG' : followerUser.accountType === 'company' ? '🏢 Entreprise' : '👤 Citoyen'}
+                        </div>
+                        
+                        <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem' }}>
+                          <button
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', border: '1px solid var(--border-light)', minWidth: 'auto' }}
+                            onClick={() => setSelectedPublicUserId(followerUser.id)}
+                          >
+                            Profil
+                          </button>
+                          {isFollowingBack ? (
+                            <span style={{ 
+                              padding: '0.2rem 0.5rem', 
+                              fontSize: '0.75rem', 
+                              color: 'var(--success, #10b981)', 
+                              background: 'rgba(16, 185, 129, 0.1)', 
+                              borderRadius: 'var(--radius-sm)',
+                              fontWeight: 'bold',
+                              display: 'inline-flex',
+                              alignItems: 'center'
+                            }}>
+                              Abonné 🤝
+                            </span>
+                          ) : (
+                            <button
+                              type="button"
+                              className="btn btn-primary"
+                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', minWidth: 'auto', fontWeight: 'bold' }}
+                              onClick={() => followUser(followerUser.id)}
+                            >
+                              Suivre
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>

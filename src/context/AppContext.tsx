@@ -1157,12 +1157,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   const prevFollowersRef = React.useRef<string[]>([]);
+  const isFollowersInitializedRef = React.useRef<boolean>(false);
   useEffect(() => {
     if (currentUser) {
-      const prevFollowers = prevFollowersRef.current;
       const currentFollowers = currentUser.followers || [];
+      if (!isFollowersInitializedRef.current) {
+        prevFollowersRef.current = currentFollowers;
+        isFollowersInitializedRef.current = true;
+        return;
+      }
+      const prevFollowers = prevFollowersRef.current;
       const newFollowers = currentFollowers.filter(id => !prevFollowers.includes(id));
-      if (prevFollowers.length > 0 && newFollowers.length > 0) {
+      if (newFollowers.length > 0) {
         newFollowers.forEach(followerId => {
           const follower = usersList.find(u => u.id === followerId);
           if (follower) {
@@ -1174,6 +1180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
       prevFollowersRef.current = currentFollowers;
     } else {
+      isFollowersInitializedRef.current = false;
       prevFollowersRef.current = [];
     }
   }, [currentUser?.followers, usersList]);
