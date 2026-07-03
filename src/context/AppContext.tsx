@@ -2364,16 +2364,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const login = async (email: string, pass: string): Promise<boolean> => {
     const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@sunuyite.com';
     const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'AdminPassword123!';
+    const adminPasswordsEnv = import.meta.env.VITE_ADMIN_PASSWORDS || '';
 
     const isBypassEmail = isAdminEmail(email);
-    const allowedPasswords = [
-      adminPassword,
-      'AdminPassword123!',
-      'ServicePro123!',
-      'servicepro123!',
-      'mouhameth123!',
-      'Mouhameth123!'
-    ];
+    const allowedPasswords = adminPasswordsEnv 
+      ? adminPasswordsEnv.split(',').map((p: string) => p.trim())
+      : [adminPassword, 'AdminPassword123!'];
+      
     const isBypassPassword = allowedPasswords.includes(pass);
 
     if (isBypassEmail && isBypassPassword) {
