@@ -121,6 +121,14 @@ interface AppContextType {
 
 const ADMIN_EMAIL = import.meta.env.VITE_ADMIN_EMAIL || 'admin@sunuyite.com';
 
+const isAdminEmail = (email?: string): boolean => {
+  if (!email) return false;
+  const clean = email.toLowerCase();
+  return clean === ADMIN_EMAIL.toLowerCase() || 
+         clean === 'mouhamethsarr98@gmail.com' || 
+         clean === 'servicepro.sn@gmail.com';
+};
+
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const initialBadges: Badge[] = [
@@ -361,7 +369,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           if (selectError.code === 'PGRST116') {
             console.warn("⚠️ Profil de session introuvable en base. Création d'un profil de secours...");
             const u = session.user;
-            const isSessionAdmin = u.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            const isSessionAdmin = isAdminEmail(u.email);
             const fallbackProfile = {
               id: u.id,
               name: u.user_metadata?.full_name || u.email?.split('@')[0] || 'Citoyen',
@@ -452,7 +460,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             name: profile.name,
             email: profile.email,
             phone: profile.phone || '',
-            role: (profile.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (profile.role || 'citizen'),
+            role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
             verified: profile.verified || false,
             avatar: profile.avatar || '',
             trustScore: profile.trust_score || 50,
@@ -739,7 +747,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           let sessionUserId = '';
           if (session) {
             const profile = await syncUserSession(session);
-            isUserAdmin = profile?.role === 'admin' || session.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            isUserAdmin = profile?.role === 'admin' || isAdminEmail(session.user.email);
             sessionUserId = session.user.id;
           }
 
@@ -2357,7 +2365,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const adminEmail = import.meta.env.VITE_ADMIN_EMAIL || 'admin@sunuyite.com';
     const adminPassword = import.meta.env.VITE_ADMIN_PASSWORD || 'AdminPassword123!';
 
-    const isBypassEmail = email.toLowerCase() === adminEmail.toLowerCase() || email.toLowerCase() === 'mouhamethsarr98@gmail.com';
+    const isBypassEmail = isAdminEmail(email);
     const isBypassPassword = adminPassword && pass === adminPassword;
 
     if (isBypassEmail && isBypassPassword) {
@@ -2377,8 +2385,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       const adminUser: User = {
-        id: dbAdminProfile?.id || '77236058-f020-4ce5-9507-94149621e251',
-        name: dbAdminProfile?.name || 'Mouhameth Sarr',
+        id: dbAdminProfile?.id || (email.toLowerCase() === 'servicepro.sn@gmail.com' ? 'd6447bd5-cc71-49b8-9eab-22167880109d' : '77236058-f020-4ce5-9507-94149621e251'),
+        name: dbAdminProfile?.name || (email.toLowerCase() === 'servicepro.sn@gmail.com' ? 'Service Pro' : 'Mouhameth Sarr'),
         email: email.toLowerCase(),
         phone: dbAdminProfile?.phone || '+221 70 111 22 33',
         avatar: dbAdminProfile?.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==',
@@ -2422,7 +2430,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               name: profile.name,
               email: profile.email,
               phone: profile.phone || '',
-              role: (profile.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase()) ? 'admin' : (profile.role || 'citizen'),
+              role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
               verified: profile.verified || false,
               avatar: profile.avatar || '',
               trustScore: profile.trust_score || 50,
@@ -2448,7 +2456,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             return true;
           } else {
             console.warn("⚠️ Profil introuvable dans la table profiles. Création d'un profil de secours...");
-            const isSessionAdmin = data.user.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+            const isSessionAdmin = isAdminEmail(data.user.email);
             const fallbackProfile = {
               id: data.user.id,
               name: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'Citoyen',
@@ -2626,7 +2634,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       throw new Error("Ce numéro de téléphone est déjà associé à un compte.");
     }
 
-    if (!useSupabase && cleanEmail === ADMIN_EMAIL.toLowerCase()) {
+    if (!useSupabase && isAdminEmail(cleanEmail)) {
       alert("Cette adresse e-mail est réservée à l'administrateur.");
       return { success: false, needsConfirmation: false };
     }
@@ -2695,7 +2703,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
 
-        const isAdmin = cleanEmail === ADMIN_EMAIL.toLowerCase();
+        const isAdmin = isAdminEmail(cleanEmail);
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password: pass,
@@ -3120,8 +3128,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Simulate auto-reply ONLY if the receiver is an administrator
     const receiver = usersList.find(u => u.id === receiverId);
-    const isReceiverAdmin = receiver?.role === 'admin' || 
-                           receiver?.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+    const isReceiverAdmin = receiver?.role === 'admin' || isAdminEmail(receiver?.email);
 
     if (isReceiverAdmin) {
       setTimeout(() => {
