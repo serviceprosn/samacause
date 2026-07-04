@@ -12,7 +12,7 @@ export default async function handler(req, res) {
 
   const proto = req.headers['x-forwarded-proto'] || 'https';
   const host = req.headers.host || 'sunuyite.fun';
-  ogUrl = `${proto}://${host}${req.url}`;
+  const ogUrl = `${proto}://${host}${req.url}`;
 
   let title = "Sunu Yité | Mobilisation Citoyenne au Sénégal";
   let description = "Sunu Yité - Plateforme web et mobile de mobilisation citoyenne et de financement participatif solidaire au Sénégal. Pétitions sécurisées par OTP SMS, transparence totale des dépenses, et dons via Wave, Orange Money et Stripe.";
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
   }
 
   // If local read fails, fetch it via network
-  if (!htmlTemplate) {
+  if (!htmlTemplate && typeof fetch !== 'undefined') {
     try {
       const response = await fetch(`${proto}://${host}/index.html`);
       if (response.ok) {
