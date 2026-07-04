@@ -10,14 +10,21 @@ const supabase = createClient(REAL_SUPABASE_URL, REAL_SUPABASE_ANON_KEY);
 export default async function handler(req, res) {
   const { petition, cagnotte, benevolat, mission } = req.query;
 
+  const proto = req.headers['x-forwarded-proto'] || 'https';
+  const host = req.headers.host || 'sunuyite.fun';
+  ogUrl = `${proto}://${host}${req.url}`;
+
   let title = "Sunu Yité | Mobilisation Citoyenne au Sénégal";
   let description = "Sunu Yité - Plateforme web et mobile de mobilisation citoyenne et de financement participatif solidaire au Sénégal. Pétitions sécurisées par OTP SMS, transparence totale des dépenses, et dons via Wave, Orange Money et Stripe.";
-  let ogImage = "https://sunuyite.vercel.app/logo.png";
-  let ogUrl = "";
+  let ogImage = `https://sunuyite.fun/logo.png`; // Fallback default image
 
-  const proto = req.headers['x-forwarded-proto'] || 'https';
-  const host = req.headers.host || 'sunuyite.vercel.app';
-  ogUrl = `${proto}://${host}${req.url}`;
+  const resolveOgImage = (imgUrl) => {
+    if (!imgUrl) return ogImage;
+    if (imgUrl.startsWith('data:image')) return ogImage; // ignore base64 in OG tags
+    if (imgUrl.startsWith('http')) return imgUrl;
+    if (imgUrl.startsWith('/')) return `${proto}://${host}${imgUrl}`;
+    return `${proto}://${host}/${imgUrl}`;
+  };
 
   try {
     if (petition) {
@@ -30,7 +37,7 @@ export default async function handler(req, res) {
         if (data.title) title = `Pétition : ${data.title}`;
         const rawDesc = data.description || '';
         description = rawDesc.slice(0, 160) + (rawDesc.length > 160 ? '...' : '');
-        ogImage = data.cover_image || ogImage;
+        ogImage = resolveOgImage(data.cover_image);
       }
     } else if (cagnotte) {
       const { data, error } = await supabase
@@ -42,7 +49,7 @@ export default async function handler(req, res) {
         if (data.title) title = `Cagnotte : ${data.title}`;
         const rawDesc = data.description || '';
         description = rawDesc.slice(0, 160) + (rawDesc.length > 160 ? '...' : '');
-        ogImage = data.cover_image || ogImage;
+        ogImage = resolveOgImage(data.cover_image);
       }
     } else if (benevolat || mission) {
       const id = benevolat || mission;
@@ -55,7 +62,7 @@ export default async function handler(req, res) {
         if (data.title) title = `Mission : ${data.title}`;
         const rawDesc = data.description || '';
         description = rawDesc.slice(0, 160) + (rawDesc.length > 160 ? '...' : '');
-        ogImage = data.cover_image || ogImage;
+        ogImage = resolveOgImage(data.cover_image);
       }
     }
   } catch (err) {

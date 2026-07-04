@@ -320,7 +320,7 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ cagnotte, onClose })
         <div class="receipt-container">
           <div class="header">
             <div class="logo-area">
-              <img class="logo-img" src="${window.location.origin}/logo.png" onerror="this.src='https://sunuyite.vercel.app/logo.png'" />
+              <img class="logo-img" src="${window.location.origin}/logo.png" onerror="this.src='https://sunuyite.fun/logo.png'" />
               <div>
                 <h1 class="brand-name">SUNU YITÉ</h1>
                 <p class="brand-tagline">L'Engagement Citoyen pour le Sénégal</p>

@@ -30,6 +30,8 @@ export default async function handler(req, res) {
   // CORS origin restrictions
   const origin = req.headers.origin;
   const allowedOrigins = [
+    'https://sunuyite.fun',
+    'https://www.sunuyite.fun',
     'https://sunuyite.vercel.app',
     'https://samacause.vercel.app'
   ];
@@ -37,7 +39,7 @@ export default async function handler(req, res) {
   if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app') || origin.startsWith('http://localhost:'))) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   } else {
-    res.setHeader('Access-Control-Allow-Origin', 'https://sunuyite.vercel.app');
+    res.setHeader('Access-Control-Allow-Origin', 'https://sunuyite.fun');
   }
   
   res.setHeader('Access-Control-Allow-Credentials', true);
