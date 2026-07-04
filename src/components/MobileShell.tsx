@@ -463,7 +463,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
                       transition: 'all 0.2s ease'
                     }}
                   >
-                    <span>{lang === 'fr' ? '🇫🇷' : lang === 'wo' ? '🇸🇳' : '🇬🇧'}</span>
+                    <span>{lang === 'fr' ? '🇫🇷' : lang === 'wo' ? '🇸🇳' : '🇺🇸'}</span>
                     <span style={{ fontSize: '0.6rem', textTransform: 'uppercase' }}>{lang}</span>
                   </button>
                 ))}

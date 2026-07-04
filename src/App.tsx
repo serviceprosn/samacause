@@ -44,6 +44,7 @@ const MainLayout: React.FC = () => {
   const { language, setLanguage, t } = useLanguage();
 
   const [verifyReceiptRef, setVerifyReceiptRef] = useState<string | null>(null);
+  const [isLangDropdownOpen, setIsLangDropdownOpen] = useState(false);
 
   const unreadCount = currentUser && directMessages
     ? directMessages.filter(m => m.receiverId === currentUser.id && !m.read).length
@@ -1197,32 +1198,96 @@ const MainLayout: React.FC = () => {
           {/* Action Toolbar */}
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
             
-            {/* Language Selector */}
-            <div style={{ display: 'flex', gap: '0.25rem', background: 'var(--bg-light)', padding: '0.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
-              {(['fr', 'wo', 'en'] as const).map((lang) => (
-                <button
-                  key={lang}
-                  onClick={() => setLanguage(lang)}
-                  style={{
-                    padding: '0.25rem 0.5rem',
-                    fontSize: '0.75rem',
-                    fontWeight: 'bold',
-                    borderRadius: 'var(--radius-sm)',
-                    border: 'none',
-                    background: language === lang ? 'var(--primary)' : 'transparent',
-                    color: language === lang ? 'white' : 'var(--text-muted)',
-                    cursor: 'pointer',
-                    textTransform: 'uppercase',
-                    transition: 'all 0.2s ease',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}
-                  title={lang === 'fr' ? 'Français' : lang === 'wo' ? 'Wolof' : 'English'}
-                >
-                  {lang === 'fr' ? '🇫🇷' : lang === 'wo' ? '🇸🇳' : '🇬🇧'}
-                </button>
-              ))}
+            {/* Language Selector Dropdown */}
+            <div style={{ position: 'relative', zIndex: 1000 }}>
+              <button
+                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.35rem',
+                  padding: '0.35rem 0.6rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1.5px solid var(--border-light)',
+                  background: 'white',
+                  cursor: 'pointer',
+                  fontWeight: 'bold',
+                  fontSize: '0.85rem',
+                  boxShadow: 'var(--shadow-sm)',
+                  transition: 'all 0.2s ease',
+                  outline: 'none',
+                  color: 'var(--text-main)'
+                }}
+                title={language === 'fr' ? 'Français' : language === 'wo' ? 'Wolof' : 'English'}
+              >
+                <span style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center' }}>
+                  {language === 'fr' ? '🇫🇷' : language === 'wo' ? '🇸🇳' : '🇺🇸'}
+                </span>
+                <span style={{ fontSize: '0.65rem', opacity: 0.6, transform: isLangDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
+                  ▼
+                </span>
+              </button>
+
+              {isLangDropdownOpen && (
+                <>
+                  {/* Overlay to close when clicking outside */}
+                  <div 
+                    onClick={() => setIsLangDropdownOpen(false)}
+                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(100% + 0.35rem)',
+                      right: 0,
+                      background: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(8px)',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-light)',
+                      boxShadow: 'var(--shadow-lg)',
+                      padding: '0.25rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.15rem',
+                      minWidth: '120px',
+                      zIndex: 1000
+                    }}
+                  >
+                    {([
+                      { code: 'fr', label: 'Français', flag: '🇫🇷' },
+                      { code: 'wo', label: 'Wolof', flag: '🇸🇳' },
+                      { code: 'en', label: 'English', flag: '🇺🇸' }
+                    ] as const).map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => {
+                          setLanguage(lang.code);
+                          setIsLangDropdownOpen(false);
+                        }}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '0.5rem',
+                          padding: '0.45rem 0.6rem',
+                          width: '100%',
+                          border: 'none',
+                          background: language === lang.code ? 'rgba(0, 133, 63, 0.08)' : 'transparent',
+                          color: language === lang.code ? 'var(--primary)' : 'var(--text-main)',
+                          borderRadius: 'var(--radius-sm)',
+                          cursor: 'pointer',
+                          textAlign: 'left',
+                          fontSize: '0.8rem',
+                          fontWeight: language === lang.code ? 'bold' : 'normal',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <span style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center' }}>{lang.flag}</span>
+                        <span>{lang.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Theme selector */}
