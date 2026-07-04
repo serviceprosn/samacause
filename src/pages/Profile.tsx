@@ -804,6 +804,45 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             </p>
           )}
 
+          {currentUser.verificationStatus === 'rejected' && (
+            <div 
+              className="premium-card animate-slide-up" 
+              style={{ 
+                background: 'rgba(239, 68, 68, 0.08)', 
+                border: '1.5px solid rgba(239, 68, 68, 0.25)', 
+                padding: '1rem', 
+                borderRadius: 'var(--radius-md)', 
+                marginBottom: '1rem',
+                textAlign: 'left'
+              }}
+            >
+              <h4 style={{ color: 'var(--danger)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>
+                ⚠️ Votre demande de certification KYC a été rejetée
+              </h4>
+              <p style={{ fontSize: '0.82rem', color: 'var(--text-main)', margin: '0 0 0.75rem 0', lineHeight: '1.4' }}>
+                <strong>Motif de l\'administration :</strong> {currentUser.kycRejectReason || "Fichier incorrect ou non lisible."}
+              </p>
+              <button
+                onClick={() => {
+                  setIsEditingKyc(true);
+                  setIsEditingProfile(false);
+                }}
+                className="btn"
+                style={{
+                  padding: '0.45rem 1rem',
+                  fontSize: '0.8rem',
+                  background: 'var(--danger)',
+                  color: 'white',
+                  borderRadius: 'var(--radius-sm)',
+                  fontWeight: 'bold',
+                  boxShadow: '0 2px 4px rgba(239, 68, 68, 0.2)'
+                }}
+              >
+                ✏️ Corriger et resoumettre mes justificatifs
+              </button>
+            </div>
+          )}
+
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
             <TrustScore score={currentUser.trustScore} />
             {currentUser.verificationStatus === 'verified' ? (
@@ -1233,6 +1272,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                     }
                   }} />
                 </label>
+                {editIdRecto && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditIdRecto('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1272,6 +1321,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                     }
                   }} />
                 </label>
+                {editIdVerso && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditIdVerso('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
               </div>
             </div>
 
@@ -1292,6 +1351,16 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('selfie')}>
                   📸 Prendre en direct
                 </button>
+                {editSelfie && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditSelfie('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
               </div>
             </div>
           </div>

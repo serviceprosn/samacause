@@ -39,6 +39,7 @@ interface AppContextType {
   adminUpdateUser: (userId: string, updates: Partial<User>) => Promise<boolean>;
   followUser: (userId: string) => Promise<boolean>;
   unfollowUser: (userId: string) => Promise<boolean>;
+  sendPushToUser: (userId: string, title: string, body: string) => Promise<void>;
   
   // Withdrawal Requests & Messages helpers
   withdrawalRequests: WithdrawalRequest[];
@@ -2986,7 +2987,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       cniNumber: cniNumber !== undefined ? cniNumber : currentUser.cniNumber,
       dob: dob !== undefined ? dob : currentUser.dob,
       verified: isVerified,
-      trustScore: isVerified ? 100 : 50 // Will be calculated dynamically below
+      trustScore: isVerified ? 100 : 50, // Will be calculated dynamically below
+      kycRejectReason: verificationStatus === 'pending' ? '' : (currentUser.kycRejectReason || '')
     };
 
     updatedUser.trustScore = isVerified ? 100 : recalculateUserTrustScore(updatedUser);
@@ -3011,7 +3013,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         cni_number: cniNumber !== undefined ? cniNumber : currentUser.cniNumber,
         dob: dob !== undefined ? dob : currentUser.dob,
         verified: isVerified,
-        trust_score: newTrustScore
+        trust_score: newTrustScore,
+        kyc_reject_reason: verificationStatus === 'pending' ? '' : (currentUser.kycRejectReason || '')
       }).eq('id', currentUser.id).then(({ error }) => {
         if (error) {
           console.error("Error updating profile in Supabase:", error);
@@ -3863,6 +3866,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setActiveChatUserId,
       sendDirectMessage,
       adminUpdateUser,
+      sendPushToUser,
       followUser,
       unfollowUser,
       petitions,

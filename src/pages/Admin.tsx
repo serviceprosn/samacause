@@ -22,7 +22,8 @@ export const Admin: React.FC = () => {
     withdrawalRequests,
     approveWithdrawalRequest,
     rejectWithdrawalRequest,
-    sendDirectMessage
+    sendDirectMessage,
+    sendPushToUser
   } = useApp();
   const { t } = useLanguage();
   const [rejectingCampaignId, setRejectingCampaignId] = useState<string | null>(null);
@@ -1822,6 +1823,7 @@ export const Admin: React.FC = () => {
                                 verified: true, 
                                 trustScore: 100 
                               });
+                              sendPushToUser(user.id, "🛡️ Identité Certifiée", "Félicitations ! Votre demande de certification KYC a été approuvée avec succès. 🇸🇳");
                             }}
                           >
                             ✓ Approuver KYC & Certifier
@@ -1864,6 +1866,7 @@ export const Admin: React.FC = () => {
                                       trustScore: 50,
                                       kycRejectReason: kycRejectReasonText
                                     });
+                                    sendPushToUser(user.id, "❌ Certification KYC rejetée", "Votre demande de certification a été rejetée. Motif : " + kycRejectReasonText);
                                     setRejectingUserId(null);
                                     setKycRejectReasonText('');
                                     setExpandedUserId(null);
