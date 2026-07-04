@@ -1595,7 +1595,24 @@ export const Admin: React.FC = () => {
             if (user.kycRejectReason === 'BannedPermanently') return false;
             if (kycFilter === 'all') return true;
             return user.verificationStatus === kycFilter;
-          }).map((user) => {
+          }).length === 0 ? (
+            <div className="premium-card" style={{ textAlign: 'center', padding: '2.5rem', background: 'var(--light-card)', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)' }}>
+              <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
+                {kycFilter === 'pending' 
+                  ? "Aucun dossier en attente de validation KYC." 
+                  : kycFilter === 'verified' 
+                    ? "Aucun citoyen certifié pour le moment." 
+                    : kycFilter === 'rejected' 
+                      ? "Aucun dossier KYC rejeté." 
+                      : "Aucun utilisateur trouvé."}
+              </p>
+            </div>
+          ) : (
+            usersList.filter(user => {
+              if (user.kycRejectReason === 'BannedPermanently') return false;
+              if (kycFilter === 'all') return true;
+              return user.verificationStatus === kycFilter;
+            }).map((user) => {
             const isActive = currentUser.id === user.id;
             const isUserExpanded = expandedUserId === user.id;
             
@@ -2045,7 +2062,7 @@ export const Admin: React.FC = () => {
                 )}
               </div>
             );
-          })}
+          }))}
         </div>
       </section>
 

@@ -1069,6 +1069,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
   }, []);
 
+  // Reload profiles with admin permissions when currentUser changes
+  useEffect(() => {
+    if (useSupabase) {
+      loadProfiles(currentUser?.role === 'admin');
+    }
+  }, [currentUser?.role, currentUser?.id]);
+
   // Listen to Supabase Auth State changes for secure session recovery
   useEffect(() => {
     const isConfigured = true;
