@@ -1146,3 +1146,37 @@ input::placeholder, textarea::placeholder {
   }
 }
 
+/* ================================================================================
+   PWA INSTALL BANNER STYLES & ANIMATIONS
+   ================================================================================ */
+
+@keyframes pwaEntrance {
+  0% {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes pulseGlow {
+  0% {
+    box-shadow: 0 0 10px rgba(0, 242, 254, 0.3);
+  }
+  100% {
+    box-shadow: 0 0 22px rgba(0, 242, 254, 0.7);
+  }
+}
+
+.pwa-install-banner button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
+.pwa-install-banner button:active {
+  transform: translateY(1px);
+}
+
+

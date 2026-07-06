@@ -400,9 +400,15 @@ const MainLayout: React.FC = () => {
     };
   }, [activeModal]);
 
-  // PWA notification handling disabled
-  const handleInstall = async () => {};
-  const handleIgnore = () => {};
+  // PWA install banner dismissal tracking
+  const [pwaDismissed, setPwaDismissed] = useState(() => {
+    return sessionStorage.getItem('sc_pwa_install_dismissed') === 'true';
+  });
+
+  const handleDismissPwa = () => {
+    sessionStorage.setItem('sc_pwa_install_dismissed', 'true');
+    setPwaDismissed(true);
+  };
   const [isChatOpen, setIsChatOpen] = useState(false);
 
   // Auto-open chat drawer when a user is selected to chat (except on profile page)
@@ -1974,6 +1980,118 @@ const MainLayout: React.FC = () => {
           </div>
         );
       })()}
+
+      {/* PWA Premium Animated Install Banner */}
+      {isInstallable && !pwaDismissed && (
+        <div
+          className="pwa-install-banner"
+          style={{
+            position: 'fixed',
+            bottom: isMobileView ? '80px' : '24px', // clear bottom mobile shell menu
+            left: isMobileView ? '16px' : 'auto',
+            right: '16px',
+            width: isMobileView ? 'calc(100% - 32px)' : '380px',
+            background: 'rgba(10, 25, 47, 0.88)',
+            backdropFilter: 'blur(16px)',
+            border: '1.5px solid rgba(0, 242, 254, 0.35)',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px 0 rgba(0, 242, 254, 0.2)',
+            padding: '1.25rem',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '1rem',
+            animation: 'pwaEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div 
+              style={{ 
+                width: '48px', 
+                height: '48px', 
+                borderRadius: '12px', 
+                background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 0 15px rgba(0, 242, 254, 0.4)',
+                animation: 'pulseGlow 2s infinite alternate'
+              }}
+            >
+              <span style={{ fontSize: '1.5rem' }}>🇸🇳</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', fontFamily: "'Outfit', sans-serif" }}>
+                Installez l'application Sunu Yité
+              </h4>
+              <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#a0aec0', lineHeight: 1.3 }}>
+                Accédez à vos tontines et cagnottes hors-ligne en un clic.
+              </p>
+            </div>
+            <button 
+              onClick={handleDismissPwa}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#718096',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                padding: '0.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.2s'
+              }}
+              title="Ignorer"
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <button
+              onClick={handleDismissPwa}
+              style={{
+                padding: '0.5rem 1rem',
+                borderRadius: '8px',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                background: 'transparent',
+                color: '#a0aec0',
+                fontSize: '0.8rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              Plus tard
+            </button>
+            <button
+              onClick={async () => {
+                const installed = await installApp();
+                if (installed) {
+                  setPwaDismissed(true);
+                }
+              }}
+              style={{
+                padding: '0.5rem 1.25rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'linear-gradient(135deg, #00f2fe 0%, #4facfe 100%)',
+                color: '#051D33',
+                fontSize: '0.8rem',
+                fontWeight: 750,
+                cursor: 'pointer',
+                boxShadow: '0 4px 15px rgba(0, 242, 254, 0.3)',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.35rem'
+              }}
+            >
+              🚀 Installer
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

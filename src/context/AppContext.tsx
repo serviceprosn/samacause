@@ -331,10 +331,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
   const [activeOtpCode, setActiveOtpCode] = useState<string | null>(null);
 
-  // PWA Install prompt state & listener (Disabled)
-  const isInstallable = false;
+  // PWA Install prompt state & listener
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallable, setIsInstallable] = useState(false);
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setIsInstallable(true);
+      console.log('⭐️ PWA matches requirements and is installable! beforeinstallprompt fired.');
+    };
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      console.log('🎉 PWA successfully installed!');
+      addNotification('🎉 Application Sunu Yité installée avec succès !');
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
   const installApp = async (): Promise<boolean> => {
-    return false;
+    if (!deferredPrompt) {
+      console.warn('Install prompt not deferred yet.');
+      return false;
+    }
+    try {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to install prompt: ${outcome}`);
+      setDeferredPrompt(null);
+      setIsInstallable(false);
+      return outcome === 'accepted';
+    } catch (err) {
+      console.error('Error triggering PWA install prompt:', err);
+      return false;
+    }
   };
 
   // IA Chat state
