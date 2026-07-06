@@ -1191,6 +1191,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [currentUser?.role, currentUser?.id]);
 
+  // Automatic polling for real-time campaign updates (petitions, cagnottes, tontines, missions)
+  useEffect(() => {
+    if (!useSupabase) return;
+    const interval = setInterval(() => {
+      loadPetitions();
+      loadCagnottes();
+      loadTontines();
+      loadVolunteerMissions();
+    }, 15000); // Poll every 15 seconds
+    return () => clearInterval(interval);
+  }, [useSupabase]);
+
+  // Window Focus Refetcher to immediately sync lists when visitor switches back to the tab
+  useEffect(() => {
+    if (!useSupabase || typeof window === 'undefined') return;
+    const handleFocus = () => {
+      loadPetitions();
+      loadCagnottes();
+      loadTontines();
+      loadVolunteerMissions();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [useSupabase]);
+
   // Listen to Supabase Auth State changes for secure session recovery
   useEffect(() => {
     const isConfigured = true;
