@@ -408,13 +408,17 @@ const MainLayout: React.FC = () => {
     };
   }, [activeModal]);
 
-  // PWA install banner dismissal tracking
-  const [pwaDismissed, setPwaDismissed] = useState(() => {
-    return sessionStorage.getItem('sc_pwa_install_dismissed') === 'true';
-  });
+  // PWA install banner dismissal tracking (resets on page reload)
+  const [pwaDismissed, setPwaDismissed] = useState(false);
+
+  const isAlreadyInstalled = () => {
+    if (typeof window === 'undefined') return false;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    const isLocalFlag = localStorage.getItem('sc_pwa_installed') === 'true';
+    return isStandalone || isLocalFlag;
+  };
 
   const handleDismissPwa = () => {
-    sessionStorage.setItem('sc_pwa_install_dismissed', 'true');
     setPwaDismissed(true);
   };
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -1990,7 +1994,7 @@ const MainLayout: React.FC = () => {
       })()}
 
       {/* PWA Premium Animated Install Banner */}
-      {isInstallable && !pwaDismissed && (
+      {isInstallable && !isAlreadyInstalled() && !pwaDismissed && (
         <div
           className="pwa-install-banner"
           style={{
@@ -2102,7 +2106,7 @@ const MainLayout: React.FC = () => {
       )}
 
       {/* iOS PWA Install Guidance Banner */}
-      {isIOSDevices && !pwaDismissed && (
+      {isIOSDevices && !isAlreadyInstalled() && !pwaDismissed && (
         <div
           className="pwa-install-banner"
           style={{
