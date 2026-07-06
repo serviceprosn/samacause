@@ -164,6 +164,14 @@ const MainLayout: React.FC = () => {
     "100% transparent, 100% sénégalais ! 🇸🇳"
   ];
 
+  // iOS PWA device detection
+  React.useEffect(() => {
+    const ua = window.navigator.userAgent.toLowerCase();
+    const isIOS = /ipad|iphone|ipod/.test(ua) && !(window as any).MSStream;
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || (window.navigator as any).standalone;
+    setIsIOSDevices(isIOS && !isStandalone);
+  }, []);
+
   // Clean Cloudflare Turnstile token from URL
   React.useEffect(() => {
     if (typeof window !== 'undefined' && window.location.search) {
@@ -2088,6 +2096,95 @@ const MainLayout: React.FC = () => {
               }}
             >
               🚀 Installer
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* iOS PWA Install Guidance Banner */}
+      {isIOSDevices && !pwaDismissed && (
+        <div
+          className="pwa-install-banner"
+          style={{
+            position: 'fixed',
+            bottom: isMobileView ? '80px' : '24px', // clear bottom mobile shell menu
+            left: isMobileView ? '16px' : 'auto',
+            right: '16px',
+            width: isMobileView ? 'calc(100% - 32px)' : '380px',
+            background: 'rgba(10, 25, 47, 0.92)',
+            backdropFilter: 'blur(16px)',
+            border: '1.5px solid rgba(252, 209, 22, 0.35)',
+            borderRadius: '16px',
+            boxShadow: '0 8px 32px 0 rgba(252, 209, 22, 0.15)',
+            padding: '1.25rem',
+            zIndex: 99999,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.75rem',
+            animation: 'pwaEntrance 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div 
+              style={{ 
+                width: '48px', 
+                height: '48px', 
+                borderRadius: '12px', 
+                background: 'linear-gradient(135deg, #fcd116 0%, #ff9800 100%)', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                boxShadow: '0 0 15px rgba(252, 209, 22, 0.4)',
+                animation: 'pulseGlow 2s infinite alternate'
+              }}
+            >
+              <span style={{ fontSize: '1.5rem' }}>🍏</span>
+            </div>
+            <div style={{ flex: 1 }}>
+              <h4 style={{ margin: 0, fontSize: '0.95rem', fontWeight: 700, color: '#ffffff', fontFamily: "'Outfit', sans-serif" }}>
+                Installez Sunu Yité sur iPhone
+              </h4>
+              <p style={{ margin: '0.15rem 0 0 0', fontSize: '0.8rem', color: '#a0aec0', lineHeight: 1.35 }}>
+                1. Appuyez sur le bouton de partage <strong style={{ color: '#00f2fe' }}>⎋</strong> en bas de Safari.
+                <br />
+                2. Sélectionnez <strong style={{ color: '#00f2fe' }}>« Sur l'écran d'accueil »</strong> ⊕.
+              </p>
+            </div>
+            <button 
+              onClick={handleDismissPwa}
+              style={{
+                background: 'none',
+                border: 'none',
+                color: '#718096',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                padding: '0.2rem',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transition: 'color 0.2s'
+              }}
+              title="Ignorer"
+            >
+              ✕
+            </button>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={handleDismissPwa}
+              style={{
+                padding: '0.4rem 1rem',
+                borderRadius: '8px',
+                border: 'none',
+                background: 'rgba(255, 255, 255, 0.1)',
+                color: '#ffffff',
+                fontSize: '0.75rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+            >
+              J'ai compris 👌
             </button>
           </div>
         </div>

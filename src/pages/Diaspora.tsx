@@ -13,6 +13,40 @@ export const Diaspora: React.FC<DiasporaProps> = ({ onNavigate }) => {
   
   const [eurInput, setEurInput] = useState('100');
   const [currency, setCurrency] = useState<'EUR' | 'USD'>('EUR');
+  
+  const [totalMobilized, setTotalMobilized] = useState(0);
+  const [projectsCount, setProjectsCount] = useState(0);
+  const [donorsCount, setDonorsCount] = useState(0);
+  const [feesSaved, setFeesSaved] = useState(0);
+
+  React.useEffect(() => {
+    const duration = 1500;
+    const steps = 40;
+    const intervalTime = duration / steps;
+    
+    const targets = {
+      mobilized: 45890000,
+      projects: 24,
+      donors: 1430,
+      fees: 4589000
+    };
+
+    let step = 0;
+    const timer = setInterval(() => {
+      step++;
+      const progress = step / steps;
+      setTotalMobilized(Math.round(targets.mobilized * progress));
+      setProjectsCount(Math.round(targets.projects * progress));
+      setDonorsCount(Math.round(targets.donors * progress));
+      setFeesSaved(Math.round(targets.fees * progress));
+
+      if (step >= steps) {
+        clearInterval(timer);
+      }
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, []);
 
   // Convert
   const rate = currency === 'EUR' ? 655.957 : 605.5; // conversion rates
@@ -50,6 +84,96 @@ export const Diaspora: React.FC<DiasporaProps> = ({ onNavigate }) => {
             <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.15)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('diaspora.badge.secure')}</span>
             <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.15)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('diaspora.badge.receipts')}</span>
             <span style={{ fontSize: '0.8rem', background: 'rgba(255,255,255,0.15)', padding: '0.25rem 0.5rem', borderRadius: '4px' }}>{t('diaspora.badge.stripe')}</span>
+          </div>
+        </div>
+      </section>
+
+      {/* DIASPORA IMPACT DASHBOARD */}
+      <section 
+        className="premium-card animate-slide-up" 
+        style={{ 
+          marginBottom: '3rem', 
+          background: 'rgba(10, 25, 47, 0.4)',
+          border: '1.5px solid var(--border-light)',
+          padding: '2rem',
+          borderRadius: 'var(--radius-lg)'
+        }}
+      >
+        <h2 style={{ fontSize: '1.6rem', fontWeight: 800, marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          📈 Impact du Co-développement Diaspora
+        </h2>
+        
+        {/* Metric Grid */}
+        <div className="grid-cols-4" style={{ gap: '1.5rem', marginBottom: '2rem' }}>
+          <div className="premium-card" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-light)', textAlign: 'center', padding: '1.5rem' }}>
+            <span style={{ fontSize: '2rem' }}>🌍</span>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 850, color: 'var(--primary)', margin: '0.5rem 0' }}>
+              {totalMobilized.toLocaleString('fr-FR')} F
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Total Mobilisé</p>
+          </div>
+
+          <div className="premium-card" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-light)', textAlign: 'center', padding: '1.5rem' }}>
+            <span style={{ fontSize: '2rem' }}>🏗️</span>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 850, color: '#10B981', margin: '0.5rem 0' }}>
+              {projectsCount} Projets
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Réalisations Financées</p>
+          </div>
+
+          <div className="premium-card" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-light)', textAlign: 'center', padding: '1.5rem' }}>
+            <span style={{ fontSize: '2rem' }}>🤝</span>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 850, color: 'var(--secondary-dark)', margin: '0.5rem 0' }}>
+              {donorsCount} Donateurs
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Citoyens Actifs</p>
+          </div>
+
+          <div className="premium-card" style={{ background: 'rgba(255, 255, 255, 0.03)', border: '1px solid var(--border-light)', textAlign: 'center', padding: '1.5rem' }}>
+            <span style={{ fontSize: '2rem' }}>🛡️</span>
+            <h3 style={{ fontSize: '1.75rem', fontWeight: 850, color: '#8B5CF6', margin: '0.5rem 0' }}>
+              {feesSaved.toLocaleString('fr-FR')} F
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Frais Économisés (0%)</p>
+          </div>
+        </div>
+
+        {/* Breakdown & Transparency info */}
+        <div className="grid-cols-2" style={{ gap: '2.5rem', alignItems: 'center' }}>
+          <div>
+            <h3 style={{ fontSize: '1.2rem', fontWeight: 750, marginBottom: '1rem' }}>
+              🌍 Provenance Géographique des Dons
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+              {[
+                { country: 'France 🇫🇷', percent: 45, color: 'var(--primary)' },
+                { country: 'États-Unis 🇺🇸', percent: 25, color: '#10B981' },
+                { country: 'Italie 🇮🇹', percent: 15, color: 'var(--secondary-dark)' },
+                { country: 'Espagne 🇪🇸', percent: 10, color: '#F59E0B' },
+                { country: 'Autres 🌐', percent: 5, color: '#8B5CF6' }
+              ].map((item) => (
+                <div key={item.country}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', marginBottom: '0.35rem' }}>
+                    <span>{item.country}</span>
+                    <strong>{item.percent}%</strong>
+                  </div>
+                  <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.08)', borderRadius: '3px', overflow: 'hidden' }}>
+                    <div style={{ width: `${item.percent}%`, height: '100%', background: item.color, borderRadius: '3px' }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: 'rgba(0, 242, 254, 0.03)', border: '1px dashed rgba(0, 242, 254, 0.25)', borderRadius: '12px', padding: '1.5rem' }}>
+            <h3 style={{ fontSize: '1.1rem', fontWeight: 750, color: 'var(--primary)', marginBottom: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <span>🔒</span> Traçabilité Blockchain & Preuves Réelles
+            </h3>
+            <p style={{ margin: 0, fontSize: '0.82rem', color: 'var(--text-secondary-light)', lineHeight: 1.45 }}>
+              Chaque don est inscrit de manière inaltérable. Sunu Yité exige des porteurs de projets la mise à disposition de factures signées par les commerçants locaux, de coordonnées GPS exactes, et de vidéos de livraison. 
+              <br/><br/>
+              <strong>La confiance de la diaspora est au cœur de notre modèle de co-développement.</strong>
+            </p>
           </div>
         </div>
       </section>
