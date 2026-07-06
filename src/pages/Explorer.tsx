@@ -3,17 +3,26 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Petition, Cagnotte, VolunteerMission } from '../types';
 import { TrustScore } from '../components/TrustScore';
+import { MapSenegal } from '../components/MapSenegal';
 
 interface ExplorerProps {
   onNavigate: (page: string, params?: any) => void;
+  initialRegion?: string | null;
 }
 
-export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
+export const Explorer: React.FC<ExplorerProps> = ({ onNavigate, initialRegion }) => {
   const { petitions, cagnottes, volunteerMissions, tontines, usersList } = useApp();
   const { t } = useLanguage();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<'all' | 'petition' | 'cagnotte' | 'tontine' | 'benevolat'>('all');
+  const [selectedRegion, setSelectedRegion] = useState<string | null>(initialRegion || null);
+
+  useEffect(() => {
+    if (initialRegion !== undefined) {
+      setSelectedRegion(initialRegion);
+    }
+  }, [initialRegion]);
 
   const getOrganizerTrustScore = (email: string) => {
     const found = usersList.find(u => u.email === email);
@@ -42,7 +51,7 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
     }))
   ].sort((a, b) => new Date(b.dateValue).getTime() - new Date(a.dateValue).getTime());
 
-  // Apply search & tab filters
+  // Apply search, tab & region filters
   const filteredItems = allItems.filter(item => {
     const matchesTab = activeTab === 'all' || item.type === activeTab;
     const matchesSearch = 
@@ -50,7 +59,11 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
       (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.location && item.location.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    return matchesTab && matchesSearch;
+    const matchesRegion = !selectedRegion || (
+      item.location && item.location.toLowerCase().includes(selectedRegion.toLowerCase())
+    );
+    
+    return matchesTab && matchesSearch && matchesRegion;
   });
 
   return (
@@ -155,6 +168,41 @@ export const Explorer: React.FC<ExplorerProps> = ({ onNavigate }) => {
           </button>
         ))}
       </div>
+
+      {/* Interactive Map Section */}
+      <MapSenegal
+        selectedRegion={selectedRegion}
+        onSelectRegion={setSelectedRegion}
+        petitions={petitions}
+        cagnottes={cagnottes}
+        tontines={tontines}
+        volunteerMissions={volunteerMissions}
+      />
+
+      {selectedRegion && (
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>Filtre régional actif :</span>
+          <span 
+            style={{
+              fontSize: '0.75rem',
+              fontWeight: 'bold',
+              background: 'rgba(0, 133, 63, 0.1)',
+              color: 'var(--primary)',
+              border: '1px solid var(--primary)',
+              padding: '0.25rem 0.65rem',
+              borderRadius: '50px',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              cursor: 'pointer',
+              transition: 'all 0.2s ease'
+            }}
+            onClick={() => setSelectedRegion(null)}
+          >
+            📍 {selectedRegion} ✕
+          </span>
+        </div>
+      )}
 
       {/* Grid listing */}
       {filteredItems.length === 0 ? (

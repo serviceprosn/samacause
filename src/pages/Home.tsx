@@ -12,7 +12,7 @@ interface HomeProps {
 }
 
 export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
-  const { petitions, cagnottes, getKPIs, useSupabase } = useApp();
+  const { petitions, cagnottes, tontines, volunteerMissions, getKPIs, useSupabase } = useApp();
   const { language, t } = useLanguage();
   const kpis = getKPIs();
   
@@ -254,7 +254,18 @@ export const Home: React.FC<HomeProps> = ({ onNavigate }) => {
           <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.95rem', marginBottom: '1.5rem' }}>
             {t('home.desc.territorial')}
           </p>
-          <MapSenegal />
+          <MapSenegal 
+            selectedRegion={null}
+            onSelectRegion={(region) => {
+              if (region) {
+                onNavigate('explore', { region });
+              }
+            }}
+            petitions={petitions}
+            cagnottes={cagnottes}
+            tontines={tontines}
+            volunteerMissions={volunteerMissions}
+          />
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>

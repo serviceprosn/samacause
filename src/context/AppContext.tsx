@@ -589,111 +589,178 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Supabase Data Loaders
   const loadPetitions = async () => {
-        const { data, error } = await supabase
-          .from('petitions')
-          .select('id, title, description, cover_image, category, signatures_count, signatures_target, recipient, location, date_limit, created_at, status, organizer, updates, signers, boosted, boost_level, viewed_by_admin, rejection_feedback, image_before, image_after, gallery')
-          .order('created_at', { ascending: false });
-        if (!error && data) {
-          const mapped = data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            coverImage: item.cover_image,
-            category: item.category,
-            signaturesCount: item.signatures_count,
-            signaturesTarget: item.signatures_target,
-            recipient: item.recipient,
-            location: item.location,
-            dateLimit: item.date_limit,
-            createdAt: item.created_at,
-            status: item.status,
-            organizer: item.organizer,
-            updates: item.updates || [],
-            signers: item.signers || [],
-            boosted: item.boosted,
-            boostLevel: item.boost_level,
-            viewedByAdmin: item.viewed_by_admin,
-            rejectionFeedback: item.rejection_feedback,
-            imageBefore: item.image_before || '',
-            imageAfter: item.image_after || '',
-            gallery: item.gallery || []
-          }));
-          setPetitions(mapped);
-          return mapped;
+    try {
+      const { data, error } = await supabase
+        .from('petitions')
+        .select('id, title, description, cover_image, category, signatures_count, signatures_target, recipient, location, date_limit, created_at, status, organizer, updates, signers, boosted, boost_level, viewed_by_admin, rejection_feedback, image_before, image_after, gallery')
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          coverImage: item.cover_image,
+          category: item.category,
+          signaturesCount: item.signatures_count,
+          signaturesTarget: item.signatures_target,
+          recipient: item.recipient,
+          location: item.location,
+          dateLimit: item.date_limit,
+          createdAt: item.created_at,
+          status: item.status,
+          organizer: item.organizer,
+          updates: item.updates || [],
+          signers: item.signers || [],
+          boosted: item.boosted,
+          boostLevel: item.boost_level,
+          viewedByAdmin: item.viewed_by_admin,
+          rejectionFeedback: item.rejection_feedback,
+          imageBefore: item.image_before || '',
+          imageAfter: item.image_after || '',
+          gallery: item.gallery || []
+        }));
+        setPetitions(mapped);
+        
+        // Cache to IndexedDB asynchronously
+        import('../utils/indexedDB').then(({ dbHelper }) => {
+          dbHelper.saveAll('petitions', mapped).catch(err => console.error("Error caching petitions:", err));
+        });
+        return mapped;
+      } else {
+        throw error || new Error("No data returned");
+      }
+    } catch (err) {
+      console.warn("Database fetch for petitions failed, loading from IndexedDB:", err);
+      try {
+        const { dbHelper } = await import('../utils/indexedDB');
+        const cached = await dbHelper.getAll('petitions');
+        if (cached && cached.length > 0) {
+          setPetitions(cached);
+          return cached;
         }
-        return [];
-      };
+      } catch (dbErr) {
+        console.error("Failed to load petitions from IndexedDB:", dbErr);
+      }
+    }
+    return [];
+  };
 
-      const loadCagnottes = async () => {
-        const { data, error } = await supabase
-          .from('cagnottes')
-          .select('id, title, description, cover_image, category, amount_collected, amount_target, location, created_at, status, organizer, is_diaspora_targeted, updates, expenses, donors, documents, gallery, viewed_by_admin, rejection_feedback, image_before, image_after')
-          .order('created_at', { ascending: false });
-        if (!error && data) {
-          const mapped = data.map((item: any) => ({
-            id: item.id,
-            title: item.title,
-            description: item.description,
-            coverImage: item.cover_image,
-            category: item.category,
-            amountCollected: Number(item.amount_collected || 0),
-            amountTarget: Number(item.amount_target || 0),
-            location: item.location,
-            createdAt: item.created_at,
-            status: item.status,
-            organizer: item.organizer,
-            isDiasporaTargeted: item.is_diaspora_targeted,
-            updates: item.updates || [],
-            expenses: item.expenses || [],
-            donors: item.donors || [],
-            documents: item.documents || [],
-            gallery: item.gallery || [],
-            viewedByAdmin: item.viewed_by_admin,
-            rejectionFeedback: item.rejection_feedback,
-            imageBefore: item.image_before || '',
-            imageAfter: item.image_after || ''
-          }));
-          setCagnottes(mapped);
-          return mapped;
+  const loadCagnottes = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('cagnottes')
+        .select('id, title, description, cover_image, category, amount_collected, amount_target, location, created_at, status, organizer, is_diaspora_targeted, updates, expenses, donors, documents, gallery, viewed_by_admin, rejection_feedback, image_before, image_after')
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          title: item.title,
+          description: item.description,
+          coverImage: item.cover_image,
+          category: item.category,
+          amountCollected: Number(item.amount_collected || 0),
+          amountTarget: Number(item.amount_target || 0),
+          location: item.location,
+          createdAt: item.created_at,
+          status: item.status,
+          organizer: item.organizer,
+          isDiasporaTargeted: item.is_diaspora_targeted,
+          updates: item.updates || [],
+          expenses: item.expenses || [],
+          donors: item.donors || [],
+          documents: item.documents || [],
+          gallery: item.gallery || [],
+          viewedByAdmin: item.viewed_by_admin,
+          rejectionFeedback: item.rejection_feedback,
+          imageBefore: item.image_before || '',
+          imageAfter: item.image_after || ''
+        }));
+        setCagnottes(mapped);
+        
+        // Cache to IndexedDB asynchronously
+        import('../utils/indexedDB').then(({ dbHelper }) => {
+          dbHelper.saveAll('cagnottes', mapped).catch(err => console.error("Error caching cagnottes:", err));
+        });
+        return mapped;
+      } else {
+        throw error || new Error("No data returned");
+      }
+    } catch (err) {
+      console.warn("Database fetch for cagnottes failed, loading from IndexedDB:", err);
+      try {
+        const { dbHelper } = await import('../utils/indexedDB');
+        const cached = await dbHelper.getAll('cagnottes');
+        if (cached && cached.length > 0) {
+          setCagnottes(cached);
+          return cached;
         }
-        return [];
-      };
+      } catch (dbErr) {
+        console.error("Failed to load cagnottes from IndexedDB:", dbErr);
+      }
+    }
+    return [];
+  };
 
-      const loadTontines = async () => {
-        const { data, error } = await supabase
-          .from('tontines')
-          .select('*')
-          .order('created_at', { ascending: false });
-        if (!error && data) {
-          setTontines(data.map((item: any) => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            type: item.type,
-            participantsMax: item.participants_max,
-            joinedCount: item.joined_count,
-            cotisation: Number(item.cotisation),
-            frequency: item.frequency,
-            startDate: item.start_date,
-            endDate: item.end_date,
-            orderType: item.order_type,
-            status: item.status,
-            organizer: item.organizer,
-            members: item.members || [],
-            payments: item.payments || [],
-            activityLogs: item.activity_logs || [],
-            votes: item.votes || [],
-            chat: item.chat || [],
-            guaranteeFundActive: item.guarantee_fund_active || false,
-            guaranteeFundAmount: item.guarantee_fund_amount || 0,
-            guaranteeFundTotal: item.guarantee_fund_total || 0,
-            accumulatedSavings: Number(item.accumulated_savings || 0),
-            coverImage: item.cover_image
-          })));
-        } else if (error) {
-          console.warn("Table 'tontines' non configurée ou indisponible dans Supabase, utilisation du stockage local :", error.message);
+  const loadTontines = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('tontines')
+        .select('*')
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        const mapped = data.map((item: any) => ({
+          id: item.id,
+          name: item.name,
+          description: item.description,
+          type: item.type,
+          participantsMax: item.participants_max,
+          joinedCount: item.joined_count,
+          cotisation: Number(item.cotisation),
+          frequency: item.frequency,
+          startDate: item.start_date,
+          endDate: item.end_date,
+          orderType: item.order_type,
+          status: item.status,
+          organizer: item.organizer,
+          members: item.members || [],
+          payments: item.payments || [],
+          activityLogs: item.activity_logs || [],
+          votes: item.votes || [],
+          chat: item.chat || [],
+          guaranteeFundActive: item.guarantee_fund_active || false,
+          guaranteeFundAmount: item.guarantee_fund_amount || 0,
+          guaranteeFundTotal: item.guarantee_fund_total || 0,
+          accumulatedSavings: Number(item.accumulated_savings || 0),
+          coverImage: item.cover_image
+        }));
+        setTontines(mapped);
+        
+        // Cache to IndexedDB asynchronously
+        import('../utils/indexedDB').then(({ dbHelper }) => {
+          dbHelper.saveAll('tontines', mapped).catch(err => console.error("Error caching tontines:", err));
+        });
+        return mapped;
+      } else {
+        throw error || new Error("No data returned");
+      }
+    } catch (err) {
+      console.warn("Database fetch for tontines failed, loading from IndexedDB:", err);
+      try {
+        const { dbHelper } = await import('../utils/indexedDB');
+        const cached = await dbHelper.getAll('tontines');
+        if (cached && cached.length > 0) {
+          setTontines(cached);
+          return cached;
         }
-      };
+      } catch (dbErr) {
+        console.error("Failed to load tontines from IndexedDB:", dbErr);
+      }
+    }
+    return [];
+  };
 
       const loadVolunteerMissions = async () => {
         const { data, error } = await supabase
@@ -1401,7 +1468,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // ACTIONS
   const signPetition = async (id: string, name: string, email: string, phone: string): Promise<boolean> => {
-    // Add signer to list
+    // Add signer to list locally
     setPetitions(prev => prev.map(pet => {
       if (pet.id === id) {
         // Prevent double signatures by same name in this mock
@@ -1417,7 +1484,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return pet;
     }));
 
-    if (useSupabase) {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+
+    if (useSupabase && isOnline) {
       try {
         const { data: pet, error: fetchErr } = await supabase
           .from('petitions')
@@ -1442,12 +1511,29 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
               .eq('id', id);
               
             if (updateErr) {
-              console.error("Error signing in Supabase:", updateErr);
+              throw updateErr;
             }
           }
         }
       } catch (err) {
-        console.error("Error signing in Supabase:", err);
+        console.warn("Supabase write failed, falling back to local offline signature:", err);
+        // Save to IndexedDB as offline pending signature
+        try {
+          const { dbHelper } = await import('../utils/indexedDB');
+          await dbHelper.addPendingSignature({ petitionId: id, name, email, phone });
+          addNotification("📴 Mode Hors-ligne : Votre signature a été enregistrée localement.");
+        } catch (dbErr) {
+          console.error("Error saving offline signature to IndexedDB:", dbErr);
+        }
+      }
+    } else if (useSupabase && !isOnline) {
+      // Save directly to IndexedDB as offline pending signature
+      try {
+        const { dbHelper } = await import('../utils/indexedDB');
+        await dbHelper.addPendingSignature({ petitionId: id, name, email, phone });
+        addNotification("📴 Mode Hors-ligne : Votre signature a été enregistrée localement.");
+      } catch (dbErr) {
+        console.error("Error saving offline signature to IndexedDB:", dbErr);
       }
     }
 
@@ -3853,6 +3939,78 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
     }
   };
+
+  const syncPendingSignatures = async () => {
+    const isOnline = typeof navigator !== 'undefined' ? navigator.onLine : true;
+    if (!isOnline || !useSupabase) return;
+    try {
+      const { dbHelper } = await import('../utils/indexedDB');
+      const pending = await dbHelper.getPendingSignatures();
+      if (pending.length === 0) return;
+
+      console.log(`Syncing ${pending.length} offline signatures...`);
+      for (const item of pending) {
+        const { petitionId, name, email, phone } = item.value;
+        
+        // Query current state of this petition
+        const { data: pet, error: fetchErr } = await supabase
+          .from('petitions')
+          .select('signatures_count, signers')
+          .eq('id', petitionId)
+          .single();
+          
+        if (!fetchErr && pet) {
+          const currentSigners = pet.signers || [];
+          const alreadySigned = currentSigners.some((s: any) => s.name.toLowerCase() === name.toLowerCase());
+          if (!alreadySigned) {
+            const newSigner = { name, date: new Date().toISOString().split('T')[0], badge: 'Citoyen' };
+            const updatedSigners = [newSigner, ...currentSigners];
+            const newCount = Number(pet.signatures_count || 0) + 1;
+            
+            const { error: updateErr } = await supabase
+              .from('petitions')
+              .update({
+                signatures_count: newCount,
+                signers: updatedSigners
+              })
+              .eq('id', petitionId);
+              
+            if (!updateErr) {
+              // Successfully updated, delete from IndexedDB
+              await dbHelper.removePendingSignature(item.key);
+            }
+          } else {
+            // Already signed, just remove from queue
+            await dbHelper.removePendingSignature(item.key);
+          }
+        }
+      }
+      
+      // Reload petitions list to get updated count
+      loadPetitions();
+      addNotification("📶 De retour en ligne : Vos signatures hors-ligne ont été synchronisées !");
+    } catch (err) {
+      console.error("Error syncing pending signatures:", err);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleOnline = () => {
+      syncPendingSignatures();
+    };
+
+    window.addEventListener('online', handleOnline);
+    // Trigger sync on startup if online
+    if (navigator.onLine) {
+      syncPendingSignatures();
+    }
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+    };
+  }, [useSupabase]);
 
   return (
     <AppContext.Provider value={{

@@ -25,6 +25,18 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   const { toggleTheme, activeTheme, currentUser, directMessages } = useApp();
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isOnline, setIsOnline] = React.useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleStatus = () => setIsOnline(navigator.onLine);
+    window.addEventListener('online', handleStatus);
+    window.addEventListener('offline', handleStatus);
+    return () => {
+      window.removeEventListener('online', handleStatus);
+      window.removeEventListener('offline', handleStatus);
+    };
+  }, []);
 
   // Prevent body scroll when menu drawer is open
   React.useEffect(() => {
@@ -92,6 +104,28 @@ export const MobileShell: React.FC<MobileShellProps> = ({
         </div>
 
         <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+          {/* Offline warning pill */}
+          {!isOnline && (
+            <span 
+              className="animate-pulse"
+              style={{
+                fontSize: '0.65rem',
+                fontWeight: 'bold',
+                background: 'rgba(239, 68, 68, 0.1)',
+                color: 'var(--danger)',
+                border: '1px solid var(--danger)',
+                padding: '0.2rem 0.5rem',
+                borderRadius: '50px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.25rem',
+                marginRight: '0.2rem'
+              }}
+            >
+              📴 {t('shell.db_offline') || 'Hors-ligne'}
+            </span>
+          )}
+
           {/* Admin panel */}
           {currentUser?.role === 'admin' && (
             <button 

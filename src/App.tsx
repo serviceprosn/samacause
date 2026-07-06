@@ -681,7 +681,7 @@ const MainLayout: React.FC = () => {
       case 'home':
         return <Home onNavigate={handleNavigate} />;
       case 'explore':
-        return <Explorer onNavigate={handleNavigate} />;
+        return <Explorer onNavigate={handleNavigate} initialRegion={navParams?.region} />;
       case 'petitions':
         return <Petitions initialPetitionId={navParams?.id} initialView={navParams?.view} initialAction={navParams?.action} onNavigate={handleNavigate} aiAppliedData={aiAppliedData} setAiAppliedData={setAiAppliedData} />;
       case 'cagnottes':
