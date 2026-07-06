@@ -994,6 +994,50 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
       };
 
+      const reloadUserProfile = async (userId: string) => {
+        if (!useSupabase) return;
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+          
+          if (!error && profile) {
+            const updatedUser: User = {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone || '',
+              role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
+              verified: profile.verified || false,
+              avatar: profile.avatar || '',
+              trustScore: profile.trust_score || 50,
+              badges: profile.badges || [],
+              bio: profile.bio || '',
+              address: profile.address || '',
+              country: profile.country || 'Sénégal',
+              region: profile.region || 'Dakar',
+              idCardRecto: profile.id_card_recto || '',
+              idCardVerso: profile.id_card_verso || '',
+              selfie: profile.selfie || '',
+              verificationStatus: profile.verification_status || 'none',
+              cniNumber: profile.cni_number || '',
+              dob: profile.dob || '',
+              accountType: profile.account_type || 'citizen',
+              following: profile.following || [],
+              followers: profile.followers || [],
+              availableFunds: Number(profile.funds_available || 0),
+              kycRejectReason: profile.kyc_reject_reason || ''
+            };
+            setCurrentUser(updatedUser);
+            console.log("🔄 Profil utilisateur rechargé avec succès :", updatedUser.verificationStatus);
+          }
+        } catch (err) {
+          console.error("Failed to reload user profile:", err);
+        }
+      };
+
       // DETECT AND CONNECT SUPABASE
       useEffect(() => {
         setUseSupabase(true);
@@ -1076,7 +1120,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const directMessagesSub = supabase
         .channel('realtime:direct_messages')
         .on('postgres_changes', { event: '*', schema: 'public', table: 'direct_messages' }, () => {
-          loadDirectMessages(currentUserRef.current?.id);
+          const curId = currentUserRef.current?.id;
+          loadDirectMessages(curId);
+          if (curId) {
+            reloadUserProfile(curId);
+          }
         })
         .subscribe();
 
@@ -3443,6 +3491,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.error("Error updating user in Supabase:", error);
         return false;
       }
+    }
+
+    // Send direct message & feedback on KYC approval/rejection
+    if (updates.verificationStatus === 'verified') {
+      const msgText = "Félicitations ! Votre demande de certification KYC a été approuvée avec succès. Votre profil est désormais certifié et vous pouvez maintenant créer des cagnottes, des tontines, et participer pleinement aux activités sur Sunu Yité ! 🇸🇳";
+      sendDirectMessage(userId, msgText);
+    } else if (updates.verificationStatus === 'rejected') {
+      const msgText = `Votre demande de certification KYC a été rejetée. Motif : ${updates.kycRejectReason || 'Documents illisibles ou non conformes'}. Veuillez rectifier vos informations de profil pour soumettre à nouveau votre demande.`;
+      sendDirectMessage(userId, msgText);
     }
 
     addNotification("👤 Compte utilisateur mis à jour par l'administrateur !");
