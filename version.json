@@ -1,0 +1,21 @@
+{
+  "version": "1.0.0",
+  "releaseDate": "2026-07-11",
+  "branch": "stable",
+  "features": [
+    "Mode Hors-Ligne (PWA + IndexedDB)",
+    "Certification d'identité KYC avec feedback temps réel",
+    "Visibilité des campagnes en temps réel pour visiteurs et membres",
+    "Bannière d'installation PWA animée (Android/Desktop + iOS)",
+    "Tableau de bord d'impact Diaspora avec compteurs animés",
+    "Messagerie directe automatique lors des décisions KYC",
+    "Listener Supabase Realtime dédié par profil utilisateur"
+  ],
+  "changelog": {
+    "v1.0.0": {
+      "date": "2026-07-11",
+      "type": "stable",
+      "notes": "Première version stable officielle. KYC temps réel, PWA, campagnes visibles automatiquement."
+    }
+  }
+}
