@@ -1256,6 +1256,80 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return () => window.removeEventListener('focus', handleFocus);
   }, [useSupabase]);
 
+  // ───────────────────────────────────────────────────────────────────────────
+  // Self-profile Realtime watcher: updates the connected user's profile the
+  // INSTANT the admin changes their KYC status (verified / rejected) in Supabase.
+  // This is independent of the DM trigger so it works even if the DM channel lags.
+  // ───────────────────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!useSupabase || !currentUser?.id) return;
+    const userId = currentUser.id;
+
+    const selfProfileSub = supabase
+      .channel(`realtime:own_profile_${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${userId}`
+        },
+        async (payload: any) => {
+          // Re-fetch directly from DB for guaranteed freshness
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', userId)
+            .single();
+
+          if (!error && profile) {
+            const updated = {
+              id: profile.id,
+              name: profile.name,
+              email: profile.email,
+              phone: profile.phone || '',
+              role: isAdminEmail(profile.email) ? 'admin' : (profile.role || 'citizen'),
+              verified: profile.verified || false,
+              avatar: profile.avatar || '',
+              trustScore: profile.trust_score || 50,
+              badges: profile.badges || [],
+              bio: profile.bio || '',
+              address: profile.address || '',
+              country: profile.country || 'Sénégal',
+              region: profile.region || 'Dakar',
+              idCardRecto: profile.id_card_recto || '',
+              idCardVerso: profile.id_card_verso || '',
+              selfie: profile.selfie || '',
+              verificationStatus: profile.verification_status || 'none',
+              cniNumber: profile.cni_number || '',
+              dob: profile.dob || '',
+              accountType: profile.account_type || 'citizen',
+              following: profile.following || [],
+              followers: profile.followers || [],
+              availableFunds: Number(profile.funds_available || 0),
+              kycRejectReason: profile.kyc_reject_reason || ''
+            };
+            setCurrentUser(updated);
+            console.log('✅ Profil propre rechargé en temps réel via Supabase Realtime :', updated.verificationStatus);
+
+            // Show contextual toast notification to user about KYC change
+            if (updated.verificationStatus === 'verified' && (payload.old?.verification_status ?? 'none') !== 'verified') {
+              addNotification('🎉 Félicitations ! Votre identité a été certifiée avec succès. Vous pouvez maintenant créer des cagnottes, tontines et missions !');
+            } else if (updated.verificationStatus === 'rejected' && (payload.old?.verification_status ?? 'none') !== 'rejected') {
+              const reason = updated.kycRejectReason || 'Documents non conformes';
+              addNotification(`❌ Votre demande de certification KYC a été rejetée. Motif : ${reason}`);
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(selfProfileSub);
+    };
+  }, [useSupabase, currentUser?.id]);
+
   // Listen to Supabase Auth State changes for secure session recovery
   useEffect(() => {
     const isConfigured = true;
