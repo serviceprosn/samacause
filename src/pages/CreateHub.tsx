@@ -155,6 +155,54 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
         </p>
       </div>
 
+      {/* KYC Alert Notice for non-certified users */}
+      {currentUser && currentUser.verificationStatus !== 'verified' && (
+        <div 
+          className="premium-card animate-fade-in" 
+          style={{ 
+            marginBottom: '2rem', 
+            border: '1.5px solid var(--warning)', 
+            background: 'rgba(245,158,11,0.06)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between', 
+            flexWrap: 'wrap', 
+            gap: '1rem',
+            padding: '1.1rem 1.3rem',
+            borderRadius: 'var(--radius-lg)'
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <span style={{ fontSize: '1.8rem' }}>
+              {currentUser.verificationStatus === 'pending' ? '⏳' : currentUser.verificationStatus === 'rejected' ? '❌' : '🛡️'}
+            </span>
+            <div>
+              <h4 style={{ margin: 0, fontWeight: 800, fontSize: '0.95rem' }}>
+                {currentUser.verificationStatus === 'pending'
+                  ? 'Demande de certification KYC en cours d\'examen'
+                  : currentUser.verificationStatus === 'rejected'
+                    ? 'Certification KYC rejetée'
+                    : 'Pensez à certifier votre identité (KYC)'}
+              </h4>
+              <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--text-secondary-light)' }}>
+                {currentUser.verificationStatus === 'pending'
+                  ? 'L\'équipe d\'administration vérifie vos pièces d\'identité. Vous recevrez une notification dès validation.'
+                  : currentUser.verificationStatus === 'rejected'
+                    ? `Motif : ${currentUser.kycRejectReason || 'Documents illisibles'}. Veuillez soumettre à nouveau vos pièces.`
+                    : 'Pour publier des cagnottes ou organiser des tontines, faites certifier votre compte en 2 minutes.'}
+              </p>
+            </div>
+          </div>
+          <button 
+            className="btn btn-outline" 
+            style={{ fontSize: '0.8rem', padding: '0.45rem 1rem', borderColor: 'var(--warning)', color: 'var(--warning)', fontWeight: 700, borderRadius: 'var(--radius-sm)' }}
+            onClick={() => onNavigate('profile', { tab: 'kyc' })}
+          >
+            {currentUser.verificationStatus === 'rejected' ? 'Rectifier mon KYC ➔' : 'Vérifier mon profil ➔'}
+          </button>
+        </div>
+      )}
+
       {/* Grid of creation options */}
       <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '3rem' }}>
         {/* 1. PETITION */}
