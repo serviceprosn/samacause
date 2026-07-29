@@ -1330,6 +1330,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, [useSupabase, currentUser?.id]);
 
+  // BroadcastChannel for instant same-browser multi-tab synchronization
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
+    const channel = new BroadcastChannel('sunuyite_kyc_sync');
+    channel.onmessage = (event) => {
+      if (event.data && event.data.type === 'KYC_UPDATED') {
+        const { userId, updates } = event.data;
+        setUsersList(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
+        setCurrentUser(prev => {
+          if (prev && prev.id === userId) {
+            const updated = { ...prev, ...updates };
+            if (updates.verificationStatus === 'verified' && prev.verificationStatus !== 'verified') {
+              addNotification('🎉 Félicitations ! Votre identité a été certifiée avec succès. Vous pouvez maintenant créer des cagnottes, tontines et missions !');
+            } else if (updates.verificationStatus === 'rejected' && prev.verificationStatus !== 'rejected') {
+              const reason = updates.kycRejectReason || 'Documents non conformes';
+              addNotification(`❌ Votre demande de certification KYC a été rejetée. Motif : ${reason}`);
+            }
+            return updated;
+          }
+          return prev;
+        });
+      }
+    };
+    return () => channel.close();
+  }, []);
+
   // Listen to Supabase Auth State changes for secure session recovery
   useEffect(() => {
     const isConfigured = true;
@@ -3576,8 +3602,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUsersList(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
     
     // Update active currentUser if it's the one being modified
-    if (currentUser && currentUser.id === userId) {
-      setCurrentUser(prev => prev ? { ...prev, ...updates } : null);
+    setCurrentUser(prev => (prev && prev.id === userId ? { ...prev, ...updates } : prev));
+
+    // Emit BroadcastChannel event for instant multi-tab sync in the same browser
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const channel = new BroadcastChannel('sunuyite_kyc_sync');
+        channel.postMessage({ type: 'KYC_UPDATED', userId, updates });
+        channel.close();
+      } catch (e) {
+        console.warn('BroadcastChannel sync error:', e);
+      }
     }
 
     // Update campaign organizers in local petitions/cagnottes lists to keep the UI in sync!
