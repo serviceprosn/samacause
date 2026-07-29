@@ -24,6 +24,27 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
   const [showTontineModal, setShowTontineModal] = useState(false);
   const [expandedTontineId, setExpandedTontineId] = useState<string | null>(null);
 
+  const handleActionWithKycCheck = (targetPage: string, params?: any) => {
+    if (!currentUser) {
+      addNotification('⚠️ Veuillez vous connecter d\'abord.');
+      onNavigate('auth');
+      return;
+    }
+    if (currentUser.verificationStatus !== 'verified') {
+      if (currentUser.verificationStatus === 'pending') {
+        alert('⏳ Votre dossier KYC est actuellement en cours d\'examen par l\'administration. Vous pourrez créer des campagnes dès validation !');
+      } else if (currentUser.verificationStatus === 'rejected') {
+        alert(`❌ Votre certification KYC a été rejetée. Motif : ${currentUser.kycRejectReason || 'Documents illisibles'}. Veuillez transmettre de nouvelles pièces.`);
+        onNavigate('profile', { tab: 'kyc' });
+      } else {
+        alert('🛡️ Pour publier une cagnotte, pétition ou organiser une tontine, vous devez certifier votre compte (KYC). Vous allez être redirigé vers votre profil.');
+        onNavigate('profile', { tab: 'kyc' });
+      }
+      return;
+    }
+    onNavigate(targetPage, params);
+  };
+
   // Tontine creation states
   const [tontineName, setTontineName] = useState('');
   const [tontineAmount, setTontineAmount] = useState(10000);
@@ -209,7 +230,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
         <div 
           className="premium-card hover-glow" 
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer' }}
-          onClick={() => onNavigate('petitions', { view: 'create' })}
+          onClick={() => handleActionWithKycCheck('petitions', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>✍️</span>
           <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.petition_title')}</h3>
@@ -225,7 +246,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
         <div 
           className="premium-card hover-glow" 
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer' }}
-          onClick={() => onNavigate('cagnottes', { view: 'create' })}
+          onClick={() => handleActionWithKycCheck('cagnottes', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>💰</span>
           <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.cagnotte_title')}</h3>
@@ -241,7 +262,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
         <div 
           className="premium-card hover-glow" 
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer' }}
-          onClick={() => onNavigate('benevolat', { view: 'create' })}
+          onClick={() => handleActionWithKycCheck('benevolat', { view: 'create' })}
         >
           <span style={{ fontSize: '2.5rem' }}>🛠️</span>
           <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.volunteer_title')}</h3>
@@ -257,7 +278,7 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
         <div 
           className="premium-card hover-glow" 
           style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', cursor: 'pointer' }}
-          onClick={() => onNavigate('tontines')}
+          onClick={() => handleActionWithKycCheck('tontines')}
         >
           <span style={{ fontSize: '2.5rem' }}>🔄</span>
           <h3 style={{ fontWeight: 800 }}>{t('createhub.opt.tontine_title')}</h3>
@@ -277,7 +298,13 @@ export const CreateHub: React.FC<CreateHubProps> = ({ onNavigate }) => {
           <button 
             className="btn btn-outline" 
             style={{ padding: '0.35rem 0.75rem', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
-            onClick={() => setShowTontineModal(true)}
+            onClick={() => {
+              if (!currentUser || currentUser.verificationStatus !== 'verified') {
+                handleActionWithKycCheck('tontines');
+              } else {
+                setShowTontineModal(true);
+              }
+            }}
           >
             {t('createhub.tontines.new')}
           </button>
