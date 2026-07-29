@@ -1335,7 +1335,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (typeof window === 'undefined' || !('BroadcastChannel' in window)) return;
     const channel = new BroadcastChannel('sunuyite_kyc_sync');
     channel.onmessage = (event) => {
-      if (event.data && event.data.type === 'KYC_UPDATED') {
+      if (!event.data) return;
+      if (event.data.type === 'CAMPAIGN_CREATED') {
+        loadPetitions();
+        loadCagnottes();
+        loadTontines();
+        loadVolunteerMissions();
+      } else if (event.data.type === 'KYC_UPDATED') {
         const { userId, updates } = event.data;
         setUsersList(prev => prev.map(u => u.id === userId ? { ...u, ...updates } : u));
         setCurrentUser(prev => {
@@ -1923,6 +1929,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return true;
   };
 
+  const notifyCampaignCreated = () => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const channel = new BroadcastChannel('sunuyite_kyc_sync');
+        channel.postMessage({ type: 'CAMPAIGN_CREATED' });
+        channel.close();
+      } catch (e) {
+        console.warn('BroadcastChannel campaign sync error:', e);
+      }
+    }
+  };
+
   const createPetition = async (petitionData: Omit<Petition, 'id' | 'signaturesCount' | 'createdAt' | 'status' | 'organizer' | 'updates' | 'signers'>): Promise<string> => {
     if (!currentUser) return '';
     const newId = `pet_${Math.random().toString(36).substr(2, 9)}`;
@@ -1993,7 +2011,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       addNotification('🎉 Badge Débloqué : Leader !');
     }
 
-    addNotification('Pétition soumise ! Suivez son statut de modération en temps réel.');
+    addNotification('Pétition publiée ! Suivez son statut de modération en temps réel.');
+    notifyCampaignCreated();
     return newId;
   };
 
@@ -2069,6 +2088,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     addNotification('Cagnotte créée ! Suivez son statut de modération en temps réel.');
+    notifyCampaignCreated();
     return newId;
   };
 
@@ -2129,6 +2149,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return false;
       }
     }
+    addNotification(`Tontine "${tontine.name}" enregistrée avec succès.`);
+    notifyCampaignCreated();
     return true;
   };
 
@@ -2313,7 +2335,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       );
     });
 
-    addNotification('Mission bénévole publiée avec succès.');
+    addNotification('Mission de bénévolat créée !');
+    notifyCampaignCreated();
     return newId;
   };
 
