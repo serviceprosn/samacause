@@ -82,6 +82,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
     currentUser, 
     petitions, 
     cagnottes, 
+    tontines,
     volunteerApplications, 
     logout, 
     updateProfile, 
@@ -918,24 +919,57 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         </div>
 
         {/* Stats Summary Panel */}
-        <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{signedPetitionsCount}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.petitions')}</div>
-          </div>
-          <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{(currentUser.availableFunds || 0).toLocaleString('fr-FR')} F</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.funds')}</div>
-          </div>
-          <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.followers?.length || 0}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.followers')}</div>
-          </div>
-          <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
-            <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.following?.length || 0}</div>
-            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>Abonnements</div>
-          </div>
-        </div>
+        {(() => {
+          const joinedTontinesCount = currentUser
+            ? (tontines || []).filter(t => t.members?.some((m: any) => m.name === currentUser.name || m.email === currentUser.email) || t.organizer?.name === currentUser.name).length
+            : 0;
+
+          const myProjectsCount = currentUser
+            ? (cagnottes || []).filter(c => c.organizer?.id === currentUser.id || c.organizer?.name === currentUser.name || c.donors?.some((d: any) => d.name === currentUser.name)).length
+            : 0;
+
+          return (
+            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              {/* 1. Tontines Participées (Clickable Shortcut) */}
+              <div 
+                style={{ textAlign: 'center', cursor: 'pointer' }}
+                onClick={() => onNavigate && onNavigate('tontines', { tab: 'my-tontines' })}
+                title="Cliquer pour voir vos tontines en cours"
+              >
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{joinedTontinesCount}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                  <span>{t('profile.stats.petitions')}</span>
+                  <span style={{ fontSize: '0.65rem' }}>🔗</span>
+                </div>
+              </div>
+
+              {/* 2. Mes Projets (Clickable Shortcut) */}
+              <div 
+                style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem', cursor: 'pointer' }}
+                onClick={() => onNavigate && onNavigate('cagnottes', { view: 'list' })}
+                title="Cliquer pour voir vos projets et cagnottes"
+              >
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{myProjectsCount}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                  <span>{t('profile.stats.funds')}</span>
+                  <span style={{ fontSize: '0.65rem' }}>🔗</span>
+                </div>
+              </div>
+
+              {/* 3. Abonnés */}
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.followers?.length || 0}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.followers')}</div>
+              </div>
+
+              {/* 4. Abonnements */}
+              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.following?.length || 0}</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.following')}</div>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* TABS HEADERS */}
