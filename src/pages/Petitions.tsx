@@ -6,6 +6,7 @@ import { TrustScore } from '../components/TrustScore';
 import { useSEO } from '../hooks/useSEO';
 import { useLanguage } from '../context/LanguageContext';
 import { initializePayTechPayment } from '../services/paytech';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 
 // Helper to compress base64 images client-side
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
@@ -784,7 +785,10 @@ export const Petitions: React.FC<PetitionsProps> = ({ initialPetitionId, initial
           />
           <div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>{t('petition.detail.launched_by')}</div>
-            <strong style={{ fontSize: '0.85rem' }}>{currentPetition.organizer.name}</strong>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <strong style={{ fontSize: '0.85rem' }}>{currentPetition.organizer.name}</strong>
+              {currentPetition.organizer.verified && <VerifiedBadge size={16} />}
+            </div>
           </div>
         </div>
 

@@ -6,6 +6,7 @@ import { TrustScore } from '../components/TrustScore';
 import { PaymentModal } from '../components/PaymentModal';
 import { useSEO } from '../hooks/useSEO';
 import { useLanguage } from '../context/LanguageContext';
+import { VerifiedBadge } from '../components/VerifiedBadge';
 
 // Helper to compress base64 images client-side
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
@@ -1072,7 +1073,10 @@ export const Cagnottes: React.FC<CagnottesProps> = ({ initialCagnotteId, initial
                 />
                 <div>
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary-light)' }}>Organisateur</div>
-                  <strong style={{ fontSize: '0.85rem' }}>{currentCagnotte.organizer.name}</strong>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                    <strong style={{ fontSize: '0.85rem' }}>{currentCagnotte.organizer.name}</strong>
+                    {currentCagnotte.organizer.verified && <VerifiedBadge size={16} />}
+                  </div>
                 </div>
               </div>
 
