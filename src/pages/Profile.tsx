@@ -698,7 +698,408 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         </div>
       ) : null}
 
-      {/* PROFILE CARD */}
+      {/* DEDICATED EDIT PROFILE VIEW */}
+      {isEditingProfile ? (
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
+              onClick={() => setIsEditingProfile(false)}
+            >
+              ← Retour au profil
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+              ✏️ Modification du Profil
+            </h2>
+          </div>
+          <form 
+          onSubmit={handleUpdateProfileSubmit} 
+          className="premium-card animate-fade-in" 
+          style={{ marginBottom: '2.5rem', background: 'var(--light-card)', padding: '2rem' }}
+        >
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>✏️ {t('profile.edit_coords').replace('✏️ ', '')}</h3>
+          
+          {/* Aperçu de la photo de profil & Sélection d'avatars par défaut */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>
+            <div 
+              onClick={() => {
+                setIsDirectUpload(false);
+                setShowAvatarOptions(true);
+              }}
+              style={{
+                width: '100px',
+                height: '100px',
+                borderRadius: '50%',
+                backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                backgroundSize: 'cover',
+                backgroundPosition: 'center',
+                border: '3px solid var(--primary)',
+                boxShadow: 'var(--shadow-sm)',
+                cursor: 'pointer',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                overflow: 'hidden'
+              }}
+              title="Cliquez pour voir ou modifier votre photo de profil"
+            >
+              {/* Hover overlay to prompt edit */}
+              <div 
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  background: 'rgba(0,0,0,0.4)',
+                  opacity: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontSize: '1.1rem',
+                  transition: 'var(--transition-fast)',
+                  borderRadius: '50%'
+                }}
+                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
+                onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
+              >
+                👁️📷
+              </div>
+            </div>
+            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>
+              Photo de profil (cliquez pour voir ou modifier)
+            </label>
+          </div>
+
+          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.name_label')}</label>
+              <input
+                type="text"
+                required
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.phone_label')}</label>
+              <input
+                type="text"
+                required
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editPhone}
+                onChange={(e) => setEditPhone(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Adresse Physique / Ville</label>
+            <input
+              type="text"
+              required
+              placeholder="Ex : Parcelles Assainies, Villa 123"
+              className="premium-card"
+              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+              value={editAddress}
+              onChange={(e) => setEditAddress(e.target.value)}
+            />
+          </div>
+
+          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.country_label')}</label>
+              <select
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
+                value={editCountry}
+                onChange={(e) => setEditCountry(e.target.value)}
+              >
+                <option value="Sénégal">Sénégal</option>
+                <option value="France">France</option>
+                <option value="États-Unis">États-Unis</option>
+                <option value="Canada">Canada</option>
+                <option value="Italie">Italie</option>
+                <option value="Espagne">Espagne</option>
+                <option value="Autre">Autre</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.region_label')}</label>
+              <select
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
+                value={editRegion}
+                onChange={(e) => setEditRegion(e.target.value)}
+                disabled={editCountry !== 'Sénégal'}
+              >
+                <option value="Dakar">Dakar</option>
+                <option value="Thiès">Thiès</option>
+                <option value="Saint-Louis">Saint-Louis</option>
+                <option value="Louga">Louga</option>
+                <option value="Diourbel">Diourbel</option>
+                <option value="Fatick">Fatick</option>
+                <option value="Kaolack">Kaolack</option>
+                <option value="Kaffrine">Kaffrine</option>
+                <option value="Matam">Matam</option>
+                <option value="Tambacounda">Tambacounda</option>
+                <option value="Kédougou">Kédougou</option>
+                <option value="Kolda">Kolda</option>
+                <option value="Sédhiou">Sédhiou</option>
+                <option value="Ziguinchor">Ziguinchor</option>
+                <option value="Diaspora">Diaspora</option>
+              </select>
+            </div>
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Votre Bio / Engagement Citoyen</label>
+            <textarea
+              placeholder={t('profile.placeholder.bio')}
+              className="premium-card"
+              rows={3}
+              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', fontFamily: 'inherit', resize: 'vertical' }}
+              value={editBio}
+              onChange={(e) => setEditBio(e.target.value)}
+            />
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              onClick={() => setIsEditingProfile(false)}
+            >
+              Annuler
+            </button>
+            <button 
+              type="submit" 
+              className="btn btn-primary"
+            >
+              Enregistrer 💾
+            </button>
+          </div>
+        </form>
+        </div>
+      ) : isEditingKyc ? (
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
+              onClick={() => setIsEditingKyc(false)}
+            >
+              ← Retour au profil
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+              🪪 Certification d'Identité Biométrique (KYC)
+            </h2>
+          </div>
+          <div 
+          className="premium-card animate-fade-in" 
+          style={{ marginBottom: '2.5rem', background: 'var(--light-card)', padding: '2rem' }}
+        >
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>🪪 {t('tontine.profile.certification').replace('🔒 ', '')}</h3>
+          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+            Pour participer ou lancer des tontines d'épargne ou lancer des cagnottes de financement participatif, la réglementation exige une validation d'identité officielle. Vos données sont cryptées et traitées de manière sécurisée.
+          </p>
+
+          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('profile.kyc.cni_number')}</label>
+              <input
+                type="text"
+                required
+                placeholder="Ex : 1 751 1992 01234"
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editCniNumber}
+                onChange={(e) => setEditCniNumber(e.target.value)}
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Date de naissance</label>
+              <input
+                type="date"
+                required
+                className="premium-card"
+                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
+                value={editDob}
+                onChange={(e) => setEditDob(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="grid-cols-3" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
+            {/* Recto */}
+            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdRecto ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
+              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.cni_recto')}</strong>
+              {editIdRecto && editIdRecto !== '[stored]' ? (
+                <div style={{ height: '90px', backgroundImage: `url("${editIdRecto}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+              ) : editIdRecto === '[stored]' ? (
+                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>✓</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('profile.kyc.registered')}</span>
+                </div>
+              ) : (
+                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('recto')}>
+                  📸 Prendre en direct
+                </button>
+                <label className="btn btn-ghost" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', margin: 0, display: 'inline-block', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                  📁 Importer...
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 1 * 1024 * 1024) {
+                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        compressImage(reader.result as string).then(compressed => {
+                          uploadBase64ToStorage(compressed, 'profiles').then(storageUrl => setEditIdRecto(storageUrl));
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
+                {editIdRecto && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditIdRecto('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Verso */}
+            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdVerso ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
+              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.cni_verso')}</strong>
+              {editIdVerso && editIdVerso !== '[stored]' ? (
+                <div style={{ height: '90px', backgroundImage: `url("${editIdVerso}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+              ) : editIdVerso === '[stored]' ? (
+                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>✓</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
+                </div>
+              ) : (
+                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('verso')}>
+                  📸 Prendre en direct
+                </button>
+                <label className="btn btn-ghost" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', margin: 0, display: 'inline-block', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--border-light)' }}>
+                  📁 Importer...
+                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      if (file.size > 1 * 1024 * 1024) {
+                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
+                        return;
+                      }
+                      const reader = new FileReader();
+                      reader.onloadend = () => {
+                        compressImage(reader.result as string).then(compressed => {
+                          uploadBase64ToStorage(compressed, 'profiles').then(storageUrl => setEditIdVerso(storageUrl));
+                        });
+                      };
+                      reader.readAsDataURL(file);
+                    }
+                  }} />
+                </label>
+                {editIdVerso && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditIdVerso('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Selfie */}
+            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editSelfie ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
+              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.selfie')}</strong>
+              {editSelfie && editSelfie !== '[stored]' ? (
+                <div style={{ height: '90px', backgroundImage: `url("${editSelfie}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
+              ) : editSelfie === '[stored]' ? (
+                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
+                  <span style={{ fontSize: '1.25rem' }}>✓</span>
+                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
+                </div>
+              ) : (
+                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>👤</div>
+              )}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('selfie')}>
+                  📸 Prendre en direct
+                </button>
+                {editSelfie && (
+                  <button 
+                    type="button" 
+                    className="btn" 
+                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
+                    onClick={() => setEditSelfie('')}
+                  >
+                    🗑️ Supprimer ce document
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {editVerificationStatus !== 'verified' ? (
+            <button
+              type="button"
+              className="btn btn-primary"
+              style={{ width: '100%', background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)', border: 'none', padding: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem' }}
+              onClick={runBiometricVerification}
+            >
+              🪪 Soumettre mon dossier KYC pour validation
+            </button>
+          ) : (
+            <div style={{ background: 'rgba(0,133,63,0.08)', border: '1px solid var(--primary)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
+              🛡️ Votre identité est certifiée et vérifiée en toute sécurité.
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              onClick={() => setIsEditingKyc(false)}
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+        </div>
+      ) : (
+        <>
+          {/* PROFILE CARD */}
       <div 
         className="premium-card" 
         style={{ 
@@ -1099,381 +1500,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         </button>
       </div>
 
-      {/* BASIC PROFILE EDITING FORM */}
-      {isEditingProfile && (
-        <form 
-          onSubmit={handleUpdateProfileSubmit} 
-          className="premium-card animate-fade-in" 
-          style={{ marginBottom: '2.5rem', background: 'var(--light-card)', padding: '2rem' }}
-        >
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '1.25rem' }}>✏️ {t('profile.edit_coords').replace('✏️ ', '')}</h3>
-          
-          {/* Aperçu de la photo de profil & Sélection d'avatars par défaut */}
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.75rem', marginBottom: '2rem', paddingBottom: '1.5rem', borderBottom: '1px solid var(--border-light)' }}>
-            <div 
-              onClick={() => {
-                setIsDirectUpload(false);
-                setShowAvatarOptions(true);
-              }}
-              style={{
-                width: '100px',
-                height: '100px',
-                borderRadius: '50%',
-                backgroundImage: `url("${editAvatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
-                backgroundSize: 'cover',
-                backgroundPosition: 'center',
-                border: '3px solid var(--primary)',
-                boxShadow: 'var(--shadow-sm)',
-                cursor: 'pointer',
-                position: 'relative',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                overflow: 'hidden'
-              }}
-              title="Cliquez pour voir ou modifier votre photo de profil"
-            >
-              {/* Hover overlay to prompt edit */}
-              <div 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  background: 'rgba(0,0,0,0.4)',
-                  opacity: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                  fontSize: '1.1rem',
-                  transition: 'var(--transition-fast)',
-                  borderRadius: '50%'
-                }}
-                onMouseEnter={(e) => e.currentTarget.style.opacity = '1'}
-                onMouseLeave={(e) => e.currentTarget.style.opacity = '0'}
-              >
-                👁️📷
-              </div>
-            </div>
-            <label style={{ fontSize: '0.85rem', fontWeight: 'bold', color: 'var(--text-secondary-light)' }}>
-              Photo de profil (cliquez pour voir ou modifier)
-            </label>
-          </div>
-
-          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.name_label')}</label>
-              <input
-                type="text"
-                required
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.phone_label')}</label>
-              <input
-                type="text"
-                required
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-                value={editPhone}
-                onChange={(e) => setEditPhone(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Adresse Physique / Ville</label>
-            <input
-              type="text"
-              required
-              placeholder="Ex : Parcelles Assainies, Villa 123"
-              className="premium-card"
-              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-              value={editAddress}
-              onChange={(e) => setEditAddress(e.target.value)}
-            />
-          </div>
-
-          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.country_label')}</label>
-              <select
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
-                value={editCountry}
-                onChange={(e) => setEditCountry(e.target.value)}
-              >
-                <option value="Sénégal">Sénégal</option>
-                <option value="France">France</option>
-                <option value="États-Unis">États-Unis</option>
-                <option value="Canada">Canada</option>
-                <option value="Italie">Italie</option>
-                <option value="Espagne">Espagne</option>
-                <option value="Autre">Autre</option>
-              </select>
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('auth.region_label')}</label>
-              <select
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', borderRadius: 'var(--radius-sm)' }}
-                value={editRegion}
-                onChange={(e) => setEditRegion(e.target.value)}
-                disabled={editCountry !== 'Sénégal'}
-              >
-                <option value="Dakar">Dakar</option>
-                <option value="Thiès">Thiès</option>
-                <option value="Saint-Louis">Saint-Louis</option>
-                <option value="Louga">Louga</option>
-                <option value="Diourbel">Diourbel</option>
-                <option value="Fatick">Fatick</option>
-                <option value="Kaolack">Kaolack</option>
-                <option value="Kaffrine">Kaffrine</option>
-                <option value="Matam">Matam</option>
-                <option value="Tambacounda">Tambacounda</option>
-                <option value="Kédougou">Kédougou</option>
-                <option value="Kolda">Kolda</option>
-                <option value="Sédhiou">Sédhiou</option>
-                <option value="Ziguinchor">Ziguinchor</option>
-                <option value="Diaspora">Diaspora</option>
-              </select>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: '1.5rem' }}>
-            <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Votre Bio / Engagement Citoyen</label>
-            <textarea
-              placeholder={t('profile.placeholder.bio')}
-              className="premium-card"
-              rows={3}
-              style={{ width: '100%', padding: '0.65rem', background: 'var(--light)', fontFamily: 'inherit', resize: 'vertical' }}
-              value={editBio}
-              onChange={(e) => setEditBio(e.target.value)}
-            />
-          </div>
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-            <button 
-              type="button" 
-              className="btn btn-ghost" 
-              onClick={() => setIsEditingProfile(false)}
-            >
-              Annuler
-            </button>
-            <button 
-              type="submit" 
-              className="btn btn-primary"
-            >
-              Enregistrer 💾
-            </button>
-          </div>
-        </form>
-      )}
-
-      {/* KYC IDENTITY VERIFICATION FORM */}
-      {isEditingKyc && (
-        <div 
-          className="premium-card animate-fade-in" 
-          style={{ marginBottom: '2.5rem', background: 'var(--light-card)', padding: '2rem' }}
-        >
-          <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>🪪 {t('tontine.profile.certification').replace('🔒 ', '')}</h3>
-          <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
-            Pour participer ou lancer des tontines d'épargne ou lancer des cagnottes de financement participatif, la réglementation exige une validation d'identité officielle. Vos données sont cryptées et traitées de manière sécurisée.
-          </p>
-
-          <div className="grid-cols-2" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>{t('profile.kyc.cni_number')}</label>
-              <input
-                type="text"
-                required
-                placeholder="Ex : 1 751 1992 01234"
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-                value={editCniNumber}
-                onChange={(e) => setEditCniNumber(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 'bold', marginBottom: '0.35rem' }}>Date de naissance</label>
-              <input
-                type="date"
-                required
-                className="premium-card"
-                style={{ width: '100%', padding: '0.65rem', background: 'var(--light)' }}
-                value={editDob}
-                onChange={(e) => setEditDob(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="grid-cols-3" style={{ gap: '1.5rem', marginBottom: '1.5rem' }}>
-            {/* Recto */}
-            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdRecto ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
-              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.cni_recto')}</strong>
-              {editIdRecto && editIdRecto !== '[stored]' ? (
-                <div style={{ height: '90px', backgroundImage: `url("${editIdRecto}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
-              ) : editIdRecto === '[stored]' ? (
-                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>✓</span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>{t('profile.kyc.registered')}</span>
-                </div>
-              ) : (
-                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('recto')}>
-                  📸 Prendre en direct
-                </button>
-                <label className="btn btn-ghost" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', margin: 0, display: 'inline-block', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--border-light)' }}>
-                  📁 Importer...
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 1 * 1024 * 1024) {
-                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        compressImage(reader.result as string).then(compressed => {
-                          uploadBase64ToStorage(compressed, 'profiles').then(storageUrl => setEditIdRecto(storageUrl));
-                        });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </label>
-                {editIdRecto && (
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
-                    onClick={() => setEditIdRecto('')}
-                  >
-                    🗑️ Supprimer ce document
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Verso */}
-            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editIdVerso ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
-              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.cni_verso')}</strong>
-              {editIdVerso && editIdVerso !== '[stored]' ? (
-                <div style={{ height: '90px', backgroundImage: `url("${editIdVerso}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
-              ) : editIdVerso === '[stored]' ? (
-                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>✓</span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
-                </div>
-              ) : (
-                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>📄</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('verso')}>
-                  📸 Prendre en direct
-                </button>
-                <label className="btn btn-ghost" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', margin: 0, display: 'inline-block', cursor: 'pointer', textAlign: 'center', border: '1px solid var(--border-light)' }}>
-                  📁 Importer...
-                  <input type="file" accept="image/*" style={{ display: 'none' }} onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      if (file.size > 1 * 1024 * 1024) {
-                        alert("L'image dépasse la limite maximale autorisée de 1 Mo. Veuillez choisir une image plus légère. 🇸🇳");
-                        return;
-                      }
-                      const reader = new FileReader();
-                      reader.onloadend = () => {
-                        compressImage(reader.result as string).then(compressed => {
-                          uploadBase64ToStorage(compressed, 'profiles').then(storageUrl => setEditIdVerso(storageUrl));
-                        });
-                      };
-                      reader.readAsDataURL(file);
-                    }
-                  }} />
-                </label>
-                {editIdVerso && (
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
-                    onClick={() => setEditIdVerso('')}
-                  >
-                    🗑️ Supprimer ce document
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Selfie */}
-            <div className="premium-card" style={{ padding: '1rem', textAlign: 'center', background: 'var(--light)', display: 'flex', flexDirection: 'column', gap: '0.5rem', justifyContent: 'space-between', border: editSelfie ? '1px solid var(--primary)' : '1px dashed var(--border-light)' }}>
-              <strong style={{ fontSize: '0.8rem', display: 'block' }}>{t('profile.kyc.selfie')}</strong>
-              {editSelfie && editSelfie !== '[stored]' ? (
-                <div style={{ height: '90px', backgroundImage: `url("${editSelfie}")`, backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '4px', border: '1px solid var(--border-light)' }} />
-              ) : editSelfie === '[stored]' ? (
-                <div style={{ height: '90px', background: 'rgba(0,133,63,0.05)', border: '1px solid var(--primary)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', borderRadius: '4px', color: 'var(--primary)', gap: '0.25rem' }}>
-                  <span style={{ fontSize: '1.25rem' }}>✓</span>
-                  <span style={{ fontSize: '0.7rem', fontWeight: 'bold' }}>Déjà enregistré</span>
-                </div>
-              ) : (
-                <div style={{ height: '90px', background: 'var(--light-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.5rem', color: 'var(--text-secondary-light)', borderRadius: '4px' }}>👤</div>
-              )}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <button type="button" className="btn btn-outline" style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%' }} onClick={() => setCameraTarget('selfie')}>
-                  📸 Prendre en direct
-                </button>
-                {editSelfie && (
-                  <button 
-                    type="button" 
-                    className="btn" 
-                    style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem', width: '100%', background: 'rgba(239, 68, 68, 0.08)', color: 'var(--danger)', border: '1px solid rgba(239, 68, 68, 0.15)', cursor: 'pointer', fontWeight: 'bold' }} 
-                    onClick={() => setEditSelfie('')}
-                  >
-                    🗑️ Supprimer ce document
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {editVerificationStatus !== 'verified' ? (
-            <button
-              type="button"
-              className="btn btn-primary"
-              style={{ width: '100%', background: 'linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%)', border: 'none', padding: '0.75rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.5rem', marginTop: '1rem' }}
-              onClick={runBiometricVerification}
-            >
-              🪪 Soumettre mon dossier KYC pour validation
-            </button>
-          ) : (
-            <div style={{ background: 'rgba(0,133,63,0.08)', border: '1px solid var(--primary)', padding: '0.85rem', borderRadius: 'var(--radius-sm)', color: 'var(--primary)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
-              🛡️ Votre identité est certifiée et vérifiée en toute sécurité.
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-            <button 
-              type="button" 
-              className="btn btn-ghost" 
-              onClick={() => setIsEditingKyc(false)}
-            >
-              Fermer
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* DASHBOARD TAB */}
+{/* DASHBOARD TAB */}
       {activeTab === 'dashboard' && (
         <>
           {/* GAMIFICATION & BADGES */}
@@ -2420,6 +2447,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             )}
           </div>
         </div>
+      )}
+        </>
       )}
 
       {/* Bouton de déconnexion au bas de la page */}
