@@ -1774,21 +1774,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
 {/* DASHBOARD TAB */}
       {activeTab === 'dashboard' && (
         <>
-          {/* GAMIFICATION & BADGES */}
-          <section style={{ marginBottom: '3rem' }}>
-            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '0.5rem' }}>🏅 Badges Citoyens</h3>
-            <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
-              Réalisez des actions de mobilisation pour débloquer de nouveaux badges et augmenter votre indice de score de confiance.
-            </p>
-            {(() => {
-              const effectiveBadges = Array.from(new Set([
-                ...(currentUser.badges || []),
-                ...(currentUser.verificationStatus === 'verified' ? ['verifie', 'citoyen'] : [])
-              ]));
-              return <BadgeList unlockedBadgeIds={effectiveBadges} />;
-            })()}
-          </section>
-
           {/* MY CAMPAIGNS & Doléances */}
           <section style={{ marginBottom: '3rem' }}>
             <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>{t('profile.my_launches')}</h3>
