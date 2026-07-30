@@ -703,13 +703,15 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         className="premium-card" 
         style={{ 
           display: 'flex', 
-          alignItems: 'center', 
-          gap: '2rem', 
-          background: 'linear-gradient(135deg, rgba(0, 133, 63, 0.02) 0%, rgba(252, 209, 22, 0.02) 100%)',
+          flexDirection: isMobileView ? 'column' : 'row',
+          alignItems: isMobileView ? 'center' : 'flex-start', 
+          textAlign: isMobileView ? 'center' : 'left',
+          gap: isMobileView ? '1.25rem' : '2rem', 
+          background: 'linear-gradient(135deg, rgba(0, 133, 63, 0.03) 0%, rgba(252, 209, 22, 0.03) 100%)',
           border: '1.5px solid var(--border-light)',
-          padding: '2rem',
-          flexWrap: 'wrap',
-          marginBottom: '2.5rem'
+          padding: isMobileView ? '1.25rem 1rem' : '2rem',
+          marginBottom: '2rem',
+          borderRadius: 'var(--radius-lg)'
         }}
       >
         <div 
@@ -719,25 +721,26 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             setShowAvatarOptions(true);
           }}
           style={{ 
-            width: '100px', 
-            height: '100px', 
+            width: isMobileView ? '90px' : '100px', 
+            height: isMobileView ? '90px' : '100px', 
             borderRadius: '50%', 
             backgroundImage: `url("${currentUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`, 
             backgroundSize: 'cover',
             backgroundPosition: 'center',
-            boxShadow: 'var(--shadow-md)',
-            border: '3px solid white',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+            border: '3.5px solid white',
             cursor: 'pointer',
             position: 'relative',
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center'
+            justifyContent: 'center',
+            flexShrink: 0
           }} 
           title="Cliquez pour voir ou modifier votre photo de profil"
         >
           {currentUser.verificationStatus === 'verified' && (
-            <div style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'white', borderRadius: '50%', padding: '2px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-              <VerifiedRosette size={18} />
+            <div style={{ position: 'absolute', bottom: '2px', right: '2px', background: 'white', borderRadius: '50%', padding: '2px', boxShadow: '0 2px 4px rgba(0,0,0,0.15)' }}>
+              <VerifiedRosette size={20} />
             </div>
           )}
           {/* Subtle hover overlay to prompt upload */}
@@ -765,25 +768,38 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           </div>
         </div>
 
-        <div style={{ flex: 1, minWidth: '250px' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-            <h2 style={{ fontSize: '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-              {currentUser.name} {currentUser.verificationStatus === 'verified' && <VerifiedRosette />}
+        <div style={{ flex: 1, width: '100%', display: 'flex', flexDirection: 'column', alignItems: isMobileView ? 'center' : 'flex-start' }}>
+          {/* Name & Role Badge Header */}
+          <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center', justifyContent: isMobileView ? 'center' : 'flex-start', flexWrap: 'wrap', marginBottom: '0.4rem' }}>
+            <h2 style={{ fontSize: isMobileView ? '1.4rem' : '1.75rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              {currentUser.name} {currentUser.verificationStatus === 'verified' && <VerifiedRosette size={20} />}
             </h2>
-            <span style={{ fontSize: '0.75rem', background: 'var(--primary)', color: 'white', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', textTransform: 'capitalize' }}>
-              {currentUser.role === 'admin' ? '🛡️ Administrateur' : (currentUser.accountType === 'ngo' ? '🤝 ONG' : currentUser.accountType === 'company' ? '🏢 Entreprise' : '👤 Citoyen')}
+            <span style={{ fontSize: '0.7rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', fontWeight: 'bold', padding: '0.2rem 0.55rem', borderRadius: '12px', border: '1px solid rgba(0,133,63,0.2)' }}>
+              {currentUser.role === 'admin' ? '🛡️ Admin' : (currentUser.accountType === 'ngo' ? '🤝 ONG' : currentUser.accountType === 'company' ? '🏢 Entreprise' : '👤 Citoyen')}
             </span>
           </div>
 
-          <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary-light)', marginBottom: '0.5rem' }}>
-            📧 {currentUser.email} | 📱 {currentUser.phone}
-            {currentUser.address && ` | 📍 ${currentUser.address}`}
-            {currentUser.country && ` | 🏳️ ${currentUser.country}`}
-            {currentUser.region && currentUser.region !== 'Diaspora' && ` (${currentUser.region})`}
-          </p>
+          {/* Clean Contact Info Pills */}
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', justifyContent: isMobileView ? 'center' : 'flex-start', marginBottom: '0.75rem' }}>
+            {currentUser.email && (
+              <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.03)', color: 'var(--text-secondary-light)', padding: '0.25rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                ✉️ {currentUser.email}
+              </span>
+            )}
+            {currentUser.phone && (
+              <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.03)', color: 'var(--text-secondary-light)', padding: '0.25rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                📱 {currentUser.phone}
+              </span>
+            )}
+            {(currentUser.address || currentUser.country || currentUser.region) && (
+              <span style={{ fontSize: '0.75rem', background: 'rgba(0,0,0,0.03)', color: 'var(--text-secondary-light)', padding: '0.25rem 0.6rem', borderRadius: '12px', border: '1px solid var(--border-light)' }}>
+                📍 {[currentUser.address, currentUser.region !== 'Diaspora' ? currentUser.region : null, currentUser.country].filter(Boolean).join(', ')}
+              </span>
+            )}
+          </div>
 
           {currentUser.bio && (
-            <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary-light)', fontStyle: 'italic', marginBottom: '0.75rem', borderLeft: '2.5px solid var(--primary)', paddingLeft: '0.5rem' }}>
+            <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary-light)', fontStyle: 'italic', marginBottom: '0.75rem', borderLeft: '2.5px solid var(--primary)', paddingLeft: '0.5rem', textAlign: 'left' }}>
               "{currentUser.bio}"
             </p>
           )}
@@ -797,7 +813,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 padding: '1rem', 
                 borderRadius: 'var(--radius-md)', 
                 marginBottom: '1rem',
-                textAlign: 'left'
+                textAlign: 'left',
+                width: '100%'
               }}
             >
               <h4 style={{ color: 'var(--danger)', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.4rem', margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>
@@ -827,157 +844,199 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             </div>
           )}
 
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+          {/* Trust Score & Verification Status Pill Bar */}
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', justifyContent: isMobileView ? 'center' : 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <TrustScore score={currentUser.trustScore} />
             {currentUser.verificationStatus === 'verified' ? (
-              <span style={{ fontSize: '0.75rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(0,133,63,0.2)' }}>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(0,133,63,0.1)', color: 'var(--primary)', fontWeight: 'bold', padding: '0.25rem 0.6rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(0,133,63,0.2)' }}>
                 🛡️ Identité Certifiée
               </span>
             ) : currentUser.verificationStatus === 'pending' ? (
-              <span style={{ fontSize: '0.75rem', background: 'rgba(252,209,22,0.15)', color: 'var(--secondary-dark)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(252,209,22,0.3)' }}>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(252,209,22,0.15)', color: 'var(--secondary-dark)', fontWeight: 'bold', padding: '0.25rem 0.6rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(252,209,22,0.3)' }}>
                 ⏳ Certification en cours
               </span>
-            ) : currentUser.verificationStatus === 'rejected' ? (
-              <span style={{ fontSize: '0.75rem', background: 'rgba(217,83,79,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(217,83,79,0.2)' }}>
-                ❌ KYC rejeté (Veuillez resoumettre)
-              </span>
             ) : (
-              <span style={{ fontSize: '0.75rem', background: 'rgba(217,83,79,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.2rem 0.5rem', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(217,83,79,0.2)' }}>
+              <span style={{ fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', fontWeight: 'bold', padding: '0.25rem 0.6rem', borderRadius: '12px', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid rgba(239,68,68,0.2)' }}>
                 ⚠️ Non vérifié (KYC requis)
               </span>
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.25rem', marginTop: '0.25rem' }}>
+          {/* Action Buttons (Compact Grid on Mobile) */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr 1fr' : 'auto auto', gap: '0.6rem', width: '100%', marginBottom: '1.25rem' }}>
             <button 
               className="btn" 
               style={{ 
-                padding: '0.55rem 1.25rem', 
-                fontSize: '0.85rem', 
+                padding: '0.55rem 0.85rem', 
+                fontSize: '0.82rem', 
                 borderRadius: 'var(--radius-sm)',
                 background: isEditingProfile ? 'var(--border-light)' : 'var(--primary)',
                 color: isEditingProfile ? 'inherit' : 'white',
-                border: isEditingProfile ? '1px solid var(--border-light)' : '1px solid var(--primary)',
+                border: '1px solid var(--primary)',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.35rem',
-                boxShadow: isEditingProfile ? 'none' : '0 3px 6px rgba(0, 133, 63, 0.25)',
-                transition: 'all 0.2s ease'
+                justifyContent: 'center',
+                gap: '0.35rem'
               }}
               onClick={() => {
                 setIsEditingProfile(!isEditingProfile);
                 setIsEditingKyc(false);
               }}
             >
-              {isEditingProfile ? '✕ Fermer l\'édition' : '✏️ Modifier le profil'}
+              {isEditingProfile ? '✕ Fermer' : '✏️ Modifier'}
             </button>
 
             <button 
               className="btn" 
               style={{ 
-                padding: '0.55rem 1.25rem', 
-                fontSize: '0.85rem', 
+                padding: '0.55rem 0.85rem', 
+                fontSize: '0.82rem', 
                 borderRadius: 'var(--radius-sm)',
                 background: isEditingKyc ? 'var(--border-light)' : 'var(--secondary-dark)',
-                color: isEditingKyc ? 'inherit' : '#1e1e1e',
-                border: isEditingKyc ? '1px solid var(--border-light)' : '1px solid var(--secondary-dark)',
+                color: '#1e1e1e',
+                border: '1px solid var(--secondary-dark)',
                 fontWeight: 700,
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '0.35rem',
-                boxShadow: isEditingKyc ? 'none' : '0 3px 6px rgba(252, 209, 22, 0.35)',
-                transition: 'all 0.2s ease'
+                justifyContent: 'center',
+                gap: '0.35rem'
               }}
               onClick={() => {
                 setIsEditingKyc(!isEditingKyc);
                 setIsEditingProfile(false);
               }}
             >
-              {isEditingKyc ? '✕ Fermer le KYC' : '🪪 Passer le KYC'}
+              {isEditingKyc ? '✕ Fermer' : (currentUser.verificationStatus === 'verified' ? '🪪 KYC Certifié ✓' : '🪪 Passer le KYC')}
             </button>
           </div>
+
+          {/* Stats 2x2 Grid Panel */}
+          {(() => {
+            const joinedTontinesCount = currentUser
+              ? (tontines || []).filter(t => t.members?.some((m: any) => m.name === currentUser.name || m.email === currentUser.email) || t.organizer?.name === currentUser.name).length
+              : 0;
+
+            const myProjectsCount = currentUser
+              ? (cagnottes || []).filter(c => c.organizer?.id === currentUser.id || c.organizer?.name === currentUser.name || c.donors?.some((d: any) => d.name === currentUser.name)).length
+              : 0;
+
+            return (
+              <div style={{ 
+                display: 'grid', 
+                gridTemplateColumns: isMobileView ? '1fr 1fr' : 'repeat(4, 1fr)', 
+                gap: '0.75rem', 
+                width: '100%',
+                background: 'rgba(0,0,0,0.02)',
+                padding: '0.75rem',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-light)'
+              }}>
+                {/* 1. Tontines Rejointes */}
+                <div 
+                  style={{ 
+                    textAlign: 'center', 
+                    cursor: 'pointer', 
+                    background: 'white', 
+                    padding: '0.75rem 0.5rem', 
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                  onClick={() => onNavigate && onNavigate('tontines', { tab: 'my-tontines' })}
+                  title="Cliquer pour voir vos tontines en cours"
+                >
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{joinedTontinesCount}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                    <span>TONTINES</span>
+                    <span>🔗</span>
+                  </div>
+                </div>
+
+                {/* 2. Mes Projets */}
+                <div 
+                  style={{ 
+                    textAlign: 'center', 
+                    cursor: 'pointer', 
+                    background: 'white', 
+                    padding: '0.75rem 0.5rem', 
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                  onClick={() => onNavigate && onNavigate('cagnottes', { view: 'list' })}
+                  title="Cliquer pour voir vos projets et cagnottes"
+                >
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{myProjectsCount}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                    <span>PROJETS</span>
+                    <span>🔗</span>
+                  </div>
+                </div>
+
+                {/* 3. Abonnés */}
+                <div 
+                  style={{ 
+                    textAlign: 'center', 
+                    background: 'white', 
+                    padding: '0.75rem 0.5rem', 
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.followers?.length || 0}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700 }}>ABONNÉS</div>
+                </div>
+
+                {/* 4. Abonnements */}
+                <div 
+                  style={{ 
+                    textAlign: 'center', 
+                    background: 'white', 
+                    padding: '0.75rem 0.5rem', 
+                    borderRadius: 'var(--radius-sm)',
+                    border: '1px solid var(--border-light)',
+                    boxShadow: 'var(--shadow-sm)'
+                  }}
+                >
+                  <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.following?.length || 0}</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700 }}>ABONNEMENTS</div>
+                </div>
+              </div>
+            );
+          })()}
         </div>
-
-        {/* Stats Summary Panel */}
-        {(() => {
-          const joinedTontinesCount = currentUser
-            ? (tontines || []).filter(t => t.members?.some((m: any) => m.name === currentUser.name || m.email === currentUser.email) || t.organizer?.name === currentUser.name).length
-            : 0;
-
-          const myProjectsCount = currentUser
-            ? (cagnottes || []).filter(c => c.organizer?.id === currentUser.id || c.organizer?.name === currentUser.name || c.donors?.some((d: any) => d.name === currentUser.name)).length
-            : 0;
-
-          return (
-            <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
-              {/* 1. Tontines Participées (Clickable Shortcut) */}
-              <div 
-                style={{ textAlign: 'center', cursor: 'pointer' }}
-                onClick={() => onNavigate && onNavigate('tontines', { tab: 'my-tontines' })}
-                title="Cliquer pour voir vos tontines en cours"
-              >
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{joinedTontinesCount}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
-                  <span>{t('profile.stats.petitions')}</span>
-                  <span style={{ fontSize: '0.65rem' }}>🔗</span>
-                </div>
-              </div>
-
-              {/* 2. Mes Projets (Clickable Shortcut) */}
-              <div 
-                style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem', cursor: 'pointer' }}
-                onClick={() => onNavigate && onNavigate('cagnottes', { view: 'list' })}
-                title="Cliquer pour voir vos projets et cagnottes"
-              >
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{myProjectsCount}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
-                  <span>{t('profile.stats.funds')}</span>
-                  <span style={{ fontSize: '0.65rem' }}>🔗</span>
-                </div>
-              </div>
-
-              {/* 3. Abonnés */}
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.followers?.length || 0}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.followers')}</div>
-              </div>
-
-              {/* 4. Abonnements */}
-              <div style={{ textAlign: 'center', borderLeft: '1px solid var(--border-light)', paddingLeft: '1.5rem' }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.following?.length || 0}</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase' }}>{t('profile.stats.following')}</div>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
-      {/* TABS HEADERS */}
+      {/* SEGMENTED TAB NAVIGATION BAR */}
       <div 
         style={{ 
           display: 'flex', 
-          borderBottom: '1px solid var(--border-light)', 
+          background: 'rgba(0,0,0,0.04)',
+          padding: '0.3rem',
+          borderRadius: 'var(--radius-md)',
           marginBottom: '2rem',
-          gap: '1.5rem',
-          flexWrap: 'wrap'
+          gap: '0.3rem'
         }}
       >
         <button
           type="button"
           onClick={() => setActiveTab('dashboard')}
           style={{
-            padding: '0.75rem 0.5rem',
-            fontWeight: 800,
-            fontSize: '0.95rem',
-            background: 'none',
+            flex: 1,
+            padding: '0.65rem 0.4rem',
+            fontWeight: activeTab === 'dashboard' ? 800 : 600,
+            fontSize: isMobileView ? '0.78rem' : '0.9rem',
+            background: activeTab === 'dashboard' ? 'white' : 'transparent',
             border: 'none',
-            borderBottom: activeTab === 'dashboard' ? '3px solid var(--primary)' : '3px solid transparent',
+            borderRadius: 'var(--radius-sm)',
             color: activeTab === 'dashboard' ? 'var(--primary)' : 'var(--text-secondary-light)',
+            boxShadow: activeTab === 'dashboard' ? 'var(--shadow-sm)' : 'none',
             cursor: 'pointer',
-            transition: 'var(--transition-fast)'
+            transition: 'all 0.2s ease'
           }}
         >
           📊 Tableau de Bord
@@ -986,35 +1045,40 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           type="button"
           onClick={() => setActiveTab('withdrawals')}
           style={{
-            padding: '0.75rem 0.5rem',
-            fontWeight: 800,
-            fontSize: '0.95rem',
-            background: 'none',
+            flex: 1,
+            padding: '0.65rem 0.4rem',
+            fontWeight: activeTab === 'withdrawals' ? 800 : 600,
+            fontSize: isMobileView ? '0.78rem' : '0.9rem',
+            background: activeTab === 'withdrawals' ? 'white' : 'transparent',
             border: 'none',
-            borderBottom: activeTab === 'withdrawals' ? '3px solid var(--primary)' : '3px solid transparent',
+            borderRadius: 'var(--radius-sm)',
             color: activeTab === 'withdrawals' ? 'var(--primary)' : 'var(--text-secondary-light)',
+            boxShadow: activeTab === 'withdrawals' ? 'var(--shadow-sm)' : 'none',
             cursor: 'pointer',
-            transition: 'var(--transition-fast)'
+            transition: 'all 0.2s ease'
           }}
         >
-          🪙 Retraits & Portefeuille
+          🪙 Portefeuille
         </button>
         <button
           type="button"
           onClick={() => setActiveTab('messages')}
           style={{
-            padding: '0.75rem 0.5rem',
-            fontWeight: 800,
-            fontSize: '0.95rem',
-            background: 'none',
+            flex: 1,
+            padding: '0.65rem 0.4rem',
+            fontWeight: activeTab === 'messages' ? 800 : 600,
+            fontSize: isMobileView ? '0.78rem' : '0.9rem',
+            background: activeTab === 'messages' ? 'white' : 'transparent',
             border: 'none',
-            borderBottom: activeTab === 'messages' ? '3px solid var(--primary)' : '3px solid transparent',
+            borderRadius: 'var(--radius-sm)',
             color: activeTab === 'messages' ? 'var(--primary)' : 'var(--text-secondary-light)',
+            boxShadow: activeTab === 'messages' ? 'var(--shadow-sm)' : 'none',
             cursor: 'pointer',
-            transition: 'var(--transition-fast)',
+            transition: 'all 0.2s ease',
             display: 'flex',
             alignItems: 'center',
-            gap: '0.35rem'
+            justifyContent: 'center',
+            gap: '0.25rem'
           }}
         >
           💬 Messagerie
@@ -1023,9 +1087,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               style={{ 
                 background: 'var(--danger)', 
                 color: 'white', 
-                fontSize: '0.7rem', 
+                fontSize: '0.65rem', 
                 fontWeight: 'bold', 
-                padding: '0.15rem 0.4rem', 
+                padding: '0.1rem 0.35rem', 
                 borderRadius: '10px' 
               }}
             >
