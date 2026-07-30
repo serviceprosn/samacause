@@ -4092,14 +4092,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Trigger sound chime when a new message is received for the current user
+  // Trigger sound chime & notification ONLY when a genuinely fresh live message arrives
+  const isFirstMsgsMountRef = React.useRef(true);
   const prevMessagesCountRef = React.useRef(directMessages.length);
+
   useEffect(() => {
+    if (isFirstMsgsMountRef.current) {
+      isFirstMsgsMountRef.current = false;
+      prevMessagesCountRef.current = directMessages.length;
+      return;
+    }
+
     if (currentUser && directMessages.length > prevMessagesCountRef.current) {
       const newMessages = directMessages.slice(prevMessagesCountRef.current);
-      const hasReceivedNewMessage = newMessages.some(m => m.receiverId === currentUser.id);
-      if (hasReceivedNewMessage) {
+      const freshUnreadMsg = newMessages.find(m => {
+        if (m.receiverId !== currentUser.id || m.read) return false;
+        const msgTimestamp = new Date(m.timestamp).getTime();
+        return !isNaN(msgTimestamp) && (Date.now() - msgTimestamp) < 20000;
+      });
+
+      if (freshUnreadMsg) {
         playChimeSound();
+        const sender = usersList.find(u => u.id === freshUnreadMsg.senderId);
+        const senderName = sender ? sender.name : 'Un membre';
+        addNotification(`✉️ Nouveau message direct de ${senderName}`);
       }
     }
     prevMessagesCountRef.current = directMessages.length;

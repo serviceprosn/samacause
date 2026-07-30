@@ -368,8 +368,9 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   useEffect(() => {
     if (activeChatUserId) {
       setActiveTab('messages');
+      markMessagesAsRead(activeChatUserId);
     }
-  }, [activeChatUserId]);
+  }, [activeChatUserId, directMessages.length]);
 
   const getMissingBasicFields = () => {
     if (!currentUser) return ['Compte'];

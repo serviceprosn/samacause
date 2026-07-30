@@ -18,7 +18,8 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
     sendDirectMessage,
     activeChatUserId,
     setActiveChatUserId,
-    setSelectedPublicUserId
+    setSelectedPublicUserId,
+    markMessagesAsRead
   } = useApp();
   const { t } = useLanguage();
 
@@ -35,8 +36,9 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
   useEffect(() => {
     if (activeChatUserId && isOpen) {
       scrollToBottom();
+      markMessagesAsRead(activeChatUserId);
     }
-  }, [directMessages, activeChatUserId, isOpen]);
+  }, [directMessages.length, activeChatUserId, isOpen]);
 
   if (!isOpen) return null;
 
