@@ -48,28 +48,10 @@ const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quali
   });
 };
 
+import { VerifiedBadge } from '../components/VerifiedBadge';
+
 const VerifiedRosette: React.FC<{ size?: number; className?: string }> = ({ size = 20, className }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    xmlns="http://www.w3.org/2000/svg"
-    className={className}
-    style={{ display: 'inline-block', verticalAlign: 'middle', flexShrink: 0 }}
-  >
-    <path 
-      d="M12 2.69l1.45 1.45.69 1.95 2.05.28.07 2.07 1.83.98-.6 1.98.98 1.83-2.07.07-.28 2.05-1.95.69-1.45 1.45-1.45-1.45-.95-.69-2.05-.28-.07-2.07-1.83-.98.6-1.98-.98-1.83 2.07-.07.28-2.05 1.95-.69L12 2.69z" 
-      fill="#3b82f6" 
-    />
-    <path 
-      d="M9.5 12l1.75 1.75 3.25-3.25" 
-      stroke="white" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-    />
-  </svg>
+  <VerifiedBadge size={size} className={className} variant="emerald" />
 );
 
 interface ProfileProps {
