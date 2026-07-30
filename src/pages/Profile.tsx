@@ -62,6 +62,7 @@ interface ProfileProps {
 export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) => {
   const { 
     currentUser, 
+    badges,
     petitions, 
     cagnottes, 
     tontines,
@@ -110,6 +111,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
 
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingKyc, setIsEditingKyc] = useState(false);
+  const [viewMode, setViewMode] = useState<'main' | 'followers' | 'following' | 'badges'>('main');
   const [editName, setEditName] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editAvatar, setEditAvatar] = useState('');
@@ -698,15 +700,214 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
         </div>
       ) : null}
 
-      {/* DEDICATED EDIT PROFILE VIEW */}
-      {isEditingProfile ? (
+      {/* DEDICATED FOLLOWERS VIEW */}
+      {viewMode === 'followers' ? (
         <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
             <button 
               type="button" 
               className="btn btn-ghost" 
               style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
-              onClick={() => setIsEditingProfile(false)}
+              onClick={() => setViewMode('main')}
+            >
+              ← Retour au profil
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+              👥 Followers ({currentUser.followers?.length || 0})
+            </h2>
+          </div>
+
+          <div className="premium-card" style={{ background: 'var(--light-card)', padding: isMobileView ? '1rem' : '1.5rem' }}>
+            {(!currentUser.followers || currentUser.followers.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary-light)' }}>
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>👥</span>
+                <p style={{ fontWeight: 'bold', margin: 0 }}>Aucun follower pour le moment</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Partagez vos initiatives solidaires pour inspirer la communauté !</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {usersList
+                  .filter(u => currentUser.followers?.includes(u.id))
+                  .map(followerUser => {
+                    const isFollowingBack = currentUser.following?.includes(followerUser.id);
+                    return (
+                      <div 
+                        key={followerUser.id}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '0.85rem 1rem',
+                          background: 'white',
+                          borderRadius: 'var(--radius-md)',
+                          border: '1px solid var(--border-light)',
+                          gap: '0.75rem'
+                        }}
+                      >
+                        <div 
+                          style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+                          onClick={() => setSelectedPublicUserId(followerUser.id)}
+                        >
+                          <div 
+                            style={{
+                              width: '44px',
+                              height: '44px',
+                              borderRadius: '50%',
+                              backgroundImage: `url("${followerUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center',
+                              border: '2px solid var(--primary)',
+                              flexShrink: 0
+                            }}
+                          />
+                          <div>
+                            <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                              {followerUser.name}
+                              {followerUser.verificationStatus === 'verified' && <VerifiedRosette size={16} />}
+                            </div>
+                            <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+                              {followerUser.role === 'admin' ? '🛡️ Admin' : followerUser.accountType === 'ngo' ? '🤝 ONG' : '👤 Citoyen'} • Score : {followerUser.trustScore}%
+                            </div>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          className={isFollowingBack ? "btn btn-ghost" : "btn btn-primary"}
+                          style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)' }}
+                          onClick={() => isFollowingBack ? unfollowUser(followerUser.id) : followUser(followerUser.id)}
+                        >
+                          {isFollowingBack ? 'Abonné ✓' : "S'abonner +"}
+                        </button>
+                      </div>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'following' ? (
+        /* DEDICATED SUIVIS VIEW */
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
+              onClick={() => setViewMode('main')}
+            >
+              ← Retour au profil
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+              👤 Suivis ({currentUser.following?.length || 0})
+            </h2>
+          </div>
+
+          <div className="premium-card" style={{ background: 'var(--light-card)', padding: isMobileView ? '1rem' : '1.5rem' }}>
+            {(!currentUser.following || currentUser.following.length === 0) ? (
+              <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary-light)' }}>
+                <span style={{ fontSize: '2.5rem', display: 'block', marginBottom: '0.5rem' }}>👤</span>
+                <p style={{ fontWeight: 'bold', margin: 0 }}>Vous ne suivez aucun membre pour l'instant</p>
+                <p style={{ fontSize: '0.8rem', marginTop: '0.25rem' }}>Découvrez des organisateurs et citoyens engagés dans l'onglet Explorer !</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {usersList
+                  .filter(u => currentUser.following?.includes(u.id))
+                  .map(followingUser => (
+                    <div 
+                      key={followingUser.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '0.85rem 1rem',
+                        background: 'white',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid var(--border-light)',
+                        gap: '0.75rem'
+                      }}
+                    >
+                      <div 
+                        style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', cursor: 'pointer' }}
+                        onClick={() => setSelectedPublicUserId(followingUser.id)}
+                      >
+                        <div 
+                          style={{
+                            width: '44px',
+                            height: '44px',
+                            borderRadius: '50%',
+                            backgroundImage: `url("${followingUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            border: '2px solid var(--primary)',
+                            flexShrink: 0
+                          }}
+                        />
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: '0.95rem', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                            {followingUser.name}
+                            {followingUser.verificationStatus === 'verified' && <VerifiedRosette size={16} />}
+                          </div>
+                          <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)' }}>
+                            {followingUser.role === 'admin' ? '🛡️ Admin' : followingUser.accountType === 'ngo' ? '🤝 ONG' : '👤 Citoyen'} • Score : {followingUser.trustScore}%
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{ padding: '0.4rem 0.85rem', fontSize: '0.75rem', borderRadius: 'var(--radius-sm)', color: 'var(--danger)' }}
+                        onClick={() => unfollowUser(followingUser.id)}
+                      >
+                        Se désabonner
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+        </div>
+      ) : viewMode === 'badges' ? (
+        /* DEDICATED BADGES CATALOG VIEW */
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
+              onClick={() => setViewMode('main')}
+            >
+              ← Retour au profil
+            </button>
+            <h2 style={{ fontSize: '1.15rem', fontWeight: 800, margin: 0, color: 'var(--primary)' }}>
+              🏅 Catalogue des Badges Citoyens
+            </h2>
+          </div>
+
+          <div className="premium-card" style={{ background: 'var(--light-card)', padding: isMobileView ? '1.25rem' : '2rem' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 800, marginBottom: '0.5rem' }}>🏅 Vos Récompenses & Distinctions</h3>
+            <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem', marginBottom: '1.5rem', lineHeight: '1.4' }}>
+              Participez aux tontines, créez des cagnottes solidaires et validez votre KYC pour débloquer ces badges officiels de confiance citoyenne !
+            </p>
+            {(() => {
+              const effectiveBadges = Array.from(new Set([
+                ...(currentUser.badges || []),
+                ...(currentUser.verificationStatus === 'verified' ? ['verifie', 'citoyen'] : [])
+              ]));
+              return <BadgeList unlockedBadgeIds={effectiveBadges} />;
+            })()}
+          </div>
+        </div>
+      ) : isEditingProfile ? (
+        <div className="animate-fade-in" style={{ marginBottom: '2.5rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.5rem', background: 'var(--light-card)', padding: '0.85rem 1.25rem', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-light)' }}>
+            <button 
+              type="button" 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
+              onClick={() => { setIsEditingProfile(false); setViewMode('main'); }}
             >
               ← Retour au profil
             </button>
@@ -877,7 +1078,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             <button 
               type="button" 
               className="btn btn-ghost" 
-              onClick={() => setIsEditingProfile(false)}
+              onClick={() => { setIsEditingProfile(false); setViewMode('main'); }}
             >
               Annuler
             </button>
@@ -897,7 +1098,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               type="button" 
               className="btn btn-ghost" 
               style={{ padding: '0.4rem 0.75rem', fontWeight: 'bold', fontSize: '0.85rem' }}
-              onClick={() => setIsEditingKyc(false)}
+              onClick={() => { setIsEditingKyc(false); setViewMode('main'); }}
             >
               ← Retour au profil
             </button>
@@ -1090,7 +1291,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             <button 
               type="button" 
               className="btn btn-ghost" 
-              onClick={() => setIsEditingKyc(false)}
+              onClick={() => { setIsEditingKyc(false); setViewMode('main'); }}
             >
               Fermer
             </button>
@@ -1263,6 +1464,64 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             )}
           </div>
 
+          {/* Badges Citoyens Preview Bar */}
+          {(() => {
+            const effectiveBadges = Array.from(new Set([
+              ...(currentUser.badges || []),
+              ...(currentUser.verificationStatus === 'verified' ? ['verifie', 'citoyen'] : [])
+            ]));
+            return (
+              <div 
+                onClick={() => setViewMode('badges')}
+                className="hover-scale"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.4rem',
+                  flexWrap: 'wrap',
+                  background: 'rgba(0, 133, 63, 0.05)',
+                  border: '1px solid rgba(0, 133, 63, 0.2)',
+                  padding: '0.45rem 0.75rem',
+                  borderRadius: '16px',
+                  cursor: 'pointer',
+                  marginBottom: '1rem',
+                  width: '100%'
+                }}
+                title="Cliquer pour découvrir le catalogue complet de vos badges citoyens"
+              >
+                <span style={{ fontSize: '0.78rem', fontWeight: 800, color: 'var(--primary)', display: 'flex', alignItems: 'center', gap: '0.25rem' }}>
+                  🏅 Badges Citoyens :
+                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem', flexWrap: 'wrap', flex: 1 }}>
+                  {badges
+                    .filter((b: any) => effectiveBadges.includes(b.id))
+                    .map((b: any) => (
+                      <span 
+                        key={b.id} 
+                        style={{ 
+                          fontSize: '0.72rem', 
+                          background: 'white', 
+                          color: 'var(--text-main)', 
+                          padding: '0.15rem 0.5rem', 
+                          borderRadius: '12px', 
+                          fontWeight: 700, 
+                          boxShadow: 'var(--shadow-sm)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.25rem'
+                        }}
+                      >
+                        {b.icon} {b.name}
+                      </span>
+                    ))}
+                  <span style={{ fontSize: '0.72rem', color: 'var(--primary)', fontWeight: 'bold', marginLeft: 'auto' }}>
+                    Catalogue ➔
+                  </span>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Action Buttons (Compact Grid on Mobile) */}
           <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr 1fr' : 'auto auto', gap: '0.6rem', width: '100%', marginBottom: '1.25rem' }}>
             <button 
@@ -1377,34 +1636,46 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                   </div>
                 </div>
 
-                {/* 3. Abonnés */}
+                {/* 3. Followers (Clickable Shortcut) */}
                 <div 
                   style={{ 
                     textAlign: 'center', 
+                    cursor: 'pointer', 
                     background: 'white', 
                     padding: '0.75rem 0.5rem', 
                     borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border-light)',
                     boxShadow: 'var(--shadow-sm)'
                   }}
+                  onClick={() => setViewMode('followers')}
+                  title="Cliquer pour voir vos followers"
                 >
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.followers?.length || 0}</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700 }}>ABONNÉS</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                    <span>FOLLOWERS</span>
+                    <span>🔗</span>
+                  </div>
                 </div>
 
-                {/* 4. Abonnements */}
+                {/* 4. Suivis (Clickable Shortcut) */}
                 <div 
                   style={{ 
                     textAlign: 'center', 
+                    cursor: 'pointer', 
                     background: 'white', 
                     padding: '0.75rem 0.5rem', 
                     borderRadius: 'var(--radius-sm)',
                     border: '1px solid var(--border-light)',
                     boxShadow: 'var(--shadow-sm)'
                   }}
+                  onClick={() => setViewMode('following')}
+                  title="Cliquer pour voir les personnes que vous suivez"
                 >
                   <div style={{ fontSize: '1.4rem', fontWeight: 800, color: 'var(--primary)' }}>{currentUser.following?.length || 0}</div>
-                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700 }}>ABONNEMENTS</div>
+                  <div style={{ fontSize: '0.65rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.2rem', justifyContent: 'center' }}>
+                    <span>SUIVIS</span>
+                    <span>🔗</span>
+                  </div>
                 </div>
               </div>
             );
@@ -1650,170 +1921,6 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 </div>
               )}
             </div>
-          </section>
-
-          {/* ABONNEMENTS & RESEAU */}
-          <section style={{ marginBottom: '3rem' }}>
-            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>✨ Vos Abonnements ({currentUser.following?.length || 0})</h3>
-            
-            {(currentUser.following?.length || 0) === 0 ? (
-              <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)' }}>
-                <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
-                  Vous ne suivez aucun citoyen, entreprise ou ONG pour le moment.
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-                {(currentUser.following || []).map(followedId => {
-                  const followedUser = usersList.find(u => u.id === followedId);
-                  if (!followedUser) return null;
-                  return (
-                    <div 
-                      key={followedId} 
-                      className="premium-card hover-glow"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        padding: '1rem',
-                        background: 'var(--light-card)',
-                        border: '1.5px solid var(--border-light)',
-                        borderRadius: 'var(--radius-md)'
-                      }}
-                    >
-                      <div 
-                        style={{
-                          width: '45px',
-                          height: '45px',
-                          borderRadius: '50%',
-                          backgroundImage: `url("${followedUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg=='}")`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          border: '1.5px solid var(--primary)'
-                        }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {followedUser.name}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 'bold', marginTop: '0.1rem' }}>
-                          {followedUser.accountType === 'ngo' ? '🤝 ONG' : followedUser.accountType === 'company' ? '🏢 Entreprise' : '👤 Citoyen'}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem' }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', border: '1px solid var(--border-light)', minWidth: 'auto' }}
-                            onClick={() => setSelectedPublicUserId(followedUser.id)}
-                          >
-                            Profil
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', color: 'var(--danger)', border: '1px solid rgba(217, 83, 79, 0.2)', minWidth: 'auto' }}
-                            onClick={() => unfollowUser(followedUser.id)}
-                          >
-                            Désabonner
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </section>
-
-          {/* ABONNÉS (FOLLOWERS) */}
-          <section style={{ marginBottom: '3rem' }}>
-            <h3 style={{ fontSize: '1.4rem', fontWeight: 800, marginBottom: '1.25rem' }}>👥 Vos Abonnés ({currentUser.followers?.length || 0})</h3>
-            
-            {(currentUser.followers?.length || 0) === 0 ? (
-              <div className="premium-card" style={{ textAlign: 'center', padding: '2rem', background: 'var(--light-card)' }}>
-                <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
-                  Vous n'avez pas encore d'abonnés. Partagez vos campagnes pour vous faire suivre !
-                </p>
-              </div>
-            ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '1rem' }}>
-                {(currentUser.followers || []).map(followerId => {
-                  const followerUser = usersList.find(u => u.id === followerId);
-                  if (!followerUser) return null;
-                  const isFollowingBack = currentUser.following?.includes(followerId);
-                  return (
-                    <div 
-                      key={followerId} 
-                      className="premium-card hover-glow"
-                      style={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '1rem',
-                        padding: '1rem',
-                        background: 'var(--light-card)',
-                        border: '1.5px solid var(--border-light)',
-                        borderRadius: 'var(--radius-md)'
-                      }}
-                    >
-                      <div 
-                        style={{
-                          width: '45px',
-                          height: '45px',
-                          borderRadius: '50%',
-                          backgroundImage: `url("${followerUser.avatar || 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy0yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00erIvPjwvc3ZnPg=='}")`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          border: '1.5px solid var(--primary)'
-                        }}
-                      />
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 'bold', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                          {followerUser.name}
-                        </div>
-                        <div style={{ fontSize: '0.7rem', color: 'var(--text-secondary-light)', textTransform: 'uppercase', fontWeight: 'bold', marginTop: '0.1rem' }}>
-                          {followerUser.accountType === 'ngo' ? '🤝 ONG' : followerUser.accountType === 'company' ? '🏢 Entreprise' : '👤 Citoyen'}
-                        </div>
-                        
-                        <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem' }}>
-                          <button
-                            type="button"
-                            className="btn btn-ghost"
-                            style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem', border: '1px solid var(--border-light)', minWidth: 'auto' }}
-                            onClick={() => setSelectedPublicUserId(followerUser.id)}
-                          >
-                            Profil
-                          </button>
-                          {isFollowingBack ? (
-                            <span style={{ 
-                              padding: '0.2rem 0.5rem', 
-                              fontSize: '0.75rem', 
-                              color: 'var(--success, #10b981)', 
-                              background: 'rgba(16, 185, 129, 0.1)', 
-                              borderRadius: 'var(--radius-sm)',
-                              fontWeight: 'bold',
-                              display: 'inline-flex',
-                              alignItems: 'center'
-                            }}>
-                              Abonné 🤝
-                            </span>
-                          ) : (
-                            <button
-                              type="button"
-                              className="btn btn-primary"
-                              style={{ padding: '0.2rem 0.5rem', fontSize: '0.75rem', minWidth: 'auto', fontWeight: 'bold' }}
-                              onClick={() => followUser(followerUser.id)}
-                            >
-                              Suivre
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </section>
 
           {/* TIMELINE CONTRIBUTIONS HISTORY */}
@@ -2448,8 +2555,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           </div>
         </div>
       )}
-        </>
-      )}
+    </>
+  )}
 
       {/* Bouton de déconnexion au bas de la page */}
       <div style={{ marginTop: '3.5rem', marginBottom: '1.5rem', display: 'flex', justifyContent: 'center', width: '100%' }}>
