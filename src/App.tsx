@@ -17,9 +17,11 @@ import { Tontines } from './pages/Tontines';
 import { Explorer } from './pages/Explorer';
 import { PublicProfileModal } from './components/PublicProfileModal';
 import { DirectChatPanel } from './components/DirectChatPanel';
+import { NotificationsPanel } from './components/NotificationsPanel';
 
 
 const MainLayout: React.FC = () => {
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const { 
     activeTheme, 
     toggleTheme, 
@@ -1185,18 +1187,18 @@ const MainLayout: React.FC = () => {
                 {t('nav.cagnottes')}
               </button>
               <button 
-                className={`btn ${currentPage === 'benevolat' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
-                onClick={() => handleNavigate('benevolat')}
-              >
-                {t('nav.benevolat')}
-              </button>
-              <button 
                 className={`btn ${currentPage === 'tontines' ? 'btn-primary' : 'btn-ghost'}`}
                 style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
                 onClick={() => handleNavigate('tontines')}
               >
                 {t('nav.tontines')}
+              </button>
+              <button 
+                className={`btn ${currentPage === 'benevolat' ? 'btn-primary' : 'btn-ghost'}`}
+                style={{ fontSize: '0.85rem', padding: '0.5rem 0.75rem' }}
+                onClick={() => handleNavigate('benevolat')}
+              >
+                {t('nav.benevolat')}
               </button>
               <button 
                 className={`btn ${currentPage === 'diaspora' ? 'btn-primary' : 'btn-ghost'}`}
@@ -1327,7 +1329,7 @@ const MainLayout: React.FC = () => {
             {!isMobileView && (
               currentUser ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  {/* Messages Button with badge */}
+                  {/* Notifications Bell Button with badge */}
                   <button
                     className="btn btn-ghost"
                     style={{
@@ -1340,10 +1342,10 @@ const MainLayout: React.FC = () => {
                       justifyContent: 'center',
                       color: 'var(--text-primary-light)'
                     }}
-                    onClick={() => handleNavigate('messages')}
-                    title="Messages"
+                    onClick={() => setIsNotificationsOpen(true)}
+                    title="Notifications"
                   >
-                    ✉️
+                    🔔
                     {unreadCount > 0 && (
                       <span
                         style={{
@@ -1833,6 +1835,13 @@ const MainLayout: React.FC = () => {
 
       {/* PUBLIC PROFILE MODAL */}
       <PublicProfileModal onNavigate={handleNavigate} />
+
+      {/* NOTIFICATIONS PANEL */}
+      <NotificationsPanel 
+        isOpen={isNotificationsOpen} 
+        onClose={() => setIsNotificationsOpen(false)} 
+        onNavigate={handleNavigate} 
+      />
 
       {/* RECEIPT VERIFICATION MODAL */}
       {verifyReceiptRef && (() => {

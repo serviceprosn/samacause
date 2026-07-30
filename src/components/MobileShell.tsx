@@ -2,6 +2,7 @@ import React from 'react';
 import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Logo } from './Logo';
+import { NotificationsPanel } from './NotificationsPanel';
 
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==';
 
@@ -25,6 +26,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   const { toggleTheme, activeTheme, currentUser, directMessages, setActiveChatUserId, markMessagesAsRead } = useApp();
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
   const [isOnline, setIsOnline] = React.useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   React.useEffect(() => {
@@ -164,7 +166,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           {/* User profile avatar or connection button */}
           {currentUser ? (
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              {/* Mobile Message Button with Badge */}
+              {/* Mobile Notifications Bell Button */}
               <button
                 className="btn btn-ghost"
                 style={{
@@ -177,14 +179,10 @@ export const MobileShell: React.FC<MobileShellProps> = ({
                   justifyContent: 'center',
                   color: 'var(--text-primary-light)'
                 }}
-                onClick={() => {
-                  if (onNavigate) {
-                    onNavigate('messages');
-                  }
-                }}
-                title="Messages"
+                onClick={() => setIsNotificationsOpen(true)}
+                title="Notifications"
               >
-                ✉️
+                🔔
                 {unreadCount > 0 && (
                   <span
                     style={{
@@ -506,6 +504,13 @@ export const MobileShell: React.FC<MobileShellProps> = ({
           </div>
         </div>
       )}
+
+      {/* Notifications Panel */}
+      <NotificationsPanel 
+        isOpen={isNotificationsOpen} 
+        onClose={() => setIsNotificationsOpen(false)} 
+        onNavigate={onNavigate} 
+      />
     </div>
   );
 };
