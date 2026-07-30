@@ -267,9 +267,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return saved ? JSON.parse(saved) : [];
   });
 
+  const sampleActiveTontine10: Tontine = {
+    id: 'ton_active_10_test',
+    name: 'Tontine Teranga Solidarité 10K (Exemple Actif 10 Membres)',
+    description: 'Tontine financière active de 10 membres certifiés. Cotisation mensuelle de 10 000 FCFA avec tirage au sort automatique et cagnotte de garantie.',
+    type: 'public',
+    participantsMax: 10,
+    joinedCount: 10,
+    cotisation: 10000,
+    frequency: 'monthly',
+    startDate: new Date().toISOString().split('T')[0],
+    endDate: new Date(Date.now() + 300 * 86400000).toISOString().split('T')[0],
+    orderType: 'random',
+    status: 'active',
+    organizer: {
+      name: 'Awa Cissé',
+      email: 'awa.cisse@sunuyite.com',
+      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80',
+      verified: true
+    },
+    members: [
+      { name: 'Awa Cissé', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&q=80', email: 'awa@sunuyite.com', phone: '+221 77 123 45 67', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true },
+      { name: 'Moussa Diagne', avatar: '', email: 'moussa@sunuyite.com', phone: '+221 78 234 56 78', verified: true, reputation: 'fiable', rate: 98, hasPaidThisRound: true },
+      { name: 'Fatou Ndiaye', avatar: '', email: 'fatou@sunuyite.com', phone: '+221 76 345 67 89', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true },
+      { name: 'Cheikh Diallo', avatar: '', email: 'cheikh@sunuyite.com', phone: '+221 70 456 78 90', verified: true, reputation: 'fiable', rate: 96, hasPaidThisRound: true },
+      { name: 'Mariama Sow', avatar: '', email: 'mariama@sunuyite.com', phone: '+221 77 567 89 01', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true },
+      { name: 'Abdoulaye Wade', avatar: '', email: 'wade@sunuyite.com', phone: '+221 78 678 90 12', verified: true, reputation: 'nouveau', rate: 95, hasPaidThisRound: true },
+      { name: 'Aminata Ba', avatar: '', email: 'aminata@sunuyite.com', phone: '+221 76 789 01 23', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true },
+      { name: 'Ibrahima Fall', avatar: '', email: 'ibrahima@sunuyite.com', phone: '+221 70 890 12 34', verified: true, reputation: 'fiable', rate: 97, hasPaidThisRound: true },
+      { name: 'Coumba Kane', avatar: '', email: 'coumba@sunuyite.com', phone: '+221 77 901 23 45', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true },
+      { name: 'Mouhameth Sarr', avatar: '', email: 'mouhameth@sunuyite.com', phone: '+221 78 012 34 56', verified: true, reputation: 'excellent', rate: 100, hasPaidThisRound: true }
+    ],
+    payments: [
+      { id: 'p1', date: '2026-02-01', amount: 10000, payer: 'Awa Cissé', beneficiary: 'Moussa Diagne', status: 'paid', transactionId: 'TX-TON-101', method: 'Wave', timestamp: '10:00', ipAddress: '127.0.0.1', proofHash: 'hash123' },
+      { id: 'p2', date: '2026-02-01', amount: 10000, payer: 'Moussa Diagne', beneficiary: 'Moussa Diagne', status: 'paid', transactionId: 'TX-TON-102', method: 'Wave', timestamp: '10:05', ipAddress: '127.0.0.1', proofHash: 'hash124' }
+    ],
+    activityLogs: [
+      { id: 'log_1', timestamp: '2026-01-18 10:00', type: 'creation', user: 'Awa Cissé', details: 'Tontine initialisée avec 10 membres actifs certifiés.' },
+      { id: 'log_2', timestamp: '2026-02-01 10:30', type: 'paiement', user: 'Moussa Diagne', details: 'Tirage du Tour 1 : Gagnant Moussa Diagne (Pot de 100 000 FCFA versé).' }
+    ],
+    votes: [],
+    chat: [
+      { id: 'c1', sender: 'Awa Cissé', text: 'Bienvenue aux 10 membres de la Tontine Teranga Solidarité ! Le premier tirage s\'est déroulé avec succès 🎉', timestamp: '10:15' },
+      { id: 'c2', sender: 'Moussa Diagne', text: 'Merci beaucoup ! J\'ai bien reçu le virement du pot de 100 000 F !', timestamp: '10:30' }
+    ],
+    guaranteeFundActive: true,
+    guaranteeFundAmount: 1000,
+    guaranteeFundTotal: 10000,
+    accumulatedSavings: 100000,
+    coverImage: 'https://images.unsplash.com/photo-1556742049-0a67daf40c0c?auto=format&fit=crop&w=800&q=80'
+  };
+
   const [tontines, setTontines] = useState<Tontine[]>(() => {
     const saved = localStorage.getItem('sc_tontines_list');
-    return saved ? JSON.parse(saved) : [];
+    const parsed = saved ? JSON.parse(saved) : [];
+    if (parsed.length === 0) {
+      return [sampleActiveTontine10];
+    }
+    const hasActive10 = parsed.some((t: Tontine) => t.id === 'ton_active_10_test');
+    return hasActive10 ? parsed : [sampleActiveTontine10, ...parsed];
   });
 
   const [volunteerMissions, setVolunteerMissions] = useState<VolunteerMission[]>(() => {

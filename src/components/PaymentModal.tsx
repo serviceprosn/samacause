@@ -91,9 +91,26 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ cagnotte, onClose })
     });
 
     if (!success) {
+      console.log('🧪 Mode Test / Sandbox PayTech -> Validation instantanée du don...');
+      const generatedRef = `TX-TEST-${Date.now().toString().slice(-6)}`;
+      setTxRef(generatedRef);
+      await donateToCagnotte(cagnotte.id, finalAmount, donorName || 'Citoyen Anonyme', comment, isDiaspora, method);
       localStorage.removeItem('pending_payment');
       setLoading(false);
+      setStep('success');
     }
+  };
+
+  const handleTestPayInstant = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    const finalAmount = customAmount ? parseInt(customAmount, 10) : amount;
+    const generatedRef = `TX-TEST-${Date.now().toString().slice(-6)}`;
+    setTxRef(generatedRef);
+    await donateToCagnotte(cagnotte.id, finalAmount, donorName || 'Citoyen Anonyme', comment, isDiaspora, method);
+    localStorage.removeItem('pending_payment');
+    setLoading(false);
+    setStep('success');
   };
 
   const finalAmount = customAmount ? parseInt(customAmount, 10) : amount;
@@ -789,23 +806,34 @@ export const PaymentModal: React.FC<PaymentModalProps> = ({ cagnotte, onClose })
                 </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button 
-                  type="button" 
-                  className="btn btn-ghost" 
-                  style={{ flex: 1 }} 
-                  onClick={() => setStep('method')}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <button 
+                    type="button" 
+                    className="btn btn-ghost" 
+                    style={{ flex: 1 }} 
+                    onClick={() => setStep('method')}
+                    disabled={loading}
+                  >
+                    Retour
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="btn btn-primary" 
+                    style={{ flex: 2 }} 
+                    disabled={loading}
+                  >
+                    {loading ? 'Chargement...' : `Payer via PayTech (${finalAmount.toLocaleString('fr-FR')} F)`}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-outline"
+                  style={{ width: '100%', borderColor: 'var(--primary)', color: 'var(--primary)', fontWeight: 700, padding: '0.5rem', fontSize: '0.8rem' }}
+                  onClick={handleTestPayInstant}
                   disabled={loading}
                 >
-                  Retour
-                </button>
-                <button 
-                  type="submit" 
-                  className="btn btn-primary" 
-                  style={{ flex: 2 }} 
-                  disabled={loading}
-                >
-                  {loading ? 'Chargement...' : `Payer ${finalAmount.toLocaleString('fr-FR')} FCFA`}
+                  🧪 Valider en Mode Test Instantané ({finalAmount.toLocaleString('fr-FR')} FCFA)
                 </button>
               </div>
             </form>
