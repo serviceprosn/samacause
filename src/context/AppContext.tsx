@@ -832,13 +832,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           accumulatedSavings: Number(item.accumulated_savings || 0),
           coverImage: item.cover_image
         }));
-        setTontines(mapped);
+        const hasSample10 = mapped.some((item: any) => item.id === 'ton_active_10_test');
+        const finalTontines = hasSample10 ? mapped : [sampleActiveTontine10, ...mapped];
+        setTontines(finalTontines);
         
+        if (!hasSample10) {
+          supabase.from('tontines').upsert([{
+            id: sampleActiveTontine10.id,
+            name: sampleActiveTontine10.name,
+            description: sampleActiveTontine10.description,
+            type: sampleActiveTontine10.type,
+            participants_max: sampleActiveTontine10.participantsMax,
+            joined_count: sampleActiveTontine10.joinedCount,
+            cotisation: sampleActiveTontine10.cotisation,
+            frequency: sampleActiveTontine10.frequency,
+            start_date: sampleActiveTontine10.startDate,
+            end_date: sampleActiveTontine10.endDate,
+            order_type: sampleActiveTontine10.orderType,
+            status: sampleActiveTontine10.status,
+            organizer: sampleActiveTontine10.organizer,
+            members: sampleActiveTontine10.members,
+            payments: sampleActiveTontine10.payments,
+            activity_logs: sampleActiveTontine10.activityLogs,
+            votes: sampleActiveTontine10.votes,
+            chat: sampleActiveTontine10.chat,
+            guarantee_fund_active: sampleActiveTontine10.guaranteeFundActive,
+            guarantee_fund_amount: sampleActiveTontine10.guaranteeFundAmount,
+            guarantee_fund_total: sampleActiveTontine10.guaranteeFundTotal,
+            accumulated_savings: sampleActiveTontine10.accumulatedSavings,
+            cover_image: sampleActiveTontine10.coverImage
+          }]).then(({ error: upsertErr }) => {
+            if (upsertErr) console.warn("Could not seed active 10 tontine in Supabase:", upsertErr);
+          });
+        }
+
         // Cache to IndexedDB asynchronously
         import('../utils/indexedDB').then(({ dbHelper }) => {
-          dbHelper.saveAll('tontines', mapped).catch(err => console.error("Error caching tontines:", err));
+          dbHelper.saveAll('tontines', finalTontines).catch(err => console.error("Error caching tontines:", err));
         });
-        return mapped;
+        return finalTontines;
       } else {
         throw error || new Error("No data returned");
       }
