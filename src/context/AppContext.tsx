@@ -133,11 +133,12 @@ const isAdminEmail = (email?: string): boolean => {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 const initialBadges: Badge[] = [
-  { id: 'citoyen', name: 'Citoyen', description: 'Signer sa première pétition pour faire entendre sa voix.', icon: '✍️', category: 'Citoyen' },
-  { id: 'bienfaiteur', name: 'Bienfaiteur', description: 'Contribuer financièrement à une cause solidaire.', icon: '❤️', category: 'Bienfaiteur' },
-  { id: 'ambassadeur', name: 'Ambassadeur', description: 'Partager des pétitions ou cagnottes pour amplifier l\'impact.', icon: '📢', category: 'Ambassadeur' },
-  { id: 'batisseur', name: 'Bâtisseur', description: 'Rejoindre et accomplir au moins une mission de bénévolat.', icon: '🛠️', category: 'Bâtisseur' },
-  { id: 'leader', name: 'Leader', description: 'Créer et lancer sa propre campagne sur la plateforme.', icon: '👑', category: 'Leader' }
+  { id: 'citoyen', name: 'Citoyen Engagé', description: 'Signer au moins une pétition pour faire entendre sa voix.', icon: '✍️', category: 'Citoyen' },
+  { id: 'bienfaiteur', name: 'Bienfaiteur Solidaire', description: 'Contribuer financièrement à une cause ou tontine solidaire.', icon: '❤️', category: 'Bienfaiteur' },
+  { id: 'ambassadeur', name: 'Ambassadeur Diaspora', description: 'Partager ou booster des initiatives pour la communauté.', icon: '📢', category: 'Ambassadeur' },
+  { id: 'batisseur', name: 'Bâtisseur de Projets', description: 'Rejoindre et accomplir au moins une mission de bénévolat.', icon: '🛠️', category: 'Bâtisseur' },
+  { id: 'leader', name: 'Leader d\'Initiative', description: 'Créer et lancer sa propre campagne ou tontine sur la plateforme.', icon: '👑', category: 'Leader' },
+  { id: 'verifie', name: 'Citoyen Certifié', description: 'Identité certifiée et vérifiée par pièce CNI / Passeport (KYC).', icon: '🏅', category: 'Certifié' }
 ];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

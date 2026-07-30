@@ -154,7 +154,7 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
-  category: 'Citoyen' | 'Ambassadeur' | 'Leader' | 'Bâtisseur' | 'Bienfaiteur';
+  category: 'Citoyen' | 'Ambassadeur' | 'Leader' | 'Bâtisseur' | 'Bienfaiteur' | 'Certifié';
   unlockedAt?: string;
 }
 

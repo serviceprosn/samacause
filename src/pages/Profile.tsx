@@ -1417,7 +1417,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             <p style={{ color: 'var(--text-secondary-light)', fontSize: '0.85rem' }}>
               Réalisez des actions de mobilisation pour débloquer de nouveaux badges et augmenter votre indice de score de confiance.
             </p>
-            <BadgeList unlockedBadgeIds={currentUser.badges || []} />
+            {(() => {
+              const effectiveBadges = Array.from(new Set([
+                ...(currentUser.badges || []),
+                ...(currentUser.verificationStatus === 'verified' ? ['verifie', 'citoyen'] : [])
+              ]));
+              return <BadgeList unlockedBadgeIds={effectiveBadges} />;
+            })()}
           </section>
 
           {/* MY CAMPAIGNS & Doléances */}
