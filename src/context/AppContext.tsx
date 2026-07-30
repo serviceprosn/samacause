@@ -967,7 +967,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       const loadProfiles = async (isAdmin = false) => {
         const selectFields = isAdmin 
-          ? 'id, name, email, phone, role, verified, avatar, trust_score, badges, bio, address, country, region, verification_status, cni_number, dob, account_type, following, followers, created_at, funds_available, kyc_reject_reason'
+          ? 'id, name, email, phone, role, verified, avatar, trust_score, badges, bio, address, country, region, verification_status, cni_number, dob, account_type, following, followers, created_at, funds_available, kyc_reject_reason, id_card_recto, id_card_verso, selfie'
           : 'id, name, role, verified, avatar, trust_score, badges, bio, country, region, account_type';
 
         const { data, error } = await supabase
@@ -988,10 +988,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             address: p.address || '',
             country: p.country || '',
             region: p.region || '',
-            idCardRecto: '',
-            idCardVerso: '',
-            selfie: '',
-            verificationStatus: p.verification_status || 'none',
+            idCardRecto: p.id_card_recto || '',
+            idCardVerso: p.id_card_verso || '',
+            selfie: p.selfie || '',
+            verificationStatus: (p.verification_status && p.verification_status !== 'none')
+              ? p.verification_status
+              : ((p.id_card_recto || p.cni_number) ? 'pending' : 'none'),
             cniNumber: p.cni_number || '',
             dob: p.dob || '',
             following: p.following || [],

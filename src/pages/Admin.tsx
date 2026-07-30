@@ -1571,30 +1571,53 @@ export const Admin: React.FC = () => {
           Inspectez les dossiers de certification d'identité biométrique (Recto/Verso CNI et Selfies), modifiez les rôles des visiteurs et ajustez les indices de confiance.
         </p>
 
-        {/* KYC filter tabs */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          {(['pending', 'verified', 'rejected', 'all'] as const).map((filter) => {
-            const label = filter === 'pending' ? '⏳ En attente KYC' : filter === 'verified' ? '🛡️ Certifiés' : filter === 'rejected' ? '❌ Rejetés' : '👥 Tous';
-            const isActive = kycFilter === filter;
-            return (
-              <button
-                key={filter}
-                type="button"
-                className={isActive ? 'btn btn-primary' : 'btn btn-ghost'}
-                style={{ padding: '0.45rem 1rem', fontSize: '0.8rem', borderRadius: 'var(--radius-sm)' }}
-                onClick={() => setKycFilter(filter)}
-              >
-                {label}
-              </button>
-            );
-          })}
-        </div>
+        {/* KYC filter tabs with live counters */}
+        {(() => {
+          const countPending = usersList.filter(u => u.kycRejectReason !== 'BannedPermanently' && (u.verificationStatus === 'pending' || ((u.idCardRecto || u.cniNumber) && u.verificationStatus !== 'verified' && u.verificationStatus !== 'rejected'))).length;
+          const countVerified = usersList.filter(u => u.kycRejectReason !== 'BannedPermanently' && u.verificationStatus === 'verified').length;
+          const countRejected = usersList.filter(u => u.kycRejectReason !== 'BannedPermanently' && u.verificationStatus === 'rejected').length;
+          const countAll = usersList.filter(u => u.kycRejectReason !== 'BannedPermanently').length;
+
+          return (
+            <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+              {(['pending', 'verified', 'rejected', 'all'] as const).map((filter) => {
+                const label = filter === 'pending' 
+                  ? `⏳ En attente KYC (${countPending})` 
+                  : filter === 'verified' 
+                    ? `🛡️ Certifiés (${countVerified})` 
+                    : filter === 'rejected' 
+                      ? `❌ Rejetés (${countRejected})` 
+                      : `👥 Tous Les Citoyens (${countAll})`;
+                const isActive = kycFilter === filter;
+                return (
+                  <button
+                    key={filter}
+                    type="button"
+                    className={isActive ? 'btn btn-primary' : 'btn btn-ghost'}
+                    style={{ 
+                      padding: '0.45rem 1rem', 
+                      fontSize: '0.8rem', 
+                      borderRadius: 'var(--radius-sm)',
+                      fontWeight: isActive ? 700 : 500
+                    }}
+                    onClick={() => setKycFilter(filter)}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          {usersList.filter(user => {
-            if (user.kycRejectReason === 'BannedPermanently') return false;
+          {usersList.filter(u => {
+            if (u.kycRejectReason === 'BannedPermanently') return false;
             if (kycFilter === 'all') return true;
-            return user.verificationStatus === kycFilter;
+            if (kycFilter === 'pending') {
+              return u.verificationStatus === 'pending' || ((u.idCardRecto || u.cniNumber) && u.verificationStatus !== 'verified' && u.verificationStatus !== 'rejected');
+            }
+            return u.verificationStatus === kycFilter;
           }).length === 0 ? (
             <div className="premium-card" style={{ textAlign: 'center', padding: '2.5rem', background: 'var(--light-card)', border: '1px dashed var(--border-light)', borderRadius: 'var(--radius-md)' }}>
               <p style={{ fontStyle: 'italic', fontSize: '0.85rem', color: 'var(--text-secondary-light)', margin: 0 }}>
@@ -1608,10 +1631,13 @@ export const Admin: React.FC = () => {
               </p>
             </div>
           ) : (
-            usersList.filter(user => {
-              if (user.kycRejectReason === 'BannedPermanently') return false;
+            usersList.filter(u => {
+              if (u.kycRejectReason === 'BannedPermanently') return false;
               if (kycFilter === 'all') return true;
-              return user.verificationStatus === kycFilter;
+              if (kycFilter === 'pending') {
+                return u.verificationStatus === 'pending' || ((u.idCardRecto || u.cniNumber) && u.verificationStatus !== 'verified' && u.verificationStatus !== 'rejected');
+              }
+              return u.verificationStatus === kycFilter;
             }).map((user) => {
             const isActive = currentUser.id === user.id;
             const isUserExpanded = expandedUserId === user.id;
