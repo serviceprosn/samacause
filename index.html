@@ -28,6 +28,7 @@
           navigator.serviceWorker.register('/firebase-messaging-sw.js')
             .then(function(registration) {
               console.log('Firebase Service Worker registered successfully with scope:', registration.scope);
+              registration.update();
             })
             .catch(function(err) {
               console.warn('Firebase Service Worker registration failed:', err);
