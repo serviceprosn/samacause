@@ -3,6 +3,7 @@ import { useApp } from '../context/AppContext';
 import { useLanguage } from '../context/LanguageContext';
 import { Logo } from './Logo';
 import { NotificationsPanel } from './NotificationsPanel';
+import { SettingsModal } from './SettingsModal';
 
 const DEFAULT_AVATAR = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ExYTFhYSI+PHBhdGggZD0iTTEyIDEyYzIuMjEgMCA0LTEuNzkgNC00cy0xLjc5LTQtNC00LTQgMS43OS00IDQgMS43OSA0IDQgNHptMCAyYy-yLjY3IDAtOCAxLjM0LTggNHYyaDE2di0yYzAtMi42Ni01LjMzLTQtOC00eiIvPjwvc3ZnPg==';
 
@@ -27,6 +28,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = React.useState(false);
   const [isOnline, setIsOnline] = React.useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   React.useEffect(() => {
@@ -447,6 +449,33 @@ export const MobileShell: React.FC<MobileShellProps> = ({
               >
                 {t('shell.support')}
               </button>
+
+              <button
+                type="button"
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '0.75rem',
+                  padding: '0.45rem 0.75rem',
+                  width: '100%',
+                  justifyContent: 'flex-start',
+                  fontSize: '0.8rem',
+                  fontWeight: 800,
+                  color: 'var(--primary)',
+                  background: 'rgba(0,133,63,0.06)',
+                  border: '1px solid var(--border-light)',
+                  cursor: 'pointer',
+                  textAlign: 'left',
+                  borderRadius: 'var(--radius-sm)',
+                  marginTop: '0.5rem'
+                }}
+                onClick={() => {
+                  setIsMenuOpen(false);
+                  setIsSettingsOpen(true);
+                }}
+              >
+                ⚙️ Paramètres de l'application
+              </button>
             </div>
 
             {/* Bottom User Profile card in menu */}
@@ -509,6 +538,13 @@ export const MobileShell: React.FC<MobileShellProps> = ({
       <NotificationsPanel 
         isOpen={isNotificationsOpen} 
         onClose={() => setIsNotificationsOpen(false)} 
+        onNavigate={onNavigate} 
+      />
+
+      {/* Settings Modal */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
         onNavigate={onNavigate} 
       />
     </div>

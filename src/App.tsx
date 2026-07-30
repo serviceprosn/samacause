@@ -19,11 +19,13 @@ import { PublicProfileModal } from './components/PublicProfileModal';
 import { DirectChatPanel } from './components/DirectChatPanel';
 import { NotificationsPanel } from './components/NotificationsPanel';
 import { HowItWorksModal } from './components/HowItWorksModal';
+import { SettingsModal } from './components/SettingsModal';
 
 
 const MainLayout: React.FC = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isHowItWorksOpen, setIsHowItWorksOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const { 
     activeTheme, 
     toggleTheme, 
@@ -1328,6 +1330,16 @@ const MainLayout: React.FC = () => {
               💡 Guide
             </button>
 
+            {/* Settings Button */}
+            <button 
+              className="btn btn-ghost" 
+              style={{ padding: '0.4rem 0.65rem', minWidth: 'auto', fontSize: '0.82rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}
+              onClick={() => setIsSettingsOpen(true)}
+              title="Paramètres de l'application"
+            >
+              ⚙️ Paramètres
+            </button>
+
             {/* Theme selector */}
             <button 
               className="btn btn-ghost" 
@@ -1859,6 +1871,13 @@ const MainLayout: React.FC = () => {
       <HowItWorksModal
         isOpen={isHowItWorksOpen}
         onClose={() => setIsHowItWorksOpen(false)}
+        onNavigate={handleNavigate}
+      />
+
+      {/* SETTINGS MODAL */}
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
         onNavigate={handleNavigate}
       />
 
