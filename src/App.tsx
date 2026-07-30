@@ -34,6 +34,7 @@ const MainLayout: React.FC = () => {
     directMessages,
     activeChatUserId,
     setActiveChatUserId,
+    markMessagesAsRead,
     isInstallable,
     installApp,
     isDataLoaded,
@@ -564,6 +565,11 @@ const MainLayout: React.FC = () => {
 
   const handleNavigate = (page: string, params?: any) => {
     if (page === 'messages') {
+      const unreadMsg = directMessages?.find(m => currentUser && m.receiverId === currentUser.id && !m.read);
+      if (unreadMsg) {
+        setActiveChatUserId(unreadMsg.senderId);
+        markMessagesAsRead(unreadMsg.senderId);
+      }
       if (currentPage === 'profile') {
         setNavParams({ target: 'messages' });
       } else {

@@ -42,15 +42,21 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
 
   if (!isOpen) return null;
 
-  // Filter users by search query and follow relationship
+  // Filter users by search query, active messages, or follow relationship
   const filteredUsers = usersList.filter(u => {
     if (!currentUser) return false;
     if (u.id === currentUser.id) return false;
 
-    // Only allow users we follow or who follow us
+    const hasMessages = directMessages.some(m => 
+      (m.senderId === currentUser.id && m.receiverId === u.id) ||
+      (m.senderId === u.id && m.receiverId === currentUser.id)
+    );
+
     const isFollowing = currentUser.following?.includes(u.id);
     const isFollower = currentUser.followers?.includes(u.id);
-    if (!isFollowing && !isFollower) return false;
+    
+    // Include if there are direct messages OR a follow relationship
+    if (!hasMessages && !isFollowing && !isFollower) return false;
 
     return u.name.toLowerCase().includes(searchQuery.toLowerCase());
   });
@@ -72,6 +78,19 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
       msg.senderId === userId && msg.receiverId === currentUser.id && !msg.read
     ).length;
   };
+
+  // Sort conversations: Unread first, then by last message timestamp
+  const sortedUsers = [...filteredUsers].sort((a, b) => {
+    const unreadA = getUnreadCount(a.id);
+    const unreadB = getUnreadCount(b.id);
+    if (unreadA !== unreadB) return unreadB - unreadA;
+
+    const lastMsgA = getLastMessage(a.id);
+    const lastMsgB = getLastMessage(b.id);
+    const timeA = lastMsgA ? new Date(lastMsgA.timestamp).getTime() : 0;
+    const timeB = lastMsgB ? new Date(lastMsgB.timestamp).getTime() : 0;
+    return timeB - timeA;
+  });
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,12 +283,12 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
 
           {/* Contacts Directory */}
           <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column' }}>
-            {filteredUsers.length === 0 ? (
+            {sortedUsers.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '3rem 1rem', color: 'var(--text-secondary-light)', fontSize: '0.8rem' }}>
                 Aucun utilisateur trouvé correspondant à votre recherche.
               </div>
             ) : (
-              filteredUsers.map((user) => {
+              sortedUsers.map((user) => {
                 const lastMsg = getLastMessage(user.id);
                 const unreadCount = getUnreadCount(user.id);
                 return (
@@ -282,10 +301,13 @@ export const DirectChatPanel: React.FC<DirectChatPanelProps> = ({ isOpen, onClos
                       padding: '0.9rem 1.25rem',
                       borderBottom: '1px solid var(--border-light)',
                       cursor: 'pointer',
-                      background: 'var(--light-card)',
+                      background: unreadCount > 0 ? 'rgba(0, 133, 63, 0.06)' : 'var(--light-card)',
                       transition: 'background 0.2s ease'
                     }}
-                    onClick={() => setActiveChatUserId(user.id)}
+                    onClick={() => {
+                      setActiveChatUserId(user.id);
+                      markMessagesAsRead(user.id);
+                    }}
                     className="hover-scale"
                   >
                     <div 

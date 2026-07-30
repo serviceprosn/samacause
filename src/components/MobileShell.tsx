@@ -22,7 +22,7 @@ export const MobileShell: React.FC<MobileShellProps> = ({
   onNavigate,
   onOpenFooterModal
 }) => {
-  const { toggleTheme, activeTheme, currentUser, directMessages } = useApp();
+  const { toggleTheme, activeTheme, currentUser, directMessages, setActiveChatUserId, markMessagesAsRead } = useApp();
   const { language, setLanguage, t } = useLanguage();
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [isOnline, setIsOnline] = React.useState(typeof navigator !== 'undefined' ? navigator.onLine : true);
