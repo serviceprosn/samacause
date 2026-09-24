@@ -156,13 +156,22 @@ export const MobileShell: React.FC<MobileShellProps> = ({
 
 
 
-          {/* Theme selector */}
+          {/* Mobile Settings Gear Button */}
           <button 
             className="btn btn-ghost" 
-            style={{ padding: '0.35rem', minWidth: 'auto', fontSize: '0.8rem' }}
-            onClick={toggleTheme}
+            style={{ 
+              padding: '0.35rem', 
+              minWidth: 'auto', 
+              fontSize: '1.05rem', 
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              color: 'var(--text-primary-light)'
+            }}
+            onClick={() => setIsSettingsOpen(true)}
+            title="Paramètres"
           >
-            {activeTheme === 'light' ? '🌙' : '☀️'}
+            ⚙️
           </button>
 
           {/* User profile avatar or connection button */}

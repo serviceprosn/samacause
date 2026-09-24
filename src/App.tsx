@@ -1226,127 +1226,37 @@ const MainLayout: React.FC = () => {
           )}
 
           {/* Action Toolbar */}
-          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
             
-            {/* Language Selector Dropdown */}
-            <div style={{ position: 'relative', zIndex: 1000 }}>
-              <button
-                onClick={() => setIsLangDropdownOpen(!isLangDropdownOpen)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '0.35rem',
-                  padding: '0.35rem 0.6rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1.5px solid var(--border-light)',
-                  background: 'white',
-                  cursor: 'pointer',
-                  fontWeight: 'bold',
-                  fontSize: '0.85rem',
-                  boxShadow: 'var(--shadow-sm)',
-                  transition: 'all 0.2s ease',
-                  outline: 'none',
-                  color: 'var(--text-main)'
-                }}
-                title={language === 'fr' ? 'Français' : language === 'wo' ? 'Wolof' : 'English'}
-              >
-                <span style={{ fontSize: '1.1rem', display: 'flex', alignItems: 'center' }}>
-                  {language === 'fr' ? '🇫🇷' : language === 'wo' ? '🇸🇳' : '🇺🇸'}
-                </span>
-                <span style={{ fontSize: '0.65rem', opacity: 0.6, transform: isLangDropdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s ease' }}>
-                  ▼
-                </span>
-              </button>
-
-              {isLangDropdownOpen && (
-                <>
-                  {/* Overlay to close when clicking outside */}
-                  <div 
-                    onClick={() => setIsLangDropdownOpen(false)}
-                    style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 999 }}
-                  />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: 'calc(100% + 0.35rem)',
-                      right: 0,
-                      background: 'rgba(255, 255, 255, 0.95)',
-                      backdropFilter: 'blur(8px)',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-light)',
-                      boxShadow: 'var(--shadow-lg)',
-                      padding: '0.25rem',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.15rem',
-                      minWidth: '120px',
-                      zIndex: 1000
-                    }}
-                  >
-                    {([
-                      { code: 'fr', label: 'Français', flag: '🇫🇷' },
-                      { code: 'wo', label: 'Wolof', flag: '🇸🇳' },
-                      { code: 'en', label: 'English', flag: '🇺🇸' }
-                    ] as const).map((lang) => (
-                      <button
-                        key={lang.code}
-                        onClick={() => {
-                          setLanguage(lang.code);
-                          setIsLangDropdownOpen(false);
-                        }}
-                        style={{
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.5rem',
-                          padding: '0.45rem 0.6rem',
-                          width: '100%',
-                          border: 'none',
-                          background: language === lang.code ? 'rgba(0, 133, 63, 0.08)' : 'transparent',
-                          color: language === lang.code ? 'var(--primary)' : 'var(--text-main)',
-                          borderRadius: 'var(--radius-sm)',
-                          cursor: 'pointer',
-                          textAlign: 'left',
-                          fontSize: '0.8rem',
-                          fontWeight: language === lang.code ? 'bold' : 'normal',
-                          transition: 'all 0.15s ease'
-                        }}
-                      >
-                        <span style={{ fontSize: '1.05rem', display: 'flex', alignItems: 'center' }}>{lang.flag}</span>
-                        <span>{lang.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
-
             {/* How It Works Guide Button */}
             <button 
               className="btn btn-ghost" 
-              style={{ padding: '0.4rem 0.65rem', minWidth: 'auto', fontSize: '0.82rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}
+              style={{ padding: '0.4rem 0.65rem', minWidth: 'auto', fontSize: '0.82rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}
               onClick={() => setIsHowItWorksOpen(true)}
               title="Découvrir le fonctionnement et les avantages de Sunu Yité"
             >
               💡 Guide
             </button>
 
-            {/* Settings Button */}
+            {/* Settings Gear Icon Button */}
             <button 
               className="btn btn-ghost" 
-              style={{ padding: '0.4rem 0.65rem', minWidth: 'auto', fontSize: '0.82rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '0.25rem', border: '1px solid var(--border-light)', borderRadius: 'var(--radius-sm)' }}
+              style={{ 
+                padding: '0.45rem', 
+                minWidth: 'auto', 
+                fontSize: '1.15rem', 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center', 
+                border: '1px solid var(--border-light)', 
+                borderRadius: 'var(--radius-sm)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
               onClick={() => setIsSettingsOpen(true)}
               title="Paramètres de l'application"
             >
-              ⚙️ Paramètres
-            </button>
-
-            {/* Theme selector */}
-            <button 
-              className="btn btn-ghost" 
-              style={{ padding: '0.5rem', minWidth: 'auto' }}
-              onClick={toggleTheme}
-            >
-              {activeTheme === 'light' ? '🌙' : '☀️'}
+              ⚙️
             </button>
 
             {/* Profile Avatar & Connexion/Déconnexion click */}

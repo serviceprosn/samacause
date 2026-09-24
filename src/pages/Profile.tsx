@@ -5,6 +5,7 @@ import { uploadBase64ToStorage } from '../services/supabaseClient';
 import { jsPDF } from 'jspdf';
 import { BadgeList } from '../components/BadgeList';
 import { TrustScore } from '../components/TrustScore';
+import { SettingsModal } from '../components/SettingsModal';
 
 // Helper to compress base64 images client-side
 const compressImage = (base64Str: string, maxWidth = 800, maxHeight = 800, quality = 0.6): Promise<string> => {
@@ -141,6 +142,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
   const [verificationStep, setVerificationStep] = useState<'scan' | 'ocr' | 'face' | 'success' | 'failed' | 'none'>('none');
   const [verificationProgress, setVerificationProgress] = useState(0);
   const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -364,6 +366,8 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
       setActiveTab('messages');
     } else if (initialParams?.target === 'withdrawals') {
       setActiveTab('withdrawals');
+    } else if (initialParams?.target === 'settings') {
+      setIsSettingsOpen(true);
     }
   }, [initialParams]);
 
@@ -1522,12 +1526,12 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             );
           })()}
 
-          {/* Action Buttons (Compact Grid on Mobile) */}
-          <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr 1fr' : 'auto auto', gap: '0.6rem', width: '100%', marginBottom: '1.25rem' }}>
+          {/* Action Buttons (Compact 3-button Grid) */}
+          <div style={{ display: 'grid', gridTemplateColumns: isMobileView ? '1fr 1fr 1fr' : 'auto auto auto', gap: '0.5rem', width: '100%', marginBottom: '1.25rem' }}>
             <button 
               className="btn" 
               style={{ 
-                padding: '0.55rem 0.85rem', 
+                padding: '0.55rem 0.65rem', 
                 fontSize: '0.82rem', 
                 borderRadius: 'var(--radius-sm)',
                 background: isEditingProfile ? 'var(--border-light)' : 'var(--primary)',
@@ -1538,7 +1542,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '0.35rem'
+                gap: '0.3rem'
               }}
               onClick={() => {
                 setIsEditingProfile(!isEditingProfile);
@@ -1551,7 +1555,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
             <button 
               className="btn" 
               style={{ 
-                padding: '0.55rem 0.85rem', 
+                padding: '0.55rem 0.65rem', 
                 fontSize: '0.82rem', 
                 borderRadius: 'var(--radius-sm)',
                 background: isEditingKyc ? 'var(--border-light)' : 'var(--secondary-dark)',
@@ -1562,7 +1566,7 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                gap: '0.35rem'
+                gap: '0.3rem'
               }}
               onClick={() => {
                 setIsEditingKyc(!isEditingKyc);
@@ -1570,6 +1574,27 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
               }}
             >
               {isEditingKyc ? '✕ Fermer' : (currentUser.verificationStatus === 'verified' ? '🪪 KYC Certifié ✓' : '🪪 Passer le KYC')}
+            </button>
+
+            <button 
+              className="btn btn-outline" 
+              style={{ 
+                padding: '0.55rem 0.65rem', 
+                fontSize: '0.82rem', 
+                borderRadius: 'var(--radius-sm)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '0.3rem',
+                border: '1.5px solid var(--border-light)',
+                background: 'white'
+              }}
+              onClick={() => setIsSettingsOpen(true)}
+              title="Paramètres et réglages du profil"
+            >
+              ⚙️ Paramètres
             </button>
           </div>
 
@@ -2845,6 +2870,13 @@ export const Profile: React.FC<ProfileProps> = ({ onNavigate, initialParams }) =
           </div>
         </div>
       )}
+
+      {/* SETTINGS MODAL */}
+      <SettingsModal 
+        isOpen={isSettingsOpen} 
+        onClose={() => setIsSettingsOpen(false)} 
+        onNavigate={onNavigate} 
+      />
     </>
   );
 };
